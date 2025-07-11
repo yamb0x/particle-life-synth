@@ -1,29 +1,22 @@
 {
   "name": "particle-life-synth",
-  "version": "1.0.0",
-  "description": "Multi-Particle Life Synthesizer - Visual Prototype",
-  "main": "src/index.js",
+  "version": "3.0.0",
+  "description": "Comprehensive Particle Life System with 100+ parameters",
+  "main": "src/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "start": "./start.sh",
+    "build": "tsc",
+    "dev": "python3 -m http.server 8080"
   },
   "keywords": [
     "particle-life",
-    "synthesizer",
-    "visual-prototype",
-    "webgl",
-    "audio-synthesis"
+    "simulation",
+    "emergence",
+    "complex-systems"
   ],
-  "author": "yamb0x.eth",
+  "author": "yamb0x",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "vite": "^5.0.0"
-  },
-  "dependencies": {
-    "gl-matrix": "^3.4.3"
+    "typescript": "^5.0.0"
   }
 }

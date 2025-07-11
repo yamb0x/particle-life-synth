@@ -2,3 +2,14 @@ SuperClaude/
 node_modules/
 *.log
 .DS_Store
+backup_*/
+.env
+.env.local
+dist/
+build/
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-*
