@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprehensive Particle Life System</title>
+    <title>Simple Particle Life - Clusters Style</title>
     <style>
         body {
             margin: 0;
@@ -20,7 +20,57 @@
             height: 100vh;
         }
         
-        /* Scrollbar styling for parameter panel */
+        button {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        
+        button:hover {
+            background: #444;
+        }
+        
+        button.tab-button {
+            background: #222;
+            border: 1px solid #444;
+        }
+        
+        button.tab-button.active {
+            background: #444;
+            border-color: #666;
+        }
+        
+        select {
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+            padding: 2px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+            vertical-align: middle;
+        }
+        
+        input[type="number"] {
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+            padding: 2px;
+        }
+        
+        label {
+            display: block;
+            margin: 5px 0;
+        }
+        
+        /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 6px;
         }
