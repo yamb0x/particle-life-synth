@@ -4,21 +4,19 @@
 
 ### macOS/Linux:
 ```bash
-./start-comprehensive.sh
+./start.sh
 ```
 
 ### Windows:
 ```cmd
-start-comprehensive.bat
+python -m http.server 8080
 ```
 
 ## What the launcher does:
-1. ✅ Checks if TypeScript compilation is needed
-2. ✅ Compiles if necessary (or uses existing JS files)
-3. ✅ Finds an available port automatically
-4. ✅ Starts the web server
-5. ✅ Opens your browser automatically
-6. ✅ Shows all controls and shortcuts
+1. ✅ Finds an available port automatically
+2. ✅ Starts the web server
+3. ✅ Opens your browser automatically
+4. ✅ Shows all controls and shortcuts
 
 ## Manual Start (if scripts don't work):
 ```bash
@@ -29,7 +27,7 @@ python3 -m http.server 8080
 python -m SimpleHTTPServer 8080
 
 # Then open in browser:
-http://localhost:8080/index-comprehensive.html
+http://localhost:8080/
 ```
 
 ## Troubleshooting:
