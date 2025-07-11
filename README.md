@@ -1,138 +1,139 @@
-# Particle Life
+# Particle Life Synth
 
-An interactive particle simulation inspired by [Ventrella's Clusters](https://github.com/Ventrella/Clusters) that creates mesmerizing emergent behaviors from simple attraction/repulsion rules.
+A revolutionary MIDI-controlled synthesizer where living particle ecosystems shape your sound in real-time. Play notes on your keyboard while emergent behaviors from particle populations create evolving, organic synthesis.
 
-![Particle Life Demo](https://github.com/yourusername/particle-life-synth/assets/demo.gif)
+![Particle Life Synth](https://github.com/yourusername/particle-life-synth/assets/demo.gif)
 
-## ✨ Features
+## 🎹 Vision: The Living Synthesizer
 
-### Interactive Force Editor
-- **Visual XY Graph**: Click and drag to set forces between particle species
-- **Real-time Feedback**: See force values while hovering
-- **Intuitive Design**: Left = Repel, Center = Neutral, Right = Attract
+This is NOT another generative music system. This is a **playable instrument** where:
+- You play the notes (via MIDI keyboard)
+- Particle populations control HOW those notes sound
+- Every note is shaped by a living, breathing ecosystem
+- Visual beauty and sonic innovation unite in one instrument
 
-### Dynamic Visuals
-- **Smooth Trails**: Adjustable motion trails without grey buildup
-- **Clean Rendering**: Simple circles with beautiful emergent patterns
-- **Performance**: Optimized Canvas 2D rendering at 60 FPS
+## 🌟 Core Innovation
 
-### Flexible Controls
-- **Particle Count**: 0-1000 particles per color
-- **Species Count**: 1-5 different particle colors
-- **Physics Tuning**: Force strength, friction, wall bounce
-- **Trail Settings**: Toggle on/off, adjust fade length
+### Five Species, Five Synthesis Engines
+Each particle species controls a different synthesis type:
 
-### Presets
-- **Predator-Prey**: Classic chase dynamics
-- **Crystallization**: Self-organizing structures
-- **Vortex**: Spiral patterns
-- **Symbiosis**: Complex interdependencies
-- **Randomize**: Discover new patterns
+- 🔴 **Red → Analog**: Warm bass, classic leads, evolving pads
+- 🟢 **Green → FM**: Crystalline bells, metallic textures, digital precision  
+- 🔵 **Blue → Wavetable**: Morphing timbres, flowing soundscapes
+- 🟡 **Yellow → Granular**: Textural clouds, microsound atmospheres
+- 🟣 **Purple → Physical Modeling**: Organic strings, living resonances
 
-## 🚀 Quick Start
+### Emergent Behaviors Drive Sound
+Population dynamics directly control synthesis parameters:
+- **Clustering** → Unison voices & chorus
+- **Orbiting** → LFO rates & phasing
+- **Swarming** → Filter modulation & harmonics
+- **Crystallization** → Resonance peaks & harmonics
+- **Chaos** → Distortion & noise
+
+## 🎮 Current Visual Prototype
+
+The visual engine is complete and demonstrates:
+- Interactive force relationship editor
+- Real-time particle simulation (1000+ particles @ 60FPS)
+- Smooth trail rendering
+- Behavioral presets (Predator-Prey, Crystallization, Vortex, Symbiosis)
+- Full parameter control
+
+**Try it now**: [Live Demo](https://yourusername.github.io/particle-life-synth)
+
+## 🔊 Sound Engine (In Development)
+
+### Planned Audio Architecture
+- **128-voice polyphony** with population-based allocation
+- **5 synthesis engines** running in parallel
+- **32-slot modulation matrix** connecting particles to parameters
+- **Professional effects chain** with particle-driven control
+- **DAW integration** as VST3/AU plugin
+
+### Technical Stack
+- **Audio**: JUCE Framework + Surge XT synthesis engine
+- **Visual**: Canvas 2D (current) → WebGL (planned)
+- **Performance**: Multi-threaded architecture for <10ms latency
+
+## 🚀 Quick Start (Visual Prototype)
 
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/yourusername/particle-life-synth.git
 cd particle-life-synth
 
-# Start local server (Python)
+# Run local server
 python3 serve.py
-
-# Or use any static server
-npx http-server
 # or
-python3 -m http.server 8000
+npx http-server
 
 # Open in browser
 http://localhost:8000
 ```
 
-## 🎮 How to Use
+## 📚 Documentation
 
-1. **Select Preset**: Choose from dropdown or start with Predator-Prey
-2. **Adjust Forces**: 
-   - Select species pair (From/To dropdowns)
-   - Click and drag on the graph to set attraction/repulsion
-3. **Fine-tune**:
-   - Particle count slider for density
-   - Trail length for visual effects
-   - Physics parameters for different behaviors
-4. **Experiment**: Try different force combinations to discover new patterns!
+For sound engineers and developers:
+- [Particle System Core](docs/PARTICLE-SYSTEM-CORE.md) - Understanding the simulation
+- [Parameter Mapping Guide](docs/PARAMETER-MAPPING-GUIDE.md) - Connecting particles to sound
+- [Synth Architecture](docs/SYNTH-ARCHITECTURE.md) - Technical audio implementation
 
-## 🔬 How It Works
+## 🎯 Project Roadmap
 
-Each particle species has a unique force relationship with every other species:
+### Phase 1: Visual Prototype ✅
+- Particle simulation engine
+- Interactive parameter control
+- Behavioral presets
+- Performance optimization
 
-```
-Force Matrix Example (Predator-Prey):
-         Red   Green  Blue
-Red      0.3   0.8   -0.7   (Red chases Green, flees Blue)
-Green   -0.8   0.3    0.8   (Green flees Red, chases Blue)  
-Blue     0.8  -0.8    0.3   (Blue chases Red, flees Green)
-```
+### Phase 2: Audio Integration (Current)
+- JUCE framework setup
+- Synthesis engine implementation
+- Parameter mapping pipeline
+- MIDI integration
 
-These simple rules create complex behaviors:
-- **Positive forces** → Attraction (particles move together)
-- **Negative forces** → Repulsion (particles move apart)
-- **Zero** → Neutral (no interaction)
+### Phase 3: Production Ready
+- VST3/AU plugin build
+- Preset management system
+- DAW automation support
+- User manual & tutorials
 
-## 🛠️ Technical Details
+### Phase 4: Advanced Features
+- MPE support
+- Network collaboration
+- AI-assisted preset generation
+- Mobile companion app
 
-- **Pure JavaScript**: No dependencies, just vanilla JS
-- **Canvas 2D API**: Hardware-accelerated rendering
-- **Efficient Physics**: O(n²) with spatial optimization
-- **Responsive Design**: Adapts to window size
+## 🎼 Who Is This For?
 
-## 📁 Project Structure
+- **Electronic Musicians**: Seeking organic, evolving sounds
+- **Live Performers**: Wanting visual feedback with their instrument
+- **Sound Designers**: Exploring new sonic territories
+- **Producers**: Adding unique textures to productions
 
-```
-particle-life-synth/
-├── index.html                    # Single page app
-├── src/
-│   ├── main.js                  # Application entry & UI
-│   └── core/
-│       └── SimpleParticleSystem.js  # Core particle physics
-├── serve.py                     # Python dev server
-└── README.md                    # This file
-```
+## 🤝 Contributing
 
-## 🎨 Customization
+We're building something revolutionary. Join us!
 
-Modify force patterns in `SimpleParticleSystem.js`:
+- **Sound Engineers**: Help implement the synthesis engine
+- **DSP Developers**: Optimize audio algorithms
+- **UI/UX Designers**: Refine the interface
+- **Musicians**: Test and create presets
 
-```javascript
-// Example: Create your own preset
-loadPreset(name) {
-    switch(name) {
-        case 'myPattern':
-            this.socialForce = [
-                [0.5, -0.8, 0.3, 0.0, -0.5],  // Red's forces
-                // ... more species
-            ];
-            break;
-    }
-}
-```
+## 📄 License
 
-## 🌟 Tips for Best Patterns
-
-1. **Balance**: Mix positive and negative forces
-2. **Asymmetry**: A→B ≠ B→A creates more interesting dynamics
-3. **Moderation**: Extreme values (-1 or 1) can be unstable
-4. **Cycles**: Create rock-paper-scissors relationships
-5. **Experiment**: Small changes can have big effects!
-
-## 📝 License
-
-MIT License - Feel free to use in your own projects!
+MIT License - Use freely in your music and projects
 
 ## 🙏 Acknowledgments
 
-- [Jeffrey Ventrella](https://ventrella.com/) for the original Clusters concept
-- Inspired by the particle life community
-- Built with the help of Claude
+- [Jeffrey Ventrella](https://ventrella.com/) - Original Clusters particle life concept
+- [Surge Synth Team](https://surge-synthesizer.github.io/) - Open-source synthesis engine
+- JUCE Framework - Professional audio development platform
+- The particle life community - Ongoing inspiration
 
 ---
 
-*If you discover interesting patterns, please share them! 🎉*
+**The future of synthesis is alive.** 🧬🎹✨
+
+*Join the revolution where music meets artificial life.*
