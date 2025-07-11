@@ -1,9 +1,10 @@
-# Particle Life Synthesizer
+# Comprehensive Particle Life System
 
-An advanced particle life simulation inspired by Jeffrey Ventrella's Clusters, featuring emergent behaviors, force field physics, and real-time visual synthesis.
+An advanced particle simulation with 100+ parameters, biological behaviors, and emergent intelligence. Inspired by Jeffrey Ventrella's Clusters and enhanced with state machines, chemical signaling, and evolutionary dynamics.
 
-![Particle Life Synthesizer](https://img.shields.io/badge/version-2.0-blue)
+![Particle Life System](https://img.shields.io/badge/version-3.0-blue)
 ![Status](https://img.shields.io/badge/status-active-green)
+![Parameters](https://img.shields.io/badge/parameters-100+-orange)
 
 ## Overview
 
@@ -16,32 +17,32 @@ This project implements a sophisticated particle simulation system where differe
 git clone [repository-url]
 cd particle-life-synth
 
-# Start the development server
-./run.sh
+# Start with auto-launch script (compiles if needed)
+./start-comprehensive.sh
 
-# Or use Python directly
-python3 -m http.server 8000
+# Or use the simple run script
+./run.sh
 ```
 
-Then open `http://localhost:8000` in your browser.
+The browser will open automatically!
 
 ## 🎮 Controls
 
-- **C**: Toggle parameter panel
-- **Space**: Pause/resume simulation
+- **C**: Toggle comprehensive parameter panel
 - **R**: Reset all particles
-- **1-5**: Toggle visibility of species 1-5
-- **F**: Toggle fullscreen mode
+- **1-5**: Load behavior presets
+- **Click**: Create pulse effects
+- **Space**: Pause/resume (coming soon)
 
 ## 🎯 Features
 
-### Core Simulation
-- **5 Particle Species**: Each with unique colors (Red, Blue, Green, Yellow, Purple)
-- **Runner Particles**: 5% of particles exhibit special "runner" behavior with different movement rules
-- **Force Field Physics**: Advanced interaction system with inner/outer radius and force parameters
-- **Spring-like Delays**: Particles respond to forces with 0-5 timestep delays for organic movement
-- **Energy System**: Particles have energy that affects movement and can transfer between particles
-- **Lifecycle**: Particles can die and respawn based on energy levels
+### Core Parameters (100+)
+- **Physics**: Attraction matrix, force factor, viscosity, gravity, turbulence
+- **Species**: Mass, charge, temperature, metabolism, behavioral traits
+- **Environment**: Field effects, resource distribution, pressure, radiation
+- **Emergent**: Flocking, clustering, pattern formation, collective intelligence
+- **Chemical**: Pheromone signaling, reactions, catalysts
+- **Quantum**: Tunneling, entanglement, uncertainty effects
 
 ### Visual Features
 - **WebGL Rendering**: High-performance GPU-accelerated graphics
