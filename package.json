@@ -1,0 +1,29 @@
+{
+  "name": "particle-life-synth",
+  "version": "1.0.0",
+  "description": "Multi-Particle Life Synthesizer - Visual Prototype",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "particle-life",
+    "synthesizer",
+    "visual-prototype",
+    "webgl",
+    "audio-synthesis"
+  ],
+  "author": "yamb0x.eth",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "gl-matrix": "^3.4.3"
+  }
+}

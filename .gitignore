@@ -1,0 +1,4 @@
+SuperClaude/
+node_modules/
+*.log
+.DS_Store

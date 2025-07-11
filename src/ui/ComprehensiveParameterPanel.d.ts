@@ -1,0 +1,37 @@
+import { ComprehensiveParticleSystem } from '../core/ComprehensiveParticleSystem.js';
+export declare class ComprehensiveParameterPanel {
+    private container;
+    private system;
+    private isVisible;
+    private selectedColors;
+    private seed;
+    private controlsSection;
+    private configSection;
+    private drawingsSection;
+    private exportSection;
+    private rulesSection;
+    private colorNames;
+    private colorHexes;
+    constructor(system: ComprehensiveParticleSystem);
+    private createPanel;
+    private createSection;
+    private createControlsSection;
+    private createConfigSection;
+    private createDrawingsSection;
+    private createExportSection;
+    private createRulesSection;
+    private updateRulesSection;
+    private createSlider;
+    private createButton;
+    private createCheckbox;
+    private createNumberInput;
+    private createColorPicker;
+    private randomizeRules;
+    private symmetricRules;
+    private applySeed;
+    private exportImage;
+    private setupKeyboardShortcuts;
+    private toggleVisibility;
+    updateFPS(fps: number): void;
+    destroy(): void;
+}
