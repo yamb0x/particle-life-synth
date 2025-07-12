@@ -88,11 +88,11 @@
 
 ```
 ┌─────────────────────────────────────┐
-│ ▓▓▓▓▓▓▓▓▓▓ Visual Engine    [100%] │  ← You are here
+│ ▓▓▓▓▓▓▓▓▓▓ Visual Engine    [100%] │  ← Complete
+│ ▓▓▓▓▓▓▓▓▓▓ Preset System    [100%] │  ← Complete
 │ ▓▓░░░░░░░░ Audio Engine     [20%]  │  ← In development
 │ ░░░░░░░░░░ VST/AU Plugin    [0%]   │  ← Phase 3
-│ ░░░░░░░░░░ Preset System    [0%]   │  ← Phase 3
-│ ░░░░░░░░░░ Documentation    [0%]   │  ← Phase 4
+│ ▓▓░░░░░░░░ Documentation    [20%]  │  ← In progress
 └─────────────────────────────────────┘
 ```
 
@@ -112,6 +112,43 @@ $ python3 serve.py
 $ open http://localhost:8000
 
 # [SPACE] = pause/play | [R] = reset | [1-5] = presets
+```
+
+<br>
+
+## ⟨ PRESET::CONFIGURATION ⟩
+
+### ▸ Advanced Preset System
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    PRESET CONFIGURATION MODAL                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  ▸ SPECIES    │ Number, Colors, Sizes, Starting Positions          │
+│  ▸ FORCES     │ Interactive Force Relationship Editor               │
+│  ▸ VISUAL     │ Trails, Particle Size, Background                  │
+│  ▸ PHYSICS    │ Friction, Wall Damping, Force Strength             │
+│  ▸ LAYOUT     │ Visual Starting Position Editor                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ▸ Key Features
+
+- **Multi-layer Storage**: IndexedDB + LocalStorage for reliability
+- **Auto-save**: Changes save automatically after 2 seconds
+- **Import/Export**: Share presets as JSON files
+- **Force Editor**: Visual matrix editor with quick presets
+- **Position Editor**: Drag-and-drop starting positions
+- **Delete Any Preset**: Including built-in presets
+- **Persistence**: Selected preset remembered on reload
+
+### ▸ Starting Position Patterns
+
+```
+● CLUSTER      ◯ RING        ▫ GRID        ∴ RANDOM
+  ·•●•·       · · · ·       □ □ □ □       · ∴ · ∴
+ ·•●●●•·      · ◯ ◯ ·       □ □ □ □       ∴ · ∴ ·
+  ·•●•·       · · · ·       □ □ □ □       · ∴ · ∴
 ```
 
 <br>

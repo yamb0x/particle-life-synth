@@ -1,4 +1,6 @@
 import { SimpleParticleSystem } from './core/SimpleParticleSystem.js';
+import { PresetManager } from './utils/PresetManager.js';
+import { PresetModal } from './ui/PresetModal.js';
 
 // Initialize the simple particle life system
 async function init() {
@@ -12,16 +14,28 @@ async function init() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
+    // Create preset manager
+    const presetManager = new PresetManager();
+    // Wait for async initialization
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Create particle system
     const particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
     particleSystem.setCanvas(canvas);
-    particleSystem.initializeParticles();
     
-    // Load an interesting preset
-    particleSystem.loadPreset('predatorPrey');
+    // Create preset modal
+    const presetModal = new PresetModal(particleSystem, presetManager);
+    window.presetModal = presetModal; // Make it globally accessible
+    
+    // Load the last selected preset or default
+    const lastSelectedPreset = localStorage.getItem('lastSelectedPreset') || 'predatorPrey';
+    const presetToLoad = presetManager.getPreset(lastSelectedPreset) || presetManager.getPreset('predatorPrey');
+    if (presetToLoad) {
+        particleSystem.loadFullPreset(presetToLoad);
+    }
     
     // Create simple UI controls
-    createSimpleUI(particleSystem);
+    createSimpleUI(particleSystem, presetManager, lastSelectedPreset);
     
     // Handle resize
     window.addEventListener('resize', () => {
@@ -44,7 +58,7 @@ async function init() {
     requestAnimationFrame(animate);
 }
 
-function createSimpleUI(particleSystem) {
+function createSimpleUI(particleSystem, presetManager, initialPreset) {
     const ui = document.createElement('div');
     ui.style.cssText = `
         position: fixed;
@@ -56,26 +70,28 @@ function createSimpleUI(particleSystem) {
         border-radius: 5px;
         font-family: monospace;
         font-size: 12px;
-        min-width: 300px;
+        min-width: 350px;
         max-height: 90vh;
         overflow-y: auto;
+        overflow-x: hidden;
     `;
     
     // Title and presets
     ui.innerHTML = `
         <h3 style="margin: 0 0 10px 0;">Particle Life Controls</h3>
         <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 10px;">
-                Preset: 
-                <select id="preset-selector" style="width: 150px; margin-left: 5px;">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="margin-right: 10px;">Preset:</label>
+                <select id="preset-selector" style="width: 150px;">
                     <option value="">Custom</option>
-                    <option value="predatorPrey" selected>Predator-Prey</option>
+                    <option value="predatorPrey">Predator-Prey</option>
                     <option value="crystallization">Crystallization</option>
                     <option value="vortex">Vortex</option>
                     <option value="symbiosis">Symbiosis</option>
                     <option value="random">Randomize</option>
                 </select>
-            </label>
+                <button id="configure-preset-btn" style="margin-left: 5px; padding: 4px 10px; font-size: 11px; background: #4a9eff; color: white; border: none; border-radius: 3px;">Configure</button>
+            </div>
         </div>
     `;
     
@@ -121,8 +137,8 @@ function createSimpleUI(particleSystem) {
             <span id="force-value">${particleSystem.forceFactor.toFixed(1)}</span>
         </label><br>
         <label>
-            Friction: <input type="range" id="friction" min="0.9" max="0.99" step="0.001" value="${particleSystem.friction}">
-            <span id="friction-value">${particleSystem.friction.toFixed(3)}</span>
+            Friction: <input type="range" id="friction" min="0" max="0.2" step="0.01" value="${1.0 - particleSystem.friction}">
+            <span id="friction-value">${(1.0 - particleSystem.friction).toFixed(2)}</span>
         </label><br>
         <label>
             Wall Bounce: <input type="range" id="wall-damping" min="0.5" max="1" step="0.05" value="${particleSystem.wallDamping}">
@@ -192,6 +208,9 @@ function createSimpleUI(particleSystem) {
     
     // Append UI to DOM first
     document.body.appendChild(ui);
+    
+    // Debug: Check if button exists
+    console.log('Configure button:', document.getElementById('configure-preset-btn'));
     
     // Graph drawing function
     function updateGraph() {
@@ -340,15 +359,64 @@ function createSimpleUI(particleSystem) {
     
     // Event listeners
     document.getElementById('preset-selector').addEventListener('change', (e) => {
-        const preset = e.target.value;
-        if (preset === 'random') {
+        const presetKey = e.target.value;
+        
+        // Save the selected preset
+        if (presetKey && presetKey !== 'random') {
+            localStorage.setItem('lastSelectedPreset', presetKey);
+        }
+        
+        if (presetKey === 'random') {
             particleSystem.socialForce = particleSystem.createAsymmetricMatrix();
             updateMatrixDisplay();
-        } else if (preset) {
-            particleSystem.loadPreset(preset);
-            updateMatrixDisplay();
+        } else if (presetKey) {
+            const preset = presetManager.getPreset(presetKey);
+            if (preset) {
+                particleSystem.loadFullPreset(preset);
+                window.updateUIFromPreset(particleSystem);
+                updateMatrixDisplay();
+            }
         }
     });
+    
+    document.getElementById('configure-preset-btn').addEventListener('click', () => {
+        const currentPresetKey = document.getElementById('preset-selector').value;
+        window.presetModal.open(currentPresetKey);
+    });
+    
+    // Function to update preset selector
+    window.updatePresetSelector = function() {
+        const selector = document.getElementById('preset-selector');
+        const currentValue = selector.value;
+        
+        // Clear all options except the first ones
+        while (selector.options.length > 6) {
+            selector.remove(6);
+        }
+        
+        // Add custom presets
+        const allPresets = presetManager.getAllPresets();
+        allPresets.forEach(preset => {
+            if (!['predatorPrey', 'crystallization', 'vortex', 'symbiosis'].includes(preset.key)) {
+                const option = document.createElement('option');
+                option.value = preset.key;
+                option.textContent = preset.name;
+                selector.appendChild(option);
+            }
+        });
+        
+        // Restore selection if possible
+        selector.value = currentValue;
+    };
+    
+    // Initial update of preset selector
+    window.updatePresetSelector();
+    
+    // Set the initial preset value
+    const selector = document.getElementById('preset-selector');
+    if (selector) {
+        selector.value = initialPreset || 'predatorPrey';
+    }
     
     document.getElementById('particles-per-species').addEventListener('input', (e) => {
         const newCount = parseInt(e.target.value);
@@ -420,8 +488,9 @@ function createSimpleUI(particleSystem) {
     });
     
     document.getElementById('friction').addEventListener('input', (e) => {
-        particleSystem.friction = parseFloat(e.target.value);
-        document.getElementById('friction-value').textContent = particleSystem.friction.toFixed(3);
+        const uiFriction = parseFloat(e.target.value);
+        particleSystem.friction = 1.0 - uiFriction;
+        document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
     });
     
     document.getElementById('wall-damping').addEventListener('input', (e) => {
@@ -431,6 +500,61 @@ function createSimpleUI(particleSystem) {
     
     function updateMatrixDisplay() {
         updateGraph();
+    }
+    
+    window.updateUIFromPreset = function(particleSystem) {
+        // Update visual controls
+        document.getElementById('trails').checked = particleSystem.trailEnabled;
+        document.getElementById('blur').value = particleSystem.blur;
+        document.getElementById('blur-value').textContent = particleSystem.blur.toFixed(2);
+        document.getElementById('particle-size').value = particleSystem.particleSize;
+        document.getElementById('particle-size-value').textContent = particleSystem.particleSize;
+        
+        // Update physics controls
+        document.getElementById('force').value = particleSystem.forceFactor;
+        document.getElementById('force-value').textContent = particleSystem.forceFactor.toFixed(1);
+        const uiFriction = 1.0 - particleSystem.friction;
+        document.getElementById('friction').value = uiFriction;
+        document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
+        document.getElementById('wall-damping').value = particleSystem.wallDamping;
+        document.getElementById('wall-damping-value').textContent = particleSystem.wallDamping.toFixed(2);
+        
+        // Update particle counts
+        const totalParticles = particleSystem.species.reduce((sum, s) => sum + (s.particleCount || particleSystem.particlesPerSpecies), 0);
+        const avgParticlesPerSpecies = Math.round(totalParticles / particleSystem.numSpecies);
+        document.getElementById('particles-per-species').value = avgParticlesPerSpecies;
+        document.getElementById('particles-per-species-value').textContent = avgParticlesPerSpecies;
+        document.getElementById('num-species').value = particleSystem.numSpecies;
+        document.getElementById('num-species-value').textContent = particleSystem.numSpecies;
+        document.getElementById('total-particles').textContent = totalParticles;
+        
+        // Update species selectors if needed
+        const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Cyan', 'Magenta', 'Orange', 'Pink', 'Lime'];
+        const fromSelect = document.getElementById('from-species');
+        const toSelect = document.getElementById('to-species');
+        
+        if (fromSelect.options.length !== particleSystem.numSpecies) {
+            fromSelect.innerHTML = '';
+            toSelect.innerHTML = '';
+            
+            for (let i = 0; i < particleSystem.numSpecies; i++) {
+                const speciesName = particleSystem.species[i].name || colors[i] || `Species ${i+1}`;
+                
+                const fromOption = document.createElement('option');
+                fromOption.value = i;
+                fromOption.textContent = speciesName;
+                fromSelect.appendChild(fromOption);
+                
+                const toOption = document.createElement('option');
+                toOption.value = i;
+                toOption.textContent = speciesName;
+                toSelect.appendChild(toOption);
+            }
+            
+            if (particleSystem.numSpecies > 1) {
+                toSelect.value = '1';
+            }
+        }
     }
 }
 

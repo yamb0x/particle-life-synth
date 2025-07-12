@@ -11,7 +11,7 @@ export class SimpleParticleSystem {
         this.time = 0;
         
         // Visual settings
-        this.blur = 0.95; // Trail effect (0-1, lower = longer trails, matching Clusters)
+        this.blur = 0.95; // Trail effect (0.5-0.99, higher = shorter trails)
         this.particleSize = 3;
         this.trailEnabled = true;
         
@@ -134,7 +134,7 @@ export class SimpleParticleSystem {
         if (this.trailEnabled) {
             // Set composite operation and alpha
             this.ctx.globalCompositeOperation = 'source-over';
-            this.ctx.globalAlpha = 1.0 - this.blur;
+            this.ctx.globalAlpha = this.blur;  // Use blur directly - 0.95 = 95% black = short trails
             
             // Fill with pure black
             this.ctx.fillStyle = '#000000';
@@ -171,14 +171,16 @@ export class SimpleParticleSystem {
                 const s2 = p2.species;
                 
                 // Collision force (always repulsive at close range)
-                if (dist < this.collisionRadius[s1][s2]) {
+                const collisionR = Array.isArray(this.collisionRadius) ? this.collisionRadius[s1][s2] : this.collisionRadius;
+                if (dist < collisionR) {
                     const force = this.collisionForce[s1][s2] / dist;
                     fx += (dx / dist) * force;
                     fy += (dy / dist) * force;
                 }
                 
                 // Social force (can be attractive or repulsive)
-                if (dist < this.socialRadius[s1][s2]) {
+                const socialR = Array.isArray(this.socialRadius) ? this.socialRadius[s1][s2] : this.socialRadius;
+                if (dist < socialR) {
                     const force = this.socialForce[s1][s2] / dist;
                     fx += (dx / dist) * force;
                     fy += (dy / dist) * force;
@@ -279,6 +281,147 @@ export class SimpleParticleSystem {
                 ];
                 break;
         }
+    }
+    
+    // Load a full preset configuration
+    loadFullPreset(preset) {
+        // Update species configuration
+        this.numSpecies = preset.species.count;
+        this.species = [];
+        
+        preset.species.definitions.forEach((def, i) => {
+            this.species[i] = {
+                color: def.color,
+                size: def.size,
+                opacity: def.opacity,
+                name: def.name,
+                particleCount: def.particleCount,
+                startPosition: def.startPosition
+            };
+        });
+        
+        // Update physics settings
+        // Convert friction from UI value (0-0.2) to physics value (0.8-1.0)
+        // UI: 0 = no friction, 0.2 = max friction
+        // Physics: 1.0 = no friction, 0.8 = max friction
+        this.friction = 1.0 - preset.physics.friction;
+        this.wallDamping = preset.physics.wallDamping;
+        this.forceFactor = preset.physics.forceFactor;
+        // Convert single values to matrices for all species interactions
+        const collisionR = preset.physics.collisionRadius;
+        const socialR = preset.physics.socialRadius;
+        this.collisionRadius = this.createMatrix(collisionR, collisionR);
+        this.socialRadius = this.createMatrix(socialR, socialR);
+        
+        // Update visual settings
+        this.blur = preset.visual.blur;
+        this.particleSize = preset.visual.particleSize;
+        this.trailEnabled = preset.visual.trailEnabled;
+        
+        // Update force matrices
+        this.collisionForce = preset.forces.collision;
+        this.socialForce = preset.forces.social;
+        
+        // Reinitialize particles with new configuration
+        this.initializeParticlesWithPositions();
+    }
+    
+    // Initialize particles using starting positions from preset
+    initializeParticlesWithPositions() {
+        this.particles = [];
+        
+        for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
+            const species = this.species[speciesId];
+            const count = species.particleCount || this.particlesPerSpecies;
+            const startPos = species.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 };
+            
+            for (let i = 0; i < count; i++) {
+                let x, y;
+                
+                const centerX = startPos.center.x * this.width;
+                const centerY = startPos.center.y * this.height;
+                const radius = startPos.radius * Math.min(this.width, this.height);
+                
+                switch (startPos.type) {
+                    case 'cluster':
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = Math.random() * radius;
+                        x = centerX + Math.cos(angle) * r;
+                        y = centerY + Math.sin(angle) * r;
+                        break;
+                        
+                    case 'ring':
+                        const ringAngle = (i / count) * Math.PI * 2;
+                        x = centerX + Math.cos(ringAngle) * radius * 0.8;
+                        y = centerY + Math.sin(ringAngle) * radius * 0.8;
+                        break;
+                        
+                    case 'grid':
+                        const gridSize = Math.ceil(Math.sqrt(count));
+                        const gridX = (i % gridSize) - gridSize / 2;
+                        const gridY = Math.floor(i / gridSize) - gridSize / 2;
+                        x = centerX + gridX * (radius * 2 / gridSize);
+                        y = centerY + gridY * (radius * 2 / gridSize);
+                        break;
+                        
+                    case 'random':
+                    default:
+                        x = centerX + (Math.random() - 0.5) * radius * 2;
+                        y = centerY + (Math.random() - 0.5) * radius * 2;
+                        break;
+                }
+                
+                this.particles.push({
+                    x: Math.max(this.particleSize, Math.min(this.width - this.particleSize, x)),
+                    y: Math.max(this.particleSize, Math.min(this.height - this.particleSize, y)),
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    species: speciesId,
+                    age: 0,
+                    energy: 1
+                });
+            }
+        }
+    }
+    
+    // Export current configuration as preset
+    exportPreset() {
+        const preset = {
+            name: 'Custom',
+            version: '1.0',
+            species: {
+                count: this.numSpecies,
+                definitions: this.species.map((s, i) => ({
+                    id: i,
+                    name: s.name || `Species ${i + 1}`,
+                    color: s.color,
+                    size: s.size,
+                    opacity: s.opacity,
+                    particleCount: s.particleCount || this.particlesPerSpecies,
+                    startPosition: s.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 }
+                }))
+            },
+            physics: {
+                // Convert friction from physics value (0.8-1.0) to UI value (0-0.2)
+                friction: 1.0 - this.friction,
+                wallDamping: this.wallDamping,
+                forceFactor: this.forceFactor,
+                collisionRadius: this.collisionRadius[0][0],
+                socialRadius: this.socialRadius[0][0]
+            },
+            visual: {
+                blur: this.blur,
+                particleSize: this.particleSize,
+                trailEnabled: this.trailEnabled,
+                backgroundColor: '#000000'
+            },
+            forces: {
+                collision: this.collisionForce,
+                social: this.socialForce
+            }
+        };
+        
+        return preset;
     }
     
     // Get current parameters for UI
