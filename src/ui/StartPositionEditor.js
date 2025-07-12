@@ -94,7 +94,7 @@ export class StartPositionEditor {
     container.innerHTML = '';
     
     if (this.selectedSpecies === null) {
-      container.innerHTML = '<p>Select a species on the canvas to configure its spawn pattern.</p>';
+      container.innerHTML = '<p class="info-text">Select a species on the canvas to configure its spawn pattern.</p>';
       return;
     }
     
@@ -104,19 +104,22 @@ export class StartPositionEditor {
     const patternDiv = document.createElement('div');
     patternDiv.className = 'pattern-selector';
     patternDiv.innerHTML = `
-      <h4>${species.name} Spawn Pattern</h4>
+      <h4 class="section-title">${species.name} Spawn Pattern</h4>
       <div class="pattern-buttons">
         ${this.patterns.map(pattern => `
-          <button class="pattern-btn ${currentPattern === pattern ? 'active' : ''}" 
+          <button class="btn btn-secondary btn-sm pattern-btn ${currentPattern === pattern ? 'active' : ''}" 
                   data-pattern="${pattern}">
             <span class="pattern-icon">${this.patternIcons[pattern]}</span>
             <span class="pattern-name">${pattern.charAt(0).toUpperCase() + pattern.slice(1)}</span>
           </button>
         `).join('')}
       </div>
-      <div class="pattern-controls">
-        <label>Radius: <span id="pattern-radius-value">${(species.startPosition.radius * 100).toFixed(0)}%</span></label>
-        <input type="range" id="pattern-radius" min="5" max="40" value="${species.startPosition.radius * 100}">
+      <div class="control-group">
+        <label>
+          Radius
+          <span class="value-display" id="pattern-radius-value">${(species.startPosition.radius * 100).toFixed(0)}%</span>
+        </label>
+        <input type="range" class="range-slider" id="pattern-radius" min="5" max="40" value="${species.startPosition.radius * 100}">
       </div>
     `;
     
@@ -147,7 +150,7 @@ export class StartPositionEditor {
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
-    this.ctx.fillStyle = '#1a1a1a';
+    this.ctx.fillStyle = '#0c0c0c';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
     this.drawGrid();
@@ -158,7 +161,7 @@ export class StartPositionEditor {
   }
 
   drawGrid() {
-    this.ctx.strokeStyle = '#333';
+    this.ctx.strokeStyle = '#2a2a2a';
     this.ctx.lineWidth = 1;
     this.ctx.setLineDash([2, 4]);
     
@@ -196,7 +199,7 @@ export class StartPositionEditor {
     this.ctx.fill();
     
     if (isSelected) {
-      this.ctx.strokeStyle = '#fff';
+      this.ctx.strokeStyle = '#d1d1d1';
       this.ctx.lineWidth = 2;
       this.ctx.globalAlpha = 1;
       this.ctx.stroke();
@@ -216,14 +219,14 @@ export class StartPositionEditor {
       this.ctx.stroke();
     }
     
-    this.ctx.fillStyle = '#fff';
-    this.ctx.font = '12px monospace';
+    this.ctx.fillStyle = '#d1d1d1';
+    this.ctx.font = '11px monospace';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(this.patternIcons[species.startPosition.type], x, y);
     
-    this.ctx.fillStyle = isSelected ? '#fff' : '#aaa';
-    this.ctx.font = '14px monospace';
+    this.ctx.fillStyle = isSelected ? '#d1d1d1' : '#999999';
+    this.ctx.font = '12px monospace';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'top';
     this.ctx.fillText(species.name, x, y + r + 10);

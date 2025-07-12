@@ -30,8 +30,12 @@ export class PresetModal {
     
     this.modal.innerHTML = `
       <div class="preset-modal-header">
-        <input type="text" class="preset-name-input" placeholder="Preset Name" value="New Preset">
-        <button class="preset-modal-close">&times;</button>
+        <input type="text" class="input preset-name-input" placeholder="Preset Name" value="New Preset">
+        <button class="btn btn-icon btn-ghost preset-modal-close">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+          </svg>
+        </button>
       </div>
       
       <div class="preset-modal-tabs">
@@ -46,8 +50,11 @@ export class PresetModal {
         <div class="preset-tab-content active" data-content="species">
           <div class="species-controls">
             <div class="control-group">
-              <label>Number of Species: <span id="species-count-value">5</span></label>
-              <input type="range" id="species-count" min="2" max="10" value="5">
+              <label>
+                Number of Species
+                <span class="value-display" id="species-count-value">5</span>
+              </label>
+              <input type="range" class="range-slider" id="species-count" min="2" max="10" value="5">
             </div>
             <div id="species-list"></div>
           </div>
@@ -55,15 +62,19 @@ export class PresetModal {
         
         <div class="preset-tab-content" data-content="forces">
           <div class="forces-controls">
-            <h4>Force Relationships</h4>
-            <p style="font-size: 12px; color: #888; margin-bottom: 15px;">
+            <h4 class="section-title">Force Relationships</h4>
+            <p class="info-text">
               Configure how each species interacts with others. Positive values = attraction, Negative = repulsion.
             </p>
-            <div class="force-selector" style="margin-bottom: 15px;">
-              <label style="font-size: 13px;">
-                From: <select id="force-from-species" style="width: 100px;"></select>
-                To: <select id="force-to-species" style="width: 100px;"></select>
-              </label>
+            <div class="species-selectors">
+              <div class="selector-group">
+                <label>From</label>
+                <select class="select select-sm" id="force-from-species"></select>
+              </div>
+              <div class="selector-group">
+                <label>To</label>
+                <select class="select select-sm" id="force-to-species"></select>
+              </div>
             </div>
             <canvas id="force-editor-canvas" width="400" height="200" style="border: 1px solid #333; border-radius: 4px;"></canvas>
             <div id="force-info" style="font-size: 11px; color: #888; margin-top: 5px;">
@@ -71,11 +82,11 @@ export class PresetModal {
             </div>
             <div style="margin-top: 20px;">
               <h5 style="margin-bottom: 10px;">Quick Presets</h5>
-              <button class="preset-btn force-preset-btn" data-preset="neutral" style="margin: 2px; padding: 5px 10px; font-size: 11px;">Neutral</button>
-              <button class="preset-btn force-preset-btn" data-preset="repel-all" style="margin: 2px; padding: 5px 10px; font-size: 11px;">Repel All</button>
-              <button class="preset-btn force-preset-btn" data-preset="attract-same" style="margin: 2px; padding: 5px 10px; font-size: 11px;">Attract Same</button>
-              <button class="preset-btn force-preset-btn" data-preset="chain" style="margin: 2px; padding: 5px 10px; font-size: 11px;">Chain</button>
-              <button class="preset-btn force-preset-btn" data-preset="random" style="margin: 2px; padding: 5px 10px; font-size: 11px;">Random</button>
+              <button class="btn btn-secondary btn-sm force-preset-btn" data-preset="neutral">Neutral</button>
+              <button class="btn btn-secondary btn-sm force-preset-btn" data-preset="repel-all">Repel All</button>
+              <button class="btn btn-secondary btn-sm force-preset-btn" data-preset="attract-same">Attract Same</button>
+              <button class="btn btn-secondary btn-sm force-preset-btn" data-preset="chain">Chain</button>
+              <button class="btn btn-secondary btn-sm force-preset-btn" data-preset="random">Random</button>
             </div>
             <div style="margin-top: 15px;">
               <h5 style="margin-bottom: 10px;">Force Matrix View</h5>
@@ -87,12 +98,18 @@ export class PresetModal {
         <div class="preset-tab-content" data-content="visual">
           <div class="visual-controls">
             <div class="control-group">
-              <label>Trail Effect: <span id="blur-value">0.95</span></label>
-              <input type="range" id="blur" min="0.5" max="0.99" step="0.01" value="0.95">
+              <label>
+                Trail Effect
+                <span class="value-display" id="blur-value">0.95</span>
+              </label>
+              <input type="range" class="range-slider" id="blur" min="0.5" max="0.99" step="0.01" value="0.95">
             </div>
             <div class="control-group">
-              <label>Particle Size: <span id="particle-size-value">2</span></label>
-              <input type="range" id="particle-size" min="1" max="10" step="0.5" value="2">
+              <label>
+                Particle Size
+                <span class="value-display" id="particle-size-value">2</span>
+              </label>
+              <input type="range" class="range-slider" id="particle-size" min="1" max="10" step="0.5" value="2">
             </div>
             <div class="control-group">
               <label>
@@ -110,24 +127,39 @@ export class PresetModal {
         <div class="preset-tab-content" data-content="physics">
           <div class="physics-controls">
             <div class="control-group">
-              <label>Friction: <span id="friction-value">0.05</span></label>
-              <input type="range" id="friction" min="0" max="0.2" step="0.01" value="0.05">
+              <label>
+                Friction
+                <span class="value-display" id="friction-value">0.05</span>
+              </label>
+              <input type="range" class="range-slider" id="friction" min="0" max="0.2" step="0.01" value="0.05">
             </div>
             <div class="control-group">
-              <label>Wall Damping: <span id="wall-damping-value">0.9</span></label>
-              <input type="range" id="wall-damping" min="0.5" max="1" step="0.05" value="0.9">
+              <label>
+                Wall Damping
+                <span class="value-display" id="wall-damping-value">0.9</span>
+              </label>
+              <input type="range" class="range-slider" id="wall-damping" min="0.5" max="1" step="0.05" value="0.9">
             </div>
             <div class="control-group">
-              <label>Force Factor: <span id="force-factor-value">0.5</span></label>
-              <input type="range" id="force-factor" min="0.1" max="2" step="0.1" value="0.5">
+              <label>
+                Force Factor
+                <span class="value-display" id="force-factor-value">0.5</span>
+              </label>
+              <input type="range" class="range-slider" id="force-factor" min="0.1" max="2" step="0.1" value="0.5">
             </div>
             <div class="control-group">
-              <label>Collision Radius: <span id="collision-radius-value">15</span></label>
-              <input type="range" id="collision-radius" min="5" max="30" step="1" value="15">
+              <label>
+                Collision Radius
+                <span class="value-display" id="collision-radius-value">15</span>
+              </label>
+              <input type="range" class="range-slider" id="collision-radius" min="5" max="30" step="1" value="15">
             </div>
             <div class="control-group">
-              <label>Social Radius: <span id="social-radius-value">50</span></label>
-              <input type="range" id="social-radius" min="20" max="100" step="5" value="50">
+              <label>
+                Social Radius
+                <span class="value-display" id="social-radius-value">50</span>
+              </label>
+              <input type="range" class="range-slider" id="social-radius" min="20" max="100" step="5" value="50">
             </div>
           </div>
         </div>
@@ -144,18 +176,145 @@ export class PresetModal {
       
       <div class="preset-modal-footer">
         <div class="preset-save-status"></div>
-        <button class="preset-btn preset-btn-delete" style="background: #ff4444;">Delete</button>
-        <button class="preset-btn preset-btn-cancel">Cancel</button>
-        <button class="preset-btn preset-btn-export">Export</button>
-        <button class="preset-btn preset-btn-export-all" title="Export all presets">Export All</button>
-        <button class="preset-btn preset-btn-import">Import</button>
-        <button class="preset-btn preset-btn-save">Save as New</button>
-        <button class="preset-btn preset-btn-apply">Apply</button>
+        <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
+        <button class="btn btn-secondary btn-sm preset-btn-cancel">Cancel</button>
+        <button class="btn btn-secondary btn-sm preset-btn-export">Export</button>
+        <button class="btn btn-secondary btn-sm preset-btn-export-all" title="Export all presets">Export All</button>
+        <button class="btn btn-secondary btn-sm preset-btn-import">Import</button>
+        <button class="btn btn-primary btn-sm preset-btn-save">Save as New</button>
+        <button class="btn btn-primary btn-sm preset-btn-apply">Apply</button>
       </div>
     `;
     
     this.overlay.appendChild(this.modal);
     document.body.appendChild(this.overlay);
+    
+    // Add custom styles for modal
+    if (!document.getElementById('preset-modal-styles')) {
+      const style = document.createElement('style');
+      style.id = 'preset-modal-styles';
+      style.textContent = `
+        .preset-modal {
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-default);
+        }
+        
+        .preset-modal-header {
+          background: var(--bg-tertiary);
+          border-bottom: 1px solid var(--border-default);
+          padding: var(--space-md) var(--space-lg);
+        }
+        
+        .preset-name-input {
+          flex: 1;
+          margin-right: var(--space-md);
+          font-size: var(--font-size-lg);
+        }
+        
+        .preset-modal-tabs {
+          background: var(--bg-primary);
+          border-bottom: 1px solid var(--border-default);
+        }
+        
+        .preset-tab {
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          padding: var(--space-md) var(--space-lg);
+          font-size: var(--font-size-md);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          border-bottom: 2px solid transparent;
+        }
+        
+        .preset-tab:hover {
+          color: var(--text-primary);
+          background: var(--bg-hover);
+        }
+        
+        .preset-tab.active {
+          color: var(--text-primary);
+          background: var(--bg-secondary);
+          border-bottom-color: var(--accent-primary);
+        }
+        
+        .preset-modal-content {
+          padding: var(--space-lg);
+        }
+        
+        .preset-modal-footer {
+          background: var(--bg-tertiary);
+          border-top: 1px solid var(--border-default);
+          padding: var(--space-md) var(--space-lg);
+          gap: var(--space-sm);
+        }
+        
+        .species-item {
+          background: var(--bg-primary);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          padding: var(--space-md);
+          margin-bottom: var(--space-md);
+        }
+        
+        .species-header {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+          margin-bottom: var(--space-md);
+        }
+        
+        .species-name {
+          flex: 1;
+        }
+        
+        #force-editor-canvas {
+          border: 1px solid var(--border-default) !important;
+          background: var(--bg-primary);
+          display: block;
+          margin-top: var(--space-md);
+        }
+        
+        #force-info {
+          font-size: var(--font-size-xs) !important;
+          color: var(--text-tertiary) !important;
+          margin-top: var(--space-sm) !important;
+        }
+        
+        #force-matrix-view {
+          font-family: var(--font-mono) !important;
+          font-size: var(--font-size-xs) !important;
+          background: var(--bg-primary) !important;
+          padding: var(--space-md) !important;
+          border-radius: var(--radius-md) !important;
+          border: 1px solid var(--border-default);
+        }
+        
+        .preset-save-status {
+          font-size: var(--font-size-xs);
+          color: var(--text-secondary);
+          flex: 1;
+        }
+        
+        /* Control group overrides for modal */
+        .preset-modal .control-group {
+          margin-bottom: var(--space-lg);
+        }
+        
+        .preset-modal h4 {
+          font-size: var(--font-size-md);
+          color: var(--text-primary);
+          margin-bottom: var(--space-md);
+        }
+        
+        .preset-modal h5 {
+          font-size: var(--font-size-sm);
+          color: var(--text-primary);
+          margin-bottom: var(--space-sm);
+        }
+      `;
+      document.head.appendChild(style);
+    }
     
     const canvas = this.modal.querySelector('#start-position-canvas');
     this.startPositionEditor = new StartPositionEditor(canvas, () => this.markChanged());
@@ -339,12 +498,15 @@ export class PresetModal {
       
       speciesDiv.innerHTML = `
         <div class="species-header">
-          <input type="text" class="species-name" value="${species.name}" data-index="${index}">
+          <input type="text" class="input species-name" value="${species.name}" data-index="${index}">
           <div class="species-color-picker" id="color-picker-${index}"></div>
         </div>
-        <div class="species-controls">
-          <label>Count: <span id="species-${index}-count">${species.particleCount}</span></label>
-          <input type="range" class="species-particle-count" data-index="${index}" 
+        <div class="control-group">
+          <label>
+            Count
+            <span class="value-display" id="species-${index}-count">${species.particleCount}</span>
+          </label>
+          <input type="range" class="range-slider species-particle-count" data-index="${index}" 
                  min="10" max="200" value="${species.particleCount}">
         </div>
       `;
@@ -419,19 +581,16 @@ export class PresetModal {
   
   async autoSave() {
     if (!this.hasChanges || !this.currentPresetKey) {
-      console.log('[PresetModal] Skipping auto-save:', { hasChanges: this.hasChanges, currentPresetKey: this.currentPresetKey });
       return;
     }
     
     // Don't auto-save built-in presets
     const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
     if (builtInPresets.includes(this.currentPresetKey)) {
-      console.log('[PresetModal] Cannot auto-save built-in preset:', this.currentPresetKey);
       this.updateSaveStatus('Built-in preset (save as new)');
       return;
     }
     
-    console.log('[PresetModal] Auto-saving preset:', this.currentPresetKey);
     try {
       const preset = this.getPresetFromUI();
       await this.presetManager.savePreset(this.currentPresetKey, preset);
@@ -445,7 +604,6 @@ export class PresetModal {
         }
       }, 3000);
     } catch (error) {
-      console.error('Auto-save failed:', error);
       this.updateSaveStatus('Save failed!');
     }
   }

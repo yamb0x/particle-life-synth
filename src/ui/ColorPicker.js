@@ -24,22 +24,22 @@ export class ColorPicker {
         <div class="color-picker-sliders">
           <div class="color-slider-group">
             <label>R</label>
-            <input type="range" class="color-slider" id="slider-r" min="0" max="255" value="${this.color.r}">
-            <span class="color-value">${this.color.r}</span>
+            <input type="range" class="range-slider color-slider" id="slider-r" min="0" max="255" value="${this.color.r}">
+            <span class="value-display">${this.color.r}</span>
           </div>
           <div class="color-slider-group">
             <label>G</label>
-            <input type="range" class="color-slider" id="slider-g" min="0" max="255" value="${this.color.g}">
-            <span class="color-value">${this.color.g}</span>
+            <input type="range" class="range-slider color-slider" id="slider-g" min="0" max="255" value="${this.color.g}">
+            <span class="value-display">${this.color.g}</span>
           </div>
           <div class="color-slider-group">
             <label>B</label>
-            <input type="range" class="color-slider" id="slider-b" min="0" max="255" value="${this.color.b}">
-            <span class="color-value">${this.color.b}</span>
+            <input type="range" class="range-slider color-slider" id="slider-b" min="0" max="255" value="${this.color.b}">
+            <span class="value-display">${this.color.b}</span>
           </div>
         </div>
         <div class="color-picker-hex">
-          <input type="text" class="hex-input" value="${this.rgbToHex(this.color)}">
+          <input type="text" class="input hex-input" value="${this.rgbToHex(this.color)}">
         </div>
       </div>
     `;
@@ -112,7 +112,7 @@ export class ColorPicker {
   setupSliders() {
     ['r', 'g', 'b'].forEach(channel => {
       const slider = this.picker.querySelector(`#slider-${channel}`);
-      const valueSpan = slider.parentElement.querySelector('.color-value');
+      const valueSpan = slider.parentElement.querySelector('.value-display');
       
       slider.addEventListener('input', () => {
         this.color[channel] = parseInt(slider.value);
@@ -155,9 +155,13 @@ export class ColorPicker {
   updateSliders() {
     ['r', 'g', 'b'].forEach(channel => {
       const slider = this.picker.querySelector(`#slider-${channel}`);
-      const valueSpan = slider.parentElement.querySelector('.color-value');
-      slider.value = this.color[channel];
-      valueSpan.textContent = this.color[channel];
+      const valueSpan = slider.parentElement.querySelector('.value-display');
+      if (slider) {
+        slider.value = this.color[channel];
+      }
+      if (valueSpan) {
+        valueSpan.textContent = this.color[channel];
+      }
     });
   }
 

@@ -115,10 +115,25 @@ When working on this project:
 - Audio engine: 20% complete (next phase)
 - Documentation: In progress
 
+## Bug Tracking
+
+The `/issues` folder contains all documented bugs and improvements:
+- When user asks to "tackle an open issue" or mentions bugs, check the `/issues` folder
+- Read `/issues/README.md` for current issue list and status
+- Each issue is a numbered .md file with full details
+- After fixing an issue, update the .md file with resolution and mark as resolved in README.md
+- Common user phrases that should trigger checking issues:
+  - "fix a bug"
+  - "tackle an issue"
+  - "what issues are there"
+  - "open issues"
+  - "known bugs"
+
 ## Next Steps
 
-1. Implement Web Audio API integration
-2. Create synthesis engines (Analog, FM, Wavetable, Granular, Physical)
-3. Map particle behaviors to synthesis parameters
-4. Build VST/AU plugin wrapper
-5. Add MPE support
+1. Fix open issues in `/issues` folder
+2. Implement Web Audio API integration
+3. Create synthesis engines (Analog, FM, Wavetable, Granular, Physical)
+4. Map particle behaviors to synthesis parameters
+5. Build VST/AU plugin wrapper
+6. Add MPE support

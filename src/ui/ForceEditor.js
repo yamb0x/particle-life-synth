@@ -120,19 +120,19 @@ export class ForceEditor {
     const height = this.canvas.height;
     
     // Clear canvas
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = '#0c0c0c';
     ctx.fillRect(0, 0, width, height);
     
     // Draw gradient background
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
-    gradient.addColorStop(0, 'rgba(255, 100, 100, 0.2)');   // Red for repel
-    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)'); // White for neutral
-    gradient.addColorStop(1, 'rgba(100, 255, 100, 0.2)');   // Green for attract
+    gradient.addColorStop(0, 'rgba(204, 102, 102, 0.15)');   // Muted red for repel
+    gradient.addColorStop(0.5, 'rgba(153, 153, 153, 0.1)'); // Gray for neutral
+    gradient.addColorStop(1, 'rgba(102, 204, 102, 0.15)');   // Muted green for attract
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
     
     // Draw grid lines
-    ctx.strokeStyle = '#333';
+    ctx.strokeStyle = '#2a2a2a';
     ctx.lineWidth = 1;
     
     // Vertical lines at -1, -0.5, 0, 0.5, 1
@@ -145,7 +145,7 @@ export class ForceEditor {
     }
     
     // Center line (thicker)
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = '#3a3a3a';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(width / 2, 0);
@@ -153,15 +153,15 @@ export class ForceEditor {
     ctx.stroke();
     
     // Draw labels
-    ctx.fillStyle = '#aaa';
-    ctx.font = '12px monospace';
+    ctx.fillStyle = '#999999';
+    ctx.font = '11px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('REPEL', width * 0.25, 20);
     ctx.fillText('NEUTRAL', width * 0.5, 20);
     ctx.fillText('ATTRACT', width * 0.75, 20);
     
     // Draw force values
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = '#666666';
     ctx.font = '10px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('-1.0', 10, height - 10);
@@ -174,23 +174,23 @@ export class ForceEditor {
       const x = (force + 1) / 2 * width;
       
       // Draw vertical line at current position
-      ctx.strokeStyle = force < 0 ? '#ff6666' : force > 0 ? '#66ff66' : '#888888';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = force < 0 ? '#cc6666' : force > 0 ? '#66cc66' : '#999999';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
       
       // Draw handle
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(x, height / 2, 10, 0, Math.PI * 2);
+      ctx.arc(x, height / 2, 8, 0, Math.PI * 2);
       ctx.fill();
       
       // Draw inner circle
-      ctx.fillStyle = force < 0 ? '#ff4444' : force > 0 ? '#44ff44' : '#888888';
+      ctx.fillStyle = force < 0 ? '#cc6666' : force > 0 ? '#66cc66' : '#999999';
       ctx.beginPath();
-      ctx.arc(x, height / 2, 7, 0, Math.PI * 2);
+      ctx.arc(x, height / 2, 5, 0, Math.PI * 2);
       ctx.fill();
       
       // Draw force value

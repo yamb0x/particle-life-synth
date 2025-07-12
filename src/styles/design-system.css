@@ -1,0 +1,424 @@
+:root {
+  /* Core Colors - Ableton-inspired dark theme */
+  --bg-primary: #0c0c0c;
+  --bg-secondary: #161616;
+  --bg-tertiary: #1e1e1e;
+  --bg-elevated: #252525;
+  --bg-hover: #2d2d2d;
+  
+  /* Text Colors */
+  --text-primary: #d1d1d1;
+  --text-secondary: #999999;
+  --text-tertiary: #666666;
+  --text-disabled: #444444;
+  
+  /* Accent Colors - Muted monochromatic */
+  --accent-primary: #808080;      /* Gray - active/selected */
+  --accent-secondary: #a0a0a0;    /* Light gray - hover/highlight */
+  --accent-info: #808080;         /* Gray - info/links */
+  --accent-success: #4ade80;      /* Green - success/positive */
+  --accent-danger: #ff5555;       /* Red - danger/negative */
+  --accent-repel: #cc6666;        /* Muted red for repel */
+  --accent-attract: #66cc66;      /* Muted green for attract */
+  
+  /* UI Element Colors */
+  --border-default: #2a2a2a;
+  --border-subtle: #222222;
+  --border-strong: #3a3a3a;
+  --border-focus: var(--accent-primary);
+  
+  /* Shadows and Effects */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
+  
+  /* Spacing Scale - More compact */
+  --space-xs: 2px;
+  --space-sm: 4px;
+  --space-md: 6px;
+  --space-lg: 8px;
+  --space-xl: 12px;
+  --space-2xl: 16px;
+  
+  /* Border Radius */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-full: 9999px;
+  
+  /* Typography - Smaller sizes */
+  --font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Courier New', monospace;
+  --font-size-xs: 9px;
+  --font-size-sm: 10px;
+  --font-size-md: 11px;
+  --font-size-lg: 12px;
+  --font-size-xl: 13px;
+  
+  /* Animation */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+  
+  /* Z-index Layers */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-tooltip: 50;
+}
+
+/* Base Styles */
+body {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  line-height: 1.5;
+}
+
+/* Panel Styles */
+.panel {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.panel-header {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-content {
+  padding: var(--space-md);
+}
+
+/* Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+  font-weight: normal;
+}
+
+.btn-primary {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.btn-primary:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+.btn-secondary {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-icon {
+  padding: var(--space-sm);
+  width: 32px;
+  height: 32px;
+}
+
+/* Input Styles */
+.input,
+.select {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.3);
+}
+
+/* Range Slider Styles - Compact like Ableton */
+.range-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-full);
+  outline: none;
+  transition: background var(--transition-fast);
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+  background: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+/* Control Group Styles - Compact */
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.control-group label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  gap: var(--space-sm);
+}
+
+.control-group .value-display {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-weight: 500;
+  min-width: 32px;
+  text-align: right;
+  font-size: var(--font-size-xs);
+}
+
+/* Section Styles - Compact */
+.section {
+  margin-bottom: var(--space-lg);
+}
+
+.section-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Graph Styles */
+.graph-container {
+  position: relative;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.graph-canvas {
+  display: block;
+  cursor: crosshair;
+}
+
+.graph-tooltip {
+  position: absolute;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: rgba(12, 12, 12, 0.95);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: var(--z-tooltip);
+}
+
+/* Checkbox Styles */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 3px;
+  height: 6px;
+  border: solid var(--bg-primary);
+  border-width: 0 1px 1px 0;
+  transform: rotate(45deg);
+}
+
+input[type="checkbox"]:hover {
+  border-color: var(--accent-primary);
+}
+
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  display: block !important;
+}
+
+.fade-in {
+  animation: fadeIn var(--transition-normal);
+}
+
+.fade-out {
+  animation: fadeOut var(--transition-normal);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Color Picker Styles */
+.color-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.color-picker-display {
+  width: 40px;
+  height: 25px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.color-picker-display:hover {
+  border-color: var(--accent-primary);
+}
+
+.color-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--space-xs);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown);
+}
+
+.color-picker-canvas {
+  border: 1px solid var(--border-default);
+  cursor: crosshair;
+  margin-bottom: var(--space-md);
+  display: block;
+}
+
+.color-slider-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.color-slider-group label {
+  width: 20px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.color-slider {
+  flex: 1;
+}
+
+.hex-input {
+  width: 100%;
+  text-align: center;
+  margin-top: var(--space-sm);
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
