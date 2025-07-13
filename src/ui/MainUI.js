@@ -81,7 +81,7 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Trail Length
-                            <span class="value-display" id="blur-value">${this.particleSystem.blur.toFixed(2)}</span>
+                            <span class="value-display" id="main-blur-value">${this.particleSystem.blur.toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="blur" 
                                min="0.5" max="0.99" step="0.01" value="${this.particleSystem.blur}">
@@ -116,7 +116,7 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Force Strength
-                            <span class="value-display" id="force-value">${this.particleSystem.forceFactor.toFixed(1)}</span>
+                            <span class="value-display" id="main-force-value">${this.particleSystem.forceFactor.toFixed(1)}</span>
                         </label>
                         <input type="range" class="range-slider" id="force" 
                                min="0.1" max="10" step="0.1" value="${this.particleSystem.forceFactor}">
@@ -124,7 +124,7 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Friction
-                            <span class="value-display" id="friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
+                            <span class="value-display" id="main-friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="friction" 
                                min="0" max="1.0" step="0.01" value="${1.0 - this.particleSystem.friction}">
@@ -132,7 +132,7 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Wall Bounce
-                            <span class="value-display" id="wall-damping-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
+                            <span class="value-display" id="main-wall-damping-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="wall-damping" 
                                min="0" max="2.0" step="0.05" value="${this.particleSystem.wallDamping}">
@@ -140,7 +140,7 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Collision Radius
-                            <span class="value-display" id="collision-radius-value">${this.particleSystem.collisionRadius[0][0]}</span>
+                            <span class="value-display" id="main-collision-radius-value">${this.particleSystem.collisionRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="collision-radius" 
                                min="1" max="100" step="1" value="${this.particleSystem.collisionRadius[0][0]}">
@@ -151,7 +151,7 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Social Radius
-                            <span class="value-display" id="social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
+                            <span class="value-display" id="main-social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="social-radius" 
                                min="1" max="500" step="5" value="${this.particleSystem.socialRadius[0][0]}">
@@ -325,6 +325,9 @@ export class MainUI {
         if (selector) {
             selector.value = lastSelectedPreset;
         }
+        
+        // Sync UI with loaded preset values
+        this.updateUIFromPreset();
     }
     
     setupKeyboardShortcuts() {
@@ -409,16 +412,22 @@ export class MainUI {
         });
         
         document.getElementById('blur').addEventListener('input', (e) => {
-            this.particleSystem.blur = parseFloat(e.target.value);
-            document.getElementById('blur-value').textContent = this.particleSystem.blur.toFixed(2);
-            this.syncToModal('blur', parseFloat(e.target.value));
+            const value = parseFloat(e.target.value);
+            this.particleSystem.blur = value;
+            const blurDisplay = document.getElementById('main-blur-value');
+            if (blurDisplay) {
+                blurDisplay.textContent = value.toFixed(2);
+            }
+            this.syncToModal('blur', value);
         });
         
         document.getElementById('particle-size').addEventListener('input', (e) => {
             const newSize = parseFloat(e.target.value);
             this.particleSystem.particleSize = newSize;
+            // Update all species to use the new size with small variation but ensuring minimum size
             for (let i = 0; i < this.particleSystem.species.length; i++) {
-                this.particleSystem.species[i].size = newSize + (Math.random() - 0.5);
+                const variation = (Math.random() - 0.5) * 0.5; // Smaller variation ±0.25
+                this.particleSystem.species[i].size = Math.max(0.5, newSize + variation); // Ensure minimum size
             }
             document.getElementById('particle-size-value').textContent = newSize.toFixed(1);
             this.syncToModal('particle-size', newSize);
@@ -436,24 +445,34 @@ export class MainUI {
                 this.particleSystem.glowIntensity = 0.8;
                 this.particleSystem.glowRadius = 3.0;
                 this.particleSystem.blur = 0.97; // Slightly longer trails for dreamtime
+                // Update the blur slider to reflect the new value
+                const blurSlider = document.getElementById('blur');
+                const blurValue = document.getElementById('blur-value');
+                if (blurSlider && blurValue) {
+                    blurSlider.value = 0.97;
+                    blurValue.textContent = '0.97';
+                }
             }
+            // Clear gradient cache when switching render modes
+            this.particleSystem.clearCaches();
         });
         
         // Physics controls
         document.getElementById('force').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.forceFactor = value;
-            const forceDisplay = document.getElementById('force-value');
+            const forceDisplay = document.getElementById('main-force-value');
             if (forceDisplay) {
                 forceDisplay.textContent = value.toFixed(1);
             }
             this.syncToModal('force-factor', value);
         });
         
+        // Friction control
         document.getElementById('friction').addEventListener('input', (e) => {
             const uiFriction = parseFloat(e.target.value);
             this.particleSystem.friction = 1.0 - uiFriction;
-            const frictionDisplay = document.getElementById('friction-value');
+            const frictionDisplay = document.getElementById('main-friction-value');
             if (frictionDisplay) {
                 frictionDisplay.textContent = uiFriction.toFixed(2);
             }
@@ -461,12 +480,13 @@ export class MainUI {
         });
         
         document.getElementById('wall-damping').addEventListener('input', (e) => {
-            this.particleSystem.wallDamping = parseFloat(e.target.value);
-            const wallDisplay = document.getElementById('wall-damping-value');
+            const value = parseFloat(e.target.value);
+            this.particleSystem.wallDamping = value;
+            const wallDisplay = document.getElementById('main-wall-damping-value');
             if (wallDisplay) {
-                wallDisplay.textContent = parseFloat(e.target.value).toFixed(2);
+                wallDisplay.textContent = value.toFixed(2);
             }
-            this.syncToModal('wall-damping', parseFloat(e.target.value));
+            this.syncToModal('wall-damping', value);
         });
         
         document.getElementById('collision-radius').addEventListener('input', (e) => {
@@ -477,7 +497,7 @@ export class MainUI {
                     this.particleSystem.collisionRadius[i][j] = value;
                 }
             }
-            const collisionDisplay = document.getElementById('collision-radius-value');
+            const collisionDisplay = document.getElementById('main-collision-radius-value');
             if (collisionDisplay) {
                 collisionDisplay.textContent = value;
             }
@@ -492,7 +512,7 @@ export class MainUI {
                     this.particleSystem.socialRadius[i][j] = value;
                 }
             }
-            const socialDisplay = document.getElementById('social-radius-value');
+            const socialDisplay = document.getElementById('main-social-radius-value');
             if (socialDisplay) {
                 socialDisplay.textContent = value;
             }
@@ -633,27 +653,27 @@ export class MainUI {
         // Update visual controls
         document.getElementById('trails').checked = ps.trailEnabled;
         document.getElementById('blur').value = ps.blur;
-        document.getElementById('blur-value').textContent = ps.blur.toFixed(2);
+        document.getElementById('main-blur-value').textContent = ps.blur.toFixed(2);
         document.getElementById('particle-size').value = ps.particleSize;
         document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
         document.getElementById('dreamtime-mode').checked = ps.renderMode === 'dreamtime';
         
         // Update physics controls
         document.getElementById('force').value = ps.forceFactor;
-        document.getElementById('force-value').textContent = ps.forceFactor.toFixed(1);
+        document.getElementById('main-force-value').textContent = ps.forceFactor.toFixed(1);
         const uiFriction = 1.0 - ps.friction;
         document.getElementById('friction').value = uiFriction;
-        document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
+        document.getElementById('main-friction-value').textContent = uiFriction.toFixed(2);
         document.getElementById('wall-damping').value = ps.wallDamping;
-        document.getElementById('wall-damping-value').textContent = ps.wallDamping.toFixed(2);
+        document.getElementById('main-wall-damping-value').textContent = ps.wallDamping.toFixed(2);
         
         // Get the average collision and social radius (they should all be the same)
         const collisionRadius = ps.collisionRadius[0][0];
         const socialRadius = ps.socialRadius[0][0];
         document.getElementById('collision-radius').value = collisionRadius;
-        document.getElementById('collision-radius-value').textContent = collisionRadius;
+        document.getElementById('main-collision-radius-value').textContent = collisionRadius;
         document.getElementById('social-radius').value = socialRadius;
-        document.getElementById('social-radius-value').textContent = socialRadius;
+        document.getElementById('main-social-radius-value').textContent = socialRadius;
         
         // Update particle counts
         const totalParticles = ps.species.reduce((sum, s) => sum + (s.particleCount || ps.particlesPerSpecies), 0);

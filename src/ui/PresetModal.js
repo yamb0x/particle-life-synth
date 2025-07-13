@@ -102,7 +102,7 @@ export class PresetModal {
                 Trail Effect
                 <span class="value-display" id="blur-value">0.95</span>
               </label>
-              <input type="range" class="range-slider" id="blur" min="0.5" max="0.99" step="0.01" value="0.95">
+              <input type="range" class="range-slider" id="modal-blur" min="0.5" max="0.99" step="0.01" value="0.95">
             </div>
             <div class="control-group">
               <label>
@@ -129,16 +129,16 @@ export class PresetModal {
             <div class="control-group">
               <label>
                 Friction
-                <span class="value-display" id="friction-value">0.05</span>
+                <span class="value-display" id="modal-friction-value">0.05</span>
               </label>
-              <input type="range" class="range-slider" id="friction" min="0" max="1.0" step="0.01" value="0.05">
+              <input type="range" class="range-slider" id="modal-friction" min="0" max="1.0" step="0.01" value="0.05">
             </div>
             <div class="control-group">
               <label>
                 Wall Damping
                 <span class="value-display" id="wall-damping-value">0.9</span>
               </label>
-              <input type="range" class="range-slider" id="wall-damping" min="0" max="2.0" step="0.05" value="0.9">
+              <input type="range" class="range-slider" id="modal-wall-damping" min="0" max="2.0" step="0.05" value="0.9">
             </div>
             <div class="control-group">
               <label>
@@ -152,14 +152,14 @@ export class PresetModal {
                 Collision Radius
                 <span class="value-display" id="collision-radius-value">15</span>
               </label>
-              <input type="range" class="range-slider" id="collision-radius" min="1" max="100" step="1" value="15">
+              <input type="range" class="range-slider" id="modal-collision-radius" min="1" max="100" step="1" value="15">
             </div>
             <div class="control-group">
               <label>
                 Social Radius
                 <span class="value-display" id="social-radius-value">50</span>
               </label>
-              <input type="range" class="range-slider" id="social-radius" min="1" max="500" step="5" value="50">
+              <input type="range" class="range-slider" id="modal-social-radius" min="1" max="500" step="5" value="50">
             </div>
           </div>
         </div>
@@ -186,6 +186,9 @@ export class PresetModal {
     
     this.overlay.appendChild(this.modal);
     document.body.appendChild(this.overlay);
+    
+    // Ensure modal is hidden initially
+    this.overlay.style.display = 'none';
     
     // Add custom styles for modal
     if (!document.getElementById('preset-modal-styles')) {
@@ -454,7 +457,7 @@ export class PresetModal {
     switch(parameterId) {
       case 'blur':
         const blurSlider = document.getElementById('blur');
-        const blurValue = document.getElementById('blur-value');
+        const blurValue = document.getElementById('main-blur-value');
         if (blurSlider && blurValue) {
           blurSlider.value = value;
           blurValue.textContent = value.toFixed(2);
@@ -470,7 +473,7 @@ export class PresetModal {
         break;
       case 'friction':
         const frictionSlider = document.getElementById('friction');
-        const frictionValue = document.getElementById('friction-value');
+        const frictionValue = document.getElementById('main-friction-value');
         if (frictionSlider && frictionValue) {
           frictionSlider.value = value;
           frictionValue.textContent = value.toFixed(2);
@@ -478,7 +481,7 @@ export class PresetModal {
         break;
       case 'wall-damping':
         const wallSlider = document.getElementById('wall-damping');
-        const wallValue = document.getElementById('wall-damping-value');
+        const wallValue = document.getElementById('main-wall-damping-value');
         if (wallSlider && wallValue) {
           wallSlider.value = value;
           wallValue.textContent = value.toFixed(2);
@@ -486,7 +489,7 @@ export class PresetModal {
         break;
       case 'force-factor':
         const forceSlider = document.getElementById('force');
-        const forceValue = document.getElementById('force-value');
+        const forceValue = document.getElementById('main-force-value');
         if (forceSlider && forceValue) {
           forceSlider.value = value;
           forceValue.textContent = value.toFixed(1);
@@ -494,7 +497,7 @@ export class PresetModal {
         break;
       case 'collision-radius':
         const collisionSlider = document.getElementById('collision-radius');
-        const collisionValue = document.getElementById('collision-radius-value');
+        const collisionValue = document.getElementById('main-collision-radius-value');
         if (collisionSlider && collisionValue) {
           collisionSlider.value = value;
           collisionValue.textContent = value;
@@ -502,7 +505,7 @@ export class PresetModal {
         break;
       case 'social-radius':
         const socialSlider = document.getElementById('social-radius');
-        const socialValue = document.getElementById('social-radius-value');
+        const socialValue = document.getElementById('main-social-radius-value');
         if (socialSlider && socialValue) {
           socialSlider.value = value;
           socialValue.textContent = value;
