@@ -154,7 +154,7 @@ export class ForceEditor {
     
     // Draw labels
     ctx.fillStyle = '#999999';
-    ctx.font = '11px monospace';
+    ctx.font = '11px monospace'; // --font-size-md
     ctx.textAlign = 'center';
     ctx.fillText('REPEL', width * 0.25, 20);
     ctx.fillText('NEUTRAL', width * 0.5, 20);
@@ -162,7 +162,7 @@ export class ForceEditor {
     
     // Draw force values
     ctx.fillStyle = '#666666';
-    ctx.font = '10px monospace';
+    ctx.font = '10px monospace'; // --font-size-sm
     ctx.textAlign = 'center';
     ctx.fillText('-1.0', 10, height - 10);
     ctx.fillText('0', width / 2, height - 10);
@@ -195,7 +195,7 @@ export class ForceEditor {
       
       // Draw force value
       ctx.fillStyle = '#fff';
-      ctx.font = '14px monospace';
+      ctx.font = '12px monospace'; // --font-size-lg
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(force.toFixed(2), x, height / 2);

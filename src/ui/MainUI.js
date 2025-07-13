@@ -39,6 +39,7 @@ export class MainUI {
                             <option value="crystallization">Crystallization</option>
                             <option value="vortex">Vortex</option>
                             <option value="symbiosis">Symbiosis</option>
+                            <option value="dreamtime">Dreamtime</option>
                             <option value="random">Randomize</option>
                         </select>
                     </div>
@@ -61,7 +62,7 @@ export class MainUI {
                             <span class="value-display" id="num-species-value">${this.particleSystem.numSpecies}</span>
                         </label>
                         <input type="range" class="range-slider" id="num-species" 
-                               min="1" max="5" step="1" value="${this.particleSystem.numSpecies}">
+                               min="1" max="10" step="1" value="${this.particleSystem.numSpecies}">
                     </div>
                     <div class="info-text">
                         Total: <span id="total-particles">${this.particleSystem.numSpecies * this.particleSystem.particlesPerSpecies}</span> particles
@@ -92,7 +93,20 @@ export class MainUI {
                             <span class="value-display" id="particle-size-value">${this.particleSystem.particleSize.toFixed(1)}</span>
                         </label>
                         <input type="range" class="range-slider" id="particle-size" 
-                               min="1" max="10" step="0.5" value="${this.particleSystem.particleSize}">
+                               min="0.5" max="20" step="0.5" value="${this.particleSystem.particleSize}">
+                        <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 4px;">
+                            Visual size only (doesn't affect physics)
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Background Color</label>
+                        <input type="color" id="background-color-main" value="#000000" style="width: 100%; height: 32px; border: 1px solid var(--border-default); border-radius: var(--radius-sm);">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="dreamtime-mode" ${this.particleSystem.renderMode === 'dreamtime' ? 'checked' : ''}>
+                            Dreamtime Effect
+                        </label>
                     </div>
                 </div>
                 
@@ -105,7 +119,7 @@ export class MainUI {
                             <span class="value-display" id="force-value">${this.particleSystem.forceFactor.toFixed(1)}</span>
                         </label>
                         <input type="range" class="range-slider" id="force" 
-                               min="0.1" max="2" step="0.1" value="${this.particleSystem.forceFactor}">
+                               min="0.1" max="10" step="0.1" value="${this.particleSystem.forceFactor}">
                     </div>
                     <div class="control-group">
                         <label>
@@ -113,7 +127,7 @@ export class MainUI {
                             <span class="value-display" id="friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="friction" 
-                               min="0" max="0.2" step="0.01" value="${1.0 - this.particleSystem.friction}">
+                               min="0" max="1.0" step="0.01" value="${1.0 - this.particleSystem.friction}">
                     </div>
                     <div class="control-group">
                         <label>
@@ -121,23 +135,29 @@ export class MainUI {
                             <span class="value-display" id="wall-damping-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="wall-damping" 
-                               min="0.5" max="1" step="0.05" value="${this.particleSystem.wallDamping}">
+                               min="0" max="2.0" step="0.05" value="${this.particleSystem.wallDamping}">
                     </div>
                     <div class="control-group">
                         <label>
                             Collision Radius
-                            <span class="value-display" id="collision-radius-value">15</span>
+                            <span class="value-display" id="collision-radius-value">${this.particleSystem.collisionRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="collision-radius" 
-                               min="5" max="30" step="1" value="15">
+                               min="1" max="100" step="1" value="${this.particleSystem.collisionRadius[0][0]}">
+                        <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 4px;">
+                            Distance for collision forces (independent of visual size)
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>
                             Social Radius
-                            <span class="value-display" id="social-radius-value">50</span>
+                            <span class="value-display" id="social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="social-radius" 
-                               min="20" max="100" step="5" value="50">
+                               min="1" max="500" step="5" value="${this.particleSystem.socialRadius[0][0]}">
+                        <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 4px;">
+                            Distance for attraction/repulsion forces
+                        </div>
                     </div>
                 </div>
                 
@@ -268,12 +288,6 @@ export class MainUI {
         
         document.body.appendChild(this.container);
         
-        // Set initial collision and social radius values
-        const collisionRadius = this.particleSystem.collisionRadius[0][0];
-        const socialRadius = this.particleSystem.socialRadius[0][0];
-        document.getElementById('collision-radius-value').textContent = collisionRadius;
-        document.getElementById('social-radius-value').textContent = socialRadius;
-        
         // Initialize XY Graph
         this.forceGraph = new XYGraph('force-graph-container', {
             width: 256,
@@ -292,8 +306,14 @@ export class MainUI {
             }
         });
         
-        // Setup event listeners
+        // Setup event listeners AFTER DOM elements are added
         this.setupEventListeners();
+        
+        // Set initial background color
+        const bgColorMain = document.getElementById('background-color-main');
+        if (bgColorMain) {
+            bgColorMain.value = this.particleSystem.backgroundColor;
+        }
         
         // Initial updates
         this.updatePresetSelector();
@@ -355,6 +375,18 @@ export class MainUI {
             this.updateSpeciesSelectors(newSpecies);
             this.updateGraph();
             
+            // Sync to modal if open
+            if (window.presetModal && window.presetModal.isOpen) {
+                const speciesCountSlider = document.getElementById('species-count');
+                const speciesCountValue = document.getElementById('species-count-value');
+                if (speciesCountSlider && speciesCountValue) {
+                    speciesCountSlider.value = newSpecies;
+                    speciesCountValue.textContent = newSpecies;
+                    // Update the modal's currentPreset and regenerate species list
+                    window.presetModal.updateSpeciesCount(newSpecies);
+                }
+            }
+            
             // Update radius matrices after species count changes
             const collisionValue = parseFloat(document.getElementById('collision-radius').value);
             const socialValue = parseFloat(document.getElementById('social-radius').value);
@@ -373,11 +405,13 @@ export class MainUI {
         // Visual controls
         document.getElementById('trails').addEventListener('change', (e) => {
             this.particleSystem.trailEnabled = e.target.checked;
+            this.syncToModal('trail-enabled', e.target.checked);
         });
         
         document.getElementById('blur').addEventListener('input', (e) => {
             this.particleSystem.blur = parseFloat(e.target.value);
             document.getElementById('blur-value').textContent = this.particleSystem.blur.toFixed(2);
+            this.syncToModal('blur', parseFloat(e.target.value));
         });
         
         document.getElementById('particle-size').addEventListener('input', (e) => {
@@ -387,23 +421,52 @@ export class MainUI {
                 this.particleSystem.species[i].size = newSize + (Math.random() - 0.5);
             }
             document.getElementById('particle-size-value').textContent = newSize.toFixed(1);
+            this.syncToModal('particle-size', newSize);
+        });
+        
+        document.getElementById('background-color-main').addEventListener('change', (e) => {
+            this.particleSystem.backgroundColor = e.target.value;
+            this.syncToModal('background-color', e.target.value);
+        });
+        
+        document.getElementById('dreamtime-mode').addEventListener('change', (e) => {
+            this.particleSystem.renderMode = e.target.checked ? 'dreamtime' : 'normal';
+            // Adjust default glow settings for dreamtime mode
+            if (e.target.checked) {
+                this.particleSystem.glowIntensity = 0.8;
+                this.particleSystem.glowRadius = 3.0;
+                this.particleSystem.blur = 0.97; // Slightly longer trails for dreamtime
+            }
         });
         
         // Physics controls
         document.getElementById('force').addEventListener('input', (e) => {
-            this.particleSystem.forceFactor = parseFloat(e.target.value);
-            document.getElementById('force-value').textContent = this.particleSystem.forceFactor.toFixed(1);
+            const value = parseFloat(e.target.value);
+            this.particleSystem.forceFactor = value;
+            const forceDisplay = document.getElementById('force-value');
+            if (forceDisplay) {
+                forceDisplay.textContent = value.toFixed(1);
+            }
+            this.syncToModal('force-factor', value);
         });
         
         document.getElementById('friction').addEventListener('input', (e) => {
             const uiFriction = parseFloat(e.target.value);
             this.particleSystem.friction = 1.0 - uiFriction;
-            document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
+            const frictionDisplay = document.getElementById('friction-value');
+            if (frictionDisplay) {
+                frictionDisplay.textContent = uiFriction.toFixed(2);
+            }
+            this.syncToModal('friction', uiFriction);
         });
         
         document.getElementById('wall-damping').addEventListener('input', (e) => {
             this.particleSystem.wallDamping = parseFloat(e.target.value);
-            document.getElementById('wall-damping-value').textContent = this.particleSystem.wallDamping.toFixed(2);
+            const wallDisplay = document.getElementById('wall-damping-value');
+            if (wallDisplay) {
+                wallDisplay.textContent = parseFloat(e.target.value).toFixed(2);
+            }
+            this.syncToModal('wall-damping', parseFloat(e.target.value));
         });
         
         document.getElementById('collision-radius').addEventListener('input', (e) => {
@@ -414,7 +477,11 @@ export class MainUI {
                     this.particleSystem.collisionRadius[i][j] = value;
                 }
             }
-            document.getElementById('collision-radius-value').textContent = value;
+            const collisionDisplay = document.getElementById('collision-radius-value');
+            if (collisionDisplay) {
+                collisionDisplay.textContent = value;
+            }
+            this.syncToModal('collision-radius', value);
         });
         
         document.getElementById('social-radius').addEventListener('input', (e) => {
@@ -425,7 +492,11 @@ export class MainUI {
                     this.particleSystem.socialRadius[i][j] = value;
                 }
             }
-            document.getElementById('social-radius-value').textContent = value;
+            const socialDisplay = document.getElementById('social-radius-value');
+            if (socialDisplay) {
+                socialDisplay.textContent = value;
+            }
+            this.syncToModal('social-radius', value);
         });
         
         // Force relationship controls
@@ -433,8 +504,8 @@ export class MainUI {
         document.getElementById('to-species').addEventListener('change', () => this.updateGraph());
         
         document.getElementById('clear-forces-btn').addEventListener('click', () => {
-            for (let i = 0; i < 5; i++) {
-                for (let j = 0; j < 5; j++) {
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                for (let j = 0; j < this.particleSystem.numSpecies; j++) {
                     this.particleSystem.setSocialForce(i, j, 0);
                 }
             }
@@ -460,8 +531,37 @@ export class MainUI {
         }
     }
     
+    syncToModal(parameterId, value) {
+        // Update corresponding controls in the modal if it's open
+        if (!window.presetModal || !window.presetModal.isOpen) return;
+        
+        // Find elements within the modal only
+        const modal = document.querySelector('.preset-modal');
+        if (!modal) return;
+        
+        const modalElement = modal.querySelector(`#${parameterId}`);
+        if (modalElement) {
+            if (modalElement.type === 'checkbox') {
+                modalElement.checked = value;
+            } else {
+                modalElement.value = value;
+            }
+            
+            // Update corresponding value display within the modal only
+            const valueDisplay = modal.querySelector(`#${parameterId}-value`);
+            if (valueDisplay) {
+                if (typeof value === 'number') {
+                    valueDisplay.textContent = parameterId === 'particle-size' ? value.toFixed(1) : 
+                                             (parameterId.includes('radius') ? value : value.toFixed(2));
+                } else {
+                    valueDisplay.textContent = value;
+                }
+            }
+        }
+    }
+
     updateSpeciesSelectors(numSpecies) {
-        const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple'];
+        const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta'];
         const fromSelect = document.getElementById('from-species');
         const toSelect = document.getElementById('to-species');
         
@@ -471,12 +571,12 @@ export class MainUI {
         for (let i = 0; i < numSpecies; i++) {
             const fromOption = document.createElement('option');
             fromOption.value = i;
-            fromOption.textContent = colors[i];
+            fromOption.textContent = colors[i] || `Species ${i + 1}`;
             fromSelect.appendChild(fromOption);
             
             const toOption = document.createElement('option');
             toOption.value = i;
-            toOption.textContent = colors[i];
+            toOption.textContent = colors[i] || `Species ${i + 1}`;
             toSelect.appendChild(toOption);
         }
         
@@ -498,9 +598,12 @@ export class MainUI {
         const fromSpecies = parseInt(document.getElementById('from-species').value);
         const toSpecies = parseInt(document.getElementById('to-species').value);
         const force = this.particleSystem.socialForce[fromSpecies][toSpecies];
-        const colorNames = ['Red', 'Green', 'Blue', 'Yellow', 'Purple'];
+        const colorNames = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta'];
         
-        this.forceGraph.setInfo(`${colorNames[fromSpecies]} → ${colorNames[toSpecies]}: ${force.toFixed(2)}`);
+        const fromName = colorNames[fromSpecies] || `Species ${fromSpecies + 1}`;
+        const toName = colorNames[toSpecies] || `Species ${toSpecies + 1}`;
+        
+        this.forceGraph.setInfo(`${fromName} → ${toName}: ${force.toFixed(2)}`);
     }
     
     updatePresetSelector() {
@@ -533,6 +636,7 @@ export class MainUI {
         document.getElementById('blur-value').textContent = ps.blur.toFixed(2);
         document.getElementById('particle-size').value = ps.particleSize;
         document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
+        document.getElementById('dreamtime-mode').checked = ps.renderMode === 'dreamtime';
         
         // Update physics controls
         document.getElementById('force').value = ps.forceFactor;
@@ -562,5 +666,11 @@ export class MainUI {
         
         // Update species selectors if needed
         this.updateSpeciesSelectors(ps.numSpecies);
+        
+        // Update background color if available
+        const bgColorMain = document.getElementById('background-color-main');
+        if (bgColorMain && ps.backgroundColor) {
+            bgColorMain.value = ps.backgroundColor;
+        }
     }
 }

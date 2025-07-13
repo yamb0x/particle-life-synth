@@ -165,6 +165,46 @@ export class PresetManager {
         ]
       }
     });
+
+    // Dreamtime preset with ethereal glow effect
+    this.presets.set('dreamtime', {
+      name: 'Dreamtime',
+      description: 'Ethereal particles with glowing auras in a dream-like dance',
+      renderMode: 'dreamtime',
+      glowIntensity: 0.8,
+      glowRadius: 3.0,
+      species: {
+        count: 4,
+        definitions: [
+          { id: 0, name: 'Cyan', color: { r: 100, g: 255, b: 255 }, size: 4, opacity: 0.8, particleCount: 80, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
+          { id: 1, name: 'Magenta', color: { r: 255, g: 100, b: 255 }, size: 3.5, opacity: 0.8, particleCount: 80, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.2 } },
+          { id: 2, name: 'Gold', color: { r: 255, g: 215, b: 100 }, size: 4.5, opacity: 0.7, particleCount: 60, startPosition: { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.15 } },
+          { id: 3, name: 'Violet', color: { r: 150, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } }
+        ]
+      },
+      physics: {
+        friction: 0.02,
+        wallDamping: 0.95,
+        forceFactor: 0.4,
+        collisionRadius: 20,
+        socialRadius: 80
+      },
+      visual: {
+        blur: 0.98,
+        particleSize: 4,
+        trailEnabled: true,
+        backgroundColor: '#000000'
+      },
+      forces: {
+        collision: Array(4).fill().map(() => Array(4).fill(-0.5)),
+        social: [
+          [0.0, 0.2, -0.3, 0.1],
+          [0.2, 0.0, 0.1, -0.2],
+          [-0.3, 0.1, 0.0, 0.3],
+          [0.1, -0.2, 0.3, 0.0]
+        ]
+      }
+    });
   }
 
   getPreset(name) {
@@ -237,7 +277,7 @@ export class PresetManager {
   saveToLocalStorage() {
     const customPresets = {};
     for (const [key, preset] of this.presets.entries()) {
-      if (!['predatorPrey', 'crystallization', 'vortex', 'symbiosis'].includes(key)) {
+      if (!['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'].includes(key)) {
         customPresets[key] = preset;
       }
     }
@@ -262,7 +302,7 @@ export class PresetManager {
     try {
       const allPresets = await this.storage.getAllPresets();
       for (const [key, preset] of Object.entries(allPresets)) {
-        if (!['predatorPrey', 'crystallization', 'vortex', 'symbiosis'].includes(key)) {
+        if (!['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'].includes(key)) {
           this.presets.set(key, preset);
         }
       }

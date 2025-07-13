@@ -71,6 +71,18 @@ export class StartPositionEditor {
   getSpeciesAtPosition(x, y) {
     for (let i = this.species.length - 1; i >= 0; i--) {
       const species = this.species[i];
+      
+      // Ensure startPosition has required properties
+      if (!species.startPosition) {
+        species.startPosition = { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 };
+      }
+      if (!species.startPosition.center) {
+        species.startPosition.center = { x: 0.5, y: 0.5 };
+      }
+      if (species.startPosition.radius === undefined) {
+        species.startPosition.radius = 0.1;
+      }
+      
       const center = species.startPosition.center;
       const distance = Math.sqrt(Math.pow(x - center.x, 2) + Math.pow(y - center.y, 2));
       if (distance <= species.startPosition.radius) {
@@ -183,6 +195,17 @@ export class StartPositionEditor {
   }
 
   drawSpeciesPosition(species, isSelected) {
+    // Ensure startPosition has required properties
+    if (!species.startPosition) {
+      species.startPosition = { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 };
+    }
+    if (!species.startPosition.center) {
+      species.startPosition.center = { x: 0.5, y: 0.5 };
+    }
+    if (species.startPosition.radius === undefined) {
+      species.startPosition.radius = 0.1;
+    }
+    
     const center = species.startPosition.center;
     const radius = species.startPosition.radius;
     const x = center.x * this.canvas.width;
@@ -220,13 +243,13 @@ export class StartPositionEditor {
     }
     
     this.ctx.fillStyle = '#d1d1d1';
-    this.ctx.font = '11px monospace';
+    this.ctx.font = '11px monospace'; // --font-size-md
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(this.patternIcons[species.startPosition.type], x, y);
     
     this.ctx.fillStyle = isSelected ? '#d1d1d1' : '#999999';
-    this.ctx.font = '12px monospace';
+    this.ctx.font = '12px monospace'; // --font-size-lg
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'top';
     this.ctx.fillText(species.name, x, y + r + 10);

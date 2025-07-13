@@ -10,10 +10,26 @@ export class SimpleParticleSystem {
         this.particles = [];
         this.time = 0;
         
+        // Performance optimizations
+        this.spatialGrid = [];
+        this.gridSize = 100; // Grid cell size for spatial partitioning
+        this.gridWidth = Math.ceil(width / this.gridSize);
+        this.gridHeight = Math.ceil(height / this.gridSize);
+        this.initSpatialGrid();
+        
+        // Performance monitoring
+        this.frameCount = 0;
+        this.lastPerfCheck = 0;
+        this.avgFrameTime = 16.67; // Target 60fps
+        
         // Visual settings
         this.blur = 0.95; // Trail effect (0.5-0.99, higher = shorter trails)
         this.particleSize = 3;
         this.trailEnabled = true;
+        this.backgroundColor = '#000000'; // Default black background
+        this.renderMode = 'normal'; // 'normal' or 'dreamtime'
+        this.glowIntensity = 0.5; // 0-1, how strong the glow effect is
+        this.glowRadius = 2.0; // Multiplier for glow size relative to particle size
         
         // Physics settings
         this.friction = 0.98;
@@ -37,9 +53,91 @@ export class SimpleParticleSystem {
         // Canvas reference
         this.canvas = null;
         this.ctx = null;
+        
+        // Cached gradient for dreamtime mode
+        this.gradientCache = new Map();
+        
+        // Object pools for memory optimization
+        this.particlePool = [];
+        this.tempArrayPool = [];
+        this.poolIndex = 0;
+    }
+    
+    initSpatialGrid() {
+        this.spatialGrid = [];
+        for (let i = 0; i < this.gridWidth * this.gridHeight; i++) {
+            this.spatialGrid[i] = [];
+        }
+    }
+    
+    getGridIndex(x, y) {
+        const gx = Math.floor(x / this.gridSize);
+        const gy = Math.floor(y / this.gridSize);
+        return Math.max(0, Math.min(this.gridWidth * this.gridHeight - 1, gy * this.gridWidth + gx));
+    }
+    
+    updateSpatialGrid() {
+        // Clear grid
+        for (let i = 0; i < this.spatialGrid.length; i++) {
+            this.spatialGrid[i].length = 0;
+        }
+        
+        // Add particles to grid cells
+        for (let i = 0; i < this.particles.length; i++) {
+            const p = this.particles[i];
+            const gridIndex = this.getGridIndex(p.x, p.y);
+            this.spatialGrid[gridIndex].push(i);
+        }
+    }
+    
+    getNearbyParticles(particleIndex) {
+        const p = this.particles[particleIndex];
+        const gx = Math.floor(p.x / this.gridSize);
+        const gy = Math.floor(p.y / this.gridSize);
+        const nearby = [];
+        
+        // Check 3x3 grid around particle
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const checkX = gx + dx;
+                const checkY = gy + dy;
+                if (checkX >= 0 && checkX < this.gridWidth && checkY >= 0 && checkY < this.gridHeight) {
+                    const gridIndex = checkY * this.gridWidth + checkX;
+                    nearby.push(...this.spatialGrid[gridIndex]);
+                }
+            }
+        }
+        
+        return nearby;
+    }
+    
+    getTempArray(size) {
+        if (this.tempArrayPool.length <= this.poolIndex) {
+            this.tempArrayPool.push(new Array(size));
+        }
+        const arr = this.tempArrayPool[this.poolIndex++];
+        arr.length = 0; // Clear without deallocating
+        return arr;
+    }
+    
+    resetTempArrays() {
+        this.poolIndex = 0;
+    }
+    
+    clearCaches() {
+        if (this.gradientCache) {
+            this.gradientCache.clear();
+        }
+        // Keep object pools but clear their contents
+        if (this.tempArrayPool) {
+            this.tempArrayPool.forEach(arr => arr.length = 0);
+        }
     }
     
     initializeSpecies() {
+        // Clear caches when species change
+        this.clearCaches();
+        
         // Create visually distinct species with unique properties
         const baseColors = [
             { r: 255, g: 100, b: 100, name: 'Red' },    // Warm red
@@ -128,7 +226,11 @@ export class SimpleParticleSystem {
     }
     
     update(dt) {
+        const startTime = performance.now();
         this.time += dt;
+        
+        // Update spatial grid for optimized neighbor search
+        this.updateSpatialGrid();
         
         // Trail effect - using globalAlpha to ensure complete fade to black
         if (this.trailEnabled) {
@@ -136,27 +238,33 @@ export class SimpleParticleSystem {
             this.ctx.globalCompositeOperation = 'source-over';
             this.ctx.globalAlpha = this.blur;  // Use blur directly - 0.95 = 95% black = short trails
             
-            // Fill with pure black
-            this.ctx.fillStyle = '#000000';
+            // Fill with background color
+            this.ctx.fillStyle = this.backgroundColor;
             this.ctx.fillRect(0, 0, this.width, this.height);
             
             // Reset alpha for particle rendering
             this.ctx.globalAlpha = 1.0;
         } else {
-            // Clear canvas completely
-            this.ctx.fillStyle = '#000000';
+            // Clear canvas completely - ensure alpha is 1.0 for full clear
+            this.ctx.globalCompositeOperation = 'source-over';
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.fillStyle = this.backgroundColor;
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
         
-        // Update each particle
+        // Update each particle with optimized force calculations
         for (let i = 0; i < this.particles.length; i++) {
             const p1 = this.particles[i];
             
             // Reset forces
             let fx = 0, fy = 0;
             
-            // Calculate forces from other particles
-            for (let j = 0; j < this.particles.length; j++) {
+            // Get nearby particles using spatial partitioning
+            const nearbyIndices = this.getNearbyParticles(i);
+            
+            // Calculate forces from nearby particles only
+            for (let k = 0; k < nearbyIndices.length; k++) {
+                const j = nearbyIndices[k];
                 if (i === j) continue;
                 
                 const p2 = this.particles[j];
@@ -166,24 +274,43 @@ export class SimpleParticleSystem {
                 
                 if (dist2 === 0) continue;
                 
-                const dist = Math.sqrt(dist2);
                 const s1 = p1.species;
                 const s2 = p2.species;
                 
+                // Pre-calculate radii squared to avoid sqrt
+                const collisionR = Array.isArray(this.collisionRadius) && this.collisionRadius[s1] && this.collisionRadius[s1][s2] !== undefined 
+                    ? this.collisionRadius[s1][s2] : 15;
+                const collisionR2 = collisionR * collisionR;
+                
+                const socialR = Array.isArray(this.socialRadius) && this.socialRadius[s1] && this.socialRadius[s1][s2] !== undefined 
+                    ? this.socialRadius[s1][s2] : 50;
+                const socialR2 = socialR * socialR;
+                
+                // Early exit if particle is too far for any interaction
+                if (dist2 > socialR2) continue;
+                
+                // Only calculate sqrt when needed
+                const dist = Math.sqrt(dist2);
+                const invDist = 1.0 / dist;
+                
                 // Collision force (always repulsive at close range)
-                const collisionR = Array.isArray(this.collisionRadius) ? this.collisionRadius[s1][s2] : this.collisionRadius;
-                if (dist < collisionR) {
-                    const force = this.collisionForce[s1][s2] / dist;
-                    fx += (dx / dist) * force;
-                    fy += (dy / dist) * force;
+                if (dist2 < collisionR2) {
+                    // Safety check for force matrix bounds
+                    if (this.collisionForce[s1] && this.collisionForce[s1][s2] !== undefined) {
+                        const force = this.collisionForce[s1][s2] * invDist;
+                        fx += dx * invDist * force;
+                        fy += dy * invDist * force;
+                    }
                 }
                 
                 // Social force (can be attractive or repulsive)
-                const socialR = Array.isArray(this.socialRadius) ? this.socialRadius[s1][s2] : this.socialRadius;
-                if (dist < socialR) {
-                    const force = this.socialForce[s1][s2] / dist;
-                    fx += (dx / dist) * force;
-                    fy += (dy / dist) * force;
+                if (dist2 < socialR2) {
+                    // Safety check for force matrix bounds
+                    if (this.socialForce[s1] && this.socialForce[s1][s2] !== undefined) {
+                        const force = this.socialForce[s1][s2] * invDist;
+                        fx += dx * invDist * force;
+                        fy += dy * invDist * force;
+                    }
                 }
             }
             
@@ -216,19 +343,124 @@ export class SimpleParticleSystem {
         
         // Render particles
         this.render();
+        
+        // Performance monitoring
+        this.frameCount++;
+        const frameTime = performance.now() - startTime;
+        this.avgFrameTime = this.avgFrameTime * 0.9 + frameTime * 0.1;
+        
+        if (this.frameCount % 60 === 0) {
+            const fps = 1000 / this.avgFrameTime;
+            if (fps < 30) {
+                console.warn(`Performance warning: ${fps.toFixed(1)} FPS, ${this.avgFrameTime.toFixed(2)}ms per frame`);
+            }
+        }
+    }
+    
+    getOrCreateGradient(speciesId, size) {
+        const species = this.species[speciesId];
+        const color = species.color;
+        const glowSize = size * this.glowRadius;
+        const cacheKey = `${speciesId}-${glowSize}-${this.glowIntensity}`;
+        
+        if (!this.gradientCache.has(cacheKey)) {
+            const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+            const intensity = this.glowIntensity;
+            gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${species.opacity * intensity})`);
+            gradient.addColorStop(0.4, `rgba(${color.r}, ${color.g}, ${color.b}, ${species.opacity * intensity * 0.5})`);
+            gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+            this.gradientCache.set(cacheKey, gradient);
+        }
+        
+        return this.gradientCache.get(cacheKey);
     }
     
     render() {
-        // Simple, clean rendering like Clusters
-        for (const particle of this.particles) {
-            const species = this.species[particle.species];
-            const color = species.color;
+        // Reset temp array pool for this frame
+        this.resetTempArrays();
+        
+        if (this.renderMode === 'dreamtime') {
+            // Save current composite operation
+            const prevComposite = this.ctx.globalCompositeOperation;
+            this.ctx.globalCompositeOperation = 'screen';
             
-            // Draw particle - simple circle
-            this.ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${species.opacity})`;
-            this.ctx.beginPath();
-            this.ctx.arc(particle.x, particle.y, species.size, 0, Math.PI * 2);
-            this.ctx.fill();
+            // Use pooled arrays for batching by species
+            const particlesBySpecies = new Array(this.numSpecies);
+            for (let i = 0; i < this.numSpecies; i++) {
+                particlesBySpecies[i] = this.getTempArray(this.particlesPerSpecies);
+            }
+            
+            for (const particle of this.particles) {
+                particlesBySpecies[particle.species].push(particle);
+            }
+            
+            // Render each species batch
+            for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
+                const speciesParticles = particlesBySpecies[speciesId];
+                if (speciesParticles.length === 0) continue;
+                
+                const species = this.species[speciesId];
+                const color = species.color;
+                const size = species.size;
+                const glowSize = size * this.glowRadius;
+                
+                // Get cached gradient
+                const gradient = this.getOrCreateGradient(speciesId, size);
+                
+                // Set transform and draw all particles of this species
+                this.ctx.save();
+                this.ctx.fillStyle = gradient;
+                
+                for (const particle of speciesParticles) {
+                    this.ctx.setTransform(1, 0, 0, 1, particle.x, particle.y);
+                    this.ctx.fillRect(-glowSize, -glowSize, glowSize * 2, glowSize * 2);
+                }
+                
+                this.ctx.restore();
+                
+                // Draw bright cores for this species
+                this.ctx.fillStyle = `rgba(${Math.min(255, color.r + 50)}, ${Math.min(255, color.g + 50)}, ${Math.min(255, color.b + 50)}, ${species.opacity})`;
+                this.ctx.beginPath();
+                for (const particle of speciesParticles) {
+                    this.ctx.moveTo(particle.x + size * 0.5, particle.y);
+                    this.ctx.arc(particle.x, particle.y, size * 0.5, 0, Math.PI * 2);
+                }
+                this.ctx.fill();
+            }
+            
+            // Restore composite operation
+            this.ctx.globalCompositeOperation = prevComposite;
+        } else {
+            // Normal rendering mode - batch by species for better performance
+            const particlesBySpecies = new Array(this.numSpecies);
+            for (let i = 0; i < this.numSpecies; i++) {
+                particlesBySpecies[i] = this.getTempArray(this.particlesPerSpecies);
+            }
+            
+            for (const particle of this.particles) {
+                particlesBySpecies[particle.species].push(particle);
+            }
+            
+            // Render each species batch
+            for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
+                const speciesParticles = particlesBySpecies[speciesId];
+                if (speciesParticles.length === 0) continue;
+                
+                const species = this.species[speciesId];
+                const color = species.color;
+                
+                // Set style once per species
+                this.ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${species.opacity})`;
+                this.ctx.beginPath();
+                
+                // Draw all particles of this species in one path
+                for (const particle of speciesParticles) {
+                    this.ctx.moveTo(particle.x + species.size, particle.y);
+                    this.ctx.arc(particle.x, particle.y, species.size, 0, Math.PI * 2);
+                }
+                
+                this.ctx.fill();
+            }
         }
     }
     
@@ -285,6 +517,15 @@ export class SimpleParticleSystem {
     
     // Load a full preset configuration
     loadFullPreset(preset) {
+        // Validate preset structure
+        if (!preset || !preset.species) {
+            console.error('Invalid preset: missing species configuration');
+            return;
+        }
+        
+        // Clear caches when loading new preset
+        this.clearCaches();
+        
         // Update species configuration
         this.numSpecies = preset.species.count;
         this.species = [];
@@ -317,6 +558,18 @@ export class SimpleParticleSystem {
         this.blur = preset.visual.blur;
         this.particleSize = preset.visual.particleSize;
         this.trailEnabled = preset.visual.trailEnabled;
+        this.backgroundColor = preset.visual.backgroundColor || '#000000';
+        
+        // Update render mode settings if present
+        if (preset.renderMode) {
+            this.renderMode = preset.renderMode;
+        }
+        if (preset.glowIntensity !== undefined) {
+            this.glowIntensity = preset.glowIntensity;
+        }
+        if (preset.glowRadius !== undefined) {
+            this.glowRadius = preset.glowRadius;
+        }
         
         // Update force matrices
         this.collisionForce = preset.forces.collision;
@@ -334,6 +587,14 @@ export class SimpleParticleSystem {
             const species = this.species[speciesId];
             const count = species.particleCount || this.particlesPerSpecies;
             const startPos = species.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 };
+            
+            // Ensure startPos has required properties
+            if (!startPos.center) {
+                startPos.center = { x: 0.5, y: 0.5 };
+            }
+            if (startPos.radius === undefined) {
+                startPos.radius = 0.1;
+            }
             
             for (let i = 0; i < count; i++) {
                 let x, y;
@@ -413,7 +674,7 @@ export class SimpleParticleSystem {
                 blur: this.blur,
                 particleSize: this.particleSize,
                 trailEnabled: this.trailEnabled,
-                backgroundColor: '#000000'
+                backgroundColor: this.backgroundColor
             },
             forces: {
                 collision: this.collisionForce,
@@ -442,6 +703,10 @@ export class SimpleParticleSystem {
     resize(width, height) {
         this.width = width;
         this.height = height;
+        this.gridWidth = Math.ceil(width / this.gridSize);
+        this.gridHeight = Math.ceil(height / this.gridSize);
+        this.initSpatialGrid();
+        this.gradientCache.clear(); // Clear cached gradients on resize
     }
     
     // Update parameters from UI
@@ -450,6 +715,8 @@ export class SimpleParticleSystem {
     }
     
     setSocialForce(i, j, value) {
-        this.socialForce[i][j] = value;
+        if (this.socialForce[i] && j < this.socialForce[i].length) {
+            this.socialForce[i][j] = value;
+        }
     }
 }

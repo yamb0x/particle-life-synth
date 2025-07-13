@@ -34,17 +34,25 @@ Each issue is documented as a numbered markdown file (01.md, 02.md, etc.) with t
    - Priority: Low
    - Status: Open
    
-5. **[05.md](05.md)** - Parameter inconsistency between configuration modal and floating UI
-   - Priority: High
+5. **[06.md](06.md)** - Implement Dreamtime-style rendering effect
+   - Priority: Medium
    - Status: Open
    
-6. **[06.md](06.md)** - Implement Dreamtime-style rendering effect
-   - Priority: Medium
+6. **[07.md](07.md)** - Slider display values not updating despite event listeners
+   - Priority: High
    - Status: Open
 
 ### Resolved Issues
 
-(None yet)
+1. **[05.md](05.md)** - Parameter inconsistency between configuration modal and floating UI
+   - Priority: High
+   - Status: ✅ **RESOLVED** (2025-07-12)
+   - Fixed bidirectional parameter synchronization between both UIs
+
+2. **[08.md](08.md)** - Preset loading errors - missing startPosition properties
+   - Priority: High
+   - Status: ✅ **RESOLVED** (2025-07-13)
+   - Fixed data validation and added defensive coding for incomplete preset data
 
 ## How to Use
 

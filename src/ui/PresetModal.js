@@ -77,7 +77,7 @@ export class PresetModal {
               </div>
             </div>
             <canvas id="force-editor-canvas" width="400" height="200" style="border: 1px solid #333; border-radius: 4px;"></canvas>
-            <div id="force-info" style="font-size: 11px; color: #888; margin-top: 5px;">
+            <div id="force-info" style="font-size: var(--font-size-sm); color: #888; margin-top: 5px;">
               Click and drag to set force value
             </div>
             <div style="margin-top: 20px;">
@@ -90,7 +90,7 @@ export class PresetModal {
             </div>
             <div style="margin-top: 15px;">
               <h5 style="margin-bottom: 10px;">Force Matrix View</h5>
-              <div id="force-matrix-view" style="font-family: monospace; font-size: 11px; background: #111; padding: 10px; border-radius: 4px; overflow-x: auto;"></div>
+              <div id="force-matrix-view" style="font-family: monospace; font-size: var(--font-size-md); background: #111; padding: 10px; border-radius: 4px; overflow-x: auto;"></div>
             </div>
           </div>
         </div>
@@ -109,7 +109,7 @@ export class PresetModal {
                 Particle Size
                 <span class="value-display" id="particle-size-value">2</span>
               </label>
-              <input type="range" class="range-slider" id="particle-size" min="1" max="10" step="0.5" value="2">
+              <input type="range" class="range-slider" id="particle-size" min="0.5" max="20" step="0.5" value="2">
             </div>
             <div class="control-group">
               <label>
@@ -131,35 +131,35 @@ export class PresetModal {
                 Friction
                 <span class="value-display" id="friction-value">0.05</span>
               </label>
-              <input type="range" class="range-slider" id="friction" min="0" max="0.2" step="0.01" value="0.05">
+              <input type="range" class="range-slider" id="friction" min="0" max="1.0" step="0.01" value="0.05">
             </div>
             <div class="control-group">
               <label>
                 Wall Damping
                 <span class="value-display" id="wall-damping-value">0.9</span>
               </label>
-              <input type="range" class="range-slider" id="wall-damping" min="0.5" max="1" step="0.05" value="0.9">
+              <input type="range" class="range-slider" id="wall-damping" min="0" max="2.0" step="0.05" value="0.9">
             </div>
             <div class="control-group">
               <label>
                 Force Factor
                 <span class="value-display" id="force-factor-value">0.5</span>
               </label>
-              <input type="range" class="range-slider" id="force-factor" min="0.1" max="2" step="0.1" value="0.5">
+              <input type="range" class="range-slider" id="force-factor" min="0.1" max="10" step="0.1" value="0.5">
             </div>
             <div class="control-group">
               <label>
                 Collision Radius
                 <span class="value-display" id="collision-radius-value">15</span>
               </label>
-              <input type="range" class="range-slider" id="collision-radius" min="5" max="30" step="1" value="15">
+              <input type="range" class="range-slider" id="collision-radius" min="1" max="100" step="1" value="15">
             </div>
             <div class="control-group">
               <label>
                 Social Radius
                 <span class="value-display" id="social-radius-value">50</span>
               </label>
-              <input type="range" class="range-slider" id="social-radius" min="20" max="100" step="5" value="50">
+              <input type="range" class="range-slider" id="social-radius" min="1" max="500" step="5" value="50">
             </div>
           </div>
         </div>
@@ -177,11 +177,9 @@ export class PresetModal {
       <div class="preset-modal-footer">
         <div class="preset-save-status"></div>
         <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
-        <button class="btn btn-secondary btn-sm preset-btn-cancel">Cancel</button>
-        <button class="btn btn-secondary btn-sm preset-btn-export">Export</button>
-        <button class="btn btn-secondary btn-sm preset-btn-export-all" title="Export all presets">Export All</button>
-        <button class="btn btn-secondary btn-sm preset-btn-import">Import</button>
-        <button class="btn btn-primary btn-sm preset-btn-save">Save as New</button>
+        <button class="btn btn-secondary btn-sm preset-btn-close">Close</button>
+        <button class="btn btn-secondary btn-sm preset-btn-save-new">Save as New</button>
+        <button class="btn btn-primary btn-sm preset-btn-save">Save</button>
         <button class="btn btn-primary btn-sm preset-btn-apply">Apply</button>
       </div>
     `;
@@ -312,6 +310,11 @@ export class PresetModal {
           color: var(--text-primary);
           margin-bottom: var(--space-sm);
         }
+        
+        .preset-modal .btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -346,6 +349,8 @@ export class PresetModal {
       if (slider) {
         slider.addEventListener('input', (e) => {
           this.modal.querySelector(`#${id}-value`).textContent = e.target.value;
+          this.syncToParticleSystem(id, parseFloat(e.target.value));
+          this.syncToMainUI(id, parseFloat(e.target.value));
           this.markChanged();
         });
       }
@@ -353,15 +358,27 @@ export class PresetModal {
     
     // Track changes on other inputs
     this.modal.querySelector('.preset-name-input').addEventListener('input', () => this.markChanged());
-    this.modal.querySelector('#trail-enabled').addEventListener('change', () => this.markChanged());
-    this.modal.querySelector('#background-color').addEventListener('change', () => this.markChanged());
+    this.modal.querySelector('#trail-enabled').addEventListener('change', (e) => {
+      this.particleSystem.trailEnabled = e.target.checked;
+      const mainTrailCheckbox = document.getElementById('trails');
+      if (mainTrailCheckbox) {
+        mainTrailCheckbox.checked = e.target.checked;
+      }
+      this.markChanged();
+    });
+    this.modal.querySelector('#background-color').addEventListener('change', (e) => {
+      this.particleSystem.backgroundColor = e.target.value;
+      const mainBgColor = document.getElementById('background-color-main');
+      if (mainBgColor) {
+        mainBgColor.value = e.target.value;
+      }
+      this.markChanged();
+    });
     
-    this.modal.querySelector('.preset-btn-cancel').addEventListener('click', () => this.close());
+    this.modal.querySelector('.preset-btn-close').addEventListener('click', () => this.close());
     this.modal.querySelector('.preset-btn-apply').addEventListener('click', () => this.apply());
-    this.modal.querySelector('.preset-btn-save').addEventListener('click', () => this.saveAsNew());
-    this.modal.querySelector('.preset-btn-export').addEventListener('click', () => this.export());
-    this.modal.querySelector('.preset-btn-export-all').addEventListener('click', () => this.exportAll());
-    this.modal.querySelector('.preset-btn-import').addEventListener('click', () => this.import());
+    this.modal.querySelector('.preset-btn-save').addEventListener('click', () => this.save());
+    this.modal.querySelector('.preset-btn-save-new').addEventListener('click', () => this.saveAsNew());
     this.modal.querySelector('.preset-btn-delete').addEventListener('click', () => this.deletePreset());
     
     // Force preset buttons
@@ -395,6 +412,105 @@ export class PresetModal {
     }
   }
 
+  syncToParticleSystem(parameterId, value) {
+    switch(parameterId) {
+      case 'blur':
+        this.particleSystem.blur = value;
+        break;
+      case 'particle-size':
+        this.particleSystem.particleSize = value;
+        for (let i = 0; i < this.particleSystem.species.length; i++) {
+          this.particleSystem.species[i].size = value + (Math.random() - 0.5);
+        }
+        break;
+      case 'friction':
+        this.particleSystem.friction = 1.0 - value; // Convert UI friction to physics friction
+        break;
+      case 'wall-damping':
+        this.particleSystem.wallDamping = value;
+        break;
+      case 'force-factor':
+        this.particleSystem.forceFactor = value;
+        break;
+      case 'collision-radius':
+        for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+          for (let j = 0; j < this.particleSystem.numSpecies; j++) {
+            this.particleSystem.collisionRadius[i][j] = value;
+          }
+        }
+        break;
+      case 'social-radius':
+        for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+          for (let j = 0; j < this.particleSystem.numSpecies; j++) {
+            this.particleSystem.socialRadius[i][j] = value;
+          }
+        }
+        break;
+    }
+  }
+
+  syncToMainUI(parameterId, value) {
+    // Update corresponding controls in the main UI
+    switch(parameterId) {
+      case 'blur':
+        const blurSlider = document.getElementById('blur');
+        const blurValue = document.getElementById('blur-value');
+        if (blurSlider && blurValue) {
+          blurSlider.value = value;
+          blurValue.textContent = value.toFixed(2);
+        }
+        break;
+      case 'particle-size':
+        const sizeSlider = document.getElementById('particle-size');
+        const sizeValue = document.getElementById('particle-size-value');
+        if (sizeSlider && sizeValue) {
+          sizeSlider.value = value;
+          sizeValue.textContent = value.toFixed(1);
+        }
+        break;
+      case 'friction':
+        const frictionSlider = document.getElementById('friction');
+        const frictionValue = document.getElementById('friction-value');
+        if (frictionSlider && frictionValue) {
+          frictionSlider.value = value;
+          frictionValue.textContent = value.toFixed(2);
+        }
+        break;
+      case 'wall-damping':
+        const wallSlider = document.getElementById('wall-damping');
+        const wallValue = document.getElementById('wall-damping-value');
+        if (wallSlider && wallValue) {
+          wallSlider.value = value;
+          wallValue.textContent = value.toFixed(2);
+        }
+        break;
+      case 'force-factor':
+        const forceSlider = document.getElementById('force');
+        const forceValue = document.getElementById('force-value');
+        if (forceSlider && forceValue) {
+          forceSlider.value = value;
+          forceValue.textContent = value.toFixed(1);
+        }
+        break;
+      case 'collision-radius':
+        const collisionSlider = document.getElementById('collision-radius');
+        const collisionValue = document.getElementById('collision-radius-value');
+        if (collisionSlider && collisionValue) {
+          collisionSlider.value = value;
+          collisionValue.textContent = value;
+        }
+        break;
+      case 'social-radius':
+        const socialSlider = document.getElementById('social-radius');
+        const socialValue = document.getElementById('social-radius-value');
+        if (socialSlider && socialValue) {
+          socialSlider.value = value;
+          socialValue.textContent = value;
+        }
+        break;
+    }
+  }
+
   updateSpeciesCount(count) {
     if (!this.currentPreset) return;
     
@@ -424,9 +540,26 @@ export class PresetModal {
       this.currentPreset.forces.social = this.shrinkMatrix(this.currentPreset.forces.social, count);
     }
     
+    // Apply changes to particle system immediately
+    this.particleSystem.numSpecies = count;
+    this.particleSystem.initializeSpecies();
+    this.particleSystem.initializeParticles();
+    
+    // Update force matrices from the expanded/shrunk preset matrices
+    this.particleSystem.collisionForce = this.currentPreset.forces.collision;
+    this.particleSystem.socialForce = this.currentPreset.forces.social;
+    
     this.updateSpeciesList();
     if (this.activeTab === 'layout') {
       this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
+    }
+    
+    // Update main UI species count display
+    const numSpeciesSlider = document.getElementById('num-species');
+    const numSpeciesValue = document.getElementById('num-species-value');
+    if (numSpeciesSlider && numSpeciesValue) {
+      numSpeciesSlider.value = count;
+      numSpeciesValue.textContent = count;
     }
   }
 
@@ -489,6 +622,10 @@ export class PresetModal {
       
       const colorPicker = new ColorPicker((color) => {
         this.currentPreset.species.definitions[index].color = color;
+        // Update particle system species color in real-time
+        if (this.particleSystem.species[index]) {
+          this.particleSystem.species[index].color = color;
+        }
         if (this.activeTab === 'layout') {
           this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
         }
@@ -507,7 +644,7 @@ export class PresetModal {
             <span class="value-display" id="species-${index}-count">${species.particleCount}</span>
           </label>
           <input type="range" class="range-slider species-particle-count" data-index="${index}" 
-                 min="10" max="200" value="${species.particleCount}">
+                 min="1" max="1000" value="${species.particleCount}">
         </div>
       `;
       
@@ -524,6 +661,18 @@ export class PresetModal {
         const count = parseInt(e.target.value);
         this.currentPreset.species.definitions[index].particleCount = count;
         speciesDiv.querySelector(`#species-${index}-count`).textContent = count;
+        
+        // Apply the change to the particle system immediately
+        this.particleSystem.species[index].particleCount = count;
+        this.particleSystem.initializeParticles();
+        
+        // Update main UI total particle count
+        const totalParticles = this.currentPreset.species.definitions.reduce((sum, spec) => sum + spec.particleCount, 0);
+        const totalDisplay = document.getElementById('total-particles');
+        if (totalDisplay) {
+          totalDisplay.textContent = totalParticles;
+        }
+        
         this.markChanged();
       });
     });
@@ -542,11 +691,41 @@ export class PresetModal {
     }
     
     this.loadPresetToUI();
+    this.updateButtonStates();
     this.overlay.style.display = 'flex';
     this.isOpen = true;
     this.hasChanges = false;
     this.switchTab('species');
     this.updateSaveStatus('');
+  }
+
+  updateButtonStates() {
+    const saveBtn = this.modal.querySelector('.preset-btn-save');
+    const saveNewBtn = this.modal.querySelector('.preset-btn-save-new');
+    const deleteBtn = this.modal.querySelector('.preset-btn-delete');
+    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    const isBuiltIn = builtInPresets.includes(this.currentPresetKey);
+    const isNew = !this.currentPresetKey;
+    
+    // Save button - always stays "Save" but behavior changes
+    saveBtn.textContent = 'Save';
+    
+    if (isNew) {
+      saveBtn.title = 'Save as new preset (no current preset to update)';
+      deleteBtn.disabled = true;
+      deleteBtn.title = 'Cannot delete unsaved preset';
+    } else if (isBuiltIn) {
+      saveBtn.title = 'Cannot overwrite built-in preset - will save as new instead';
+      deleteBtn.disabled = false;
+      deleteBtn.title = 'Delete this built-in preset';
+    } else {
+      saveBtn.title = 'Save changes to current preset';
+      deleteBtn.disabled = false;
+      deleteBtn.title = 'Delete this preset';
+    }
+    
+    // Save as New button - always available
+    saveNewBtn.title = 'Create a new preset copy';
   }
 
   close() {
@@ -569,6 +748,9 @@ export class PresetModal {
     } else {
       this.updateSaveStatus('Changed (auto-saving...)');
     }
+    
+    // Update button states in case preset type changed
+    this.updateButtonStates();
     
     // Clear existing timeout
     clearTimeout(this.autoSaveTimeout);
@@ -654,6 +836,9 @@ export class PresetModal {
   getPresetFromUI() {
     this.currentPreset.name = this.modal.querySelector('.preset-name-input').value;
     
+    // Update species count from UI
+    this.currentPreset.species.count = parseInt(this.modal.querySelector('#species-count').value);
+    
     this.currentPreset.visual.blur = parseFloat(this.modal.querySelector('#blur').value);
     this.currentPreset.visual.particleSize = parseFloat(this.modal.querySelector('#particle-size').value);
     this.currentPreset.visual.trailEnabled = this.modal.querySelector('#trail-enabled').checked;
@@ -684,21 +869,42 @@ export class PresetModal {
     const preset = this.getPresetFromUI();
     this.particleSystem.loadFullPreset(preset);
     
-    // Update the selector if we have a preset key
-    if (this.currentPresetKey) {
-      const selector = document.getElementById('preset-selector');
-      if (selector) {
-        selector.value = this.currentPresetKey;
-        localStorage.setItem('lastSelectedPreset', this.currentPresetKey);
-      }
-    }
-    
     // Update the main UI to reflect the new values
     if (window.updateUIFromPreset) {
       window.updateUIFromPreset(this.particleSystem);
     }
     
-    this.close();
+    // Note: Apply does NOT save the preset - just applies changes temporarily
+  }
+
+  async save() {
+    if (!this.currentPresetKey) {
+      // If no preset key, treat as "Save as New"
+      return this.saveAsNew();
+    }
+    
+    // Check if it's a built-in preset
+    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    if (builtInPresets.includes(this.currentPresetKey)) {
+      // Can't save over built-in presets, must save as new
+      return this.saveAsNew();
+    }
+    
+    try {
+      const preset = this.getPresetFromUI();
+      await this.presetManager.savePreset(this.currentPresetKey, preset);
+      this.hasChanges = false;
+      this.updateSaveStatus('Saved ✓');
+      
+      // Clear status after 3 seconds
+      setTimeout(() => {
+        if (!this.hasChanges) {
+          this.updateSaveStatus('');
+        }
+      }, 3000);
+    } catch (error) {
+      this.updateSaveStatus('Save failed!');
+    }
   }
 
   async saveAsNew() {
@@ -727,62 +933,6 @@ export class PresetModal {
     }, 3000);
   }
 
-  export() {
-    const preset = this.getPresetFromUI();
-    const json = JSON.stringify(preset, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${preset.name.replace(/\s+/g, '_')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  import() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const result = await this.presetManager.storage.importPresets(e.target.result);
-          
-          if (window.updatePresetSelector) {
-            window.updatePresetSelector();
-          }
-          
-          alert(`Successfully imported ${result.imported} preset(s)`);
-          
-          // If single preset, load it
-          if (result.imported === 1 && result.keys[0]) {
-            const preset = await this.presetManager.storage.loadPreset(result.keys[0]);
-            if (preset) {
-              this.currentPreset = preset;
-              this.currentPresetKey = result.keys[0];
-              this.loadPresetToUI();
-            }
-          }
-        } catch (error) {
-          alert('Failed to import preset: ' + error.message);
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  }
-  
-  async exportAll() {
-    try {
-      await this.presetManager.storage.exportAllPresets();
-    } catch (error) {
-      alert('Failed to export presets: ' + error.message);
-    }
-  }
   
   async deletePreset() {
     if (!this.currentPresetKey) {
