@@ -1,6 +1,7 @@
 import { StartPositionEditor } from './StartPositionEditor.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ForceEditor } from './ForceEditor.js';
+import { SpeciesGlowControl } from './SpeciesGlowControl.js';
 
 export class PresetModal {
   constructor(particleSystem, presetManager) {
@@ -12,6 +13,7 @@ export class PresetModal {
     this.startPositionEditor = null;
     this.forceEditor = null;
     this.colorPickers = [];
+    this.speciesGlowControl = null;
     this.isOpen = false;
     this.hasChanges = false;
     this.autoSaveTimeout = null;
@@ -121,6 +123,7 @@ export class PresetModal {
               <label>Background Color:</label>
               <input type="color" id="background-color" value="#000000">
             </div>
+            <div id="modal-species-glow-container"></div>
           </div>
         </div>
         
@@ -328,6 +331,13 @@ export class PresetModal {
     const forceCanvas = this.modal.querySelector('#force-editor-canvas');
     this.forceEditor = new ForceEditor(forceCanvas, () => this.markChanged());
     this.forceEditor.setInfoElement(this.modal.querySelector('#force-info'));
+    
+    // Initialize Species Glow Control
+    this.speciesGlowControl = new SpeciesGlowControl(this.particleSystem);
+    const glowContainer = this.modal.querySelector('#modal-species-glow-container');
+    if (glowContainer) {
+      glowContainer.appendChild(this.speciesGlowControl.createElement());
+    }
   }
 
   attachEventListeners() {
@@ -346,14 +356,22 @@ export class PresetModal {
       this.markChanged();
     });
     
-    const sliders = ['blur', 'particle-size', 'friction', 'wall-damping', 'force-factor', 'collision-radius', 'social-radius'];
-    sliders.forEach(id => {
-      const slider = this.modal.querySelector(`#${id}`);
+    const sliders = [
+      { id: 'modal-blur', valueId: 'blur-value', syncId: 'blur' },
+      { id: 'particle-size', valueId: 'particle-size-value', syncId: 'particle-size' },
+      { id: 'modal-friction', valueId: 'modal-friction-value', syncId: 'friction' },
+      { id: 'modal-wall-damping', valueId: 'wall-damping-value', syncId: 'wall-damping' },
+      { id: 'force-factor', valueId: 'force-factor-value', syncId: 'force-factor' },
+      { id: 'modal-collision-radius', valueId: 'collision-radius-value', syncId: 'collision-radius' },
+      { id: 'modal-social-radius', valueId: 'social-radius-value', syncId: 'social-radius' }
+    ];
+    sliders.forEach(config => {
+      const slider = this.modal.querySelector(`#${config.id}`);
       if (slider) {
         slider.addEventListener('input', (e) => {
-          this.modal.querySelector(`#${id}-value`).textContent = e.target.value;
-          this.syncToParticleSystem(id, parseFloat(e.target.value));
-          this.syncToMainUI(id, parseFloat(e.target.value));
+          this.modal.querySelector(`#${config.valueId}`).textContent = e.target.value;
+          this.syncToParticleSystem(config.syncId, parseFloat(e.target.value));
+          this.syncToMainUI(config.syncId, parseFloat(e.target.value));
           this.markChanged();
         });
       }
@@ -563,6 +581,11 @@ export class PresetModal {
     if (numSpeciesSlider && numSpeciesValue) {
       numSpeciesSlider.value = count;
       numSpeciesValue.textContent = count;
+    }
+    
+    // Update species glow control
+    if (this.speciesGlowControl) {
+      this.speciesGlowControl.updateSpeciesList();
     }
   }
 
@@ -808,22 +831,22 @@ export class PresetModal {
     this.modal.querySelector('#species-count').value = this.currentPreset.species.count;
     this.modal.querySelector('#species-count-value').textContent = this.currentPreset.species.count;
     
-    this.modal.querySelector('#blur').value = this.currentPreset.visual.blur;
+    this.modal.querySelector('#modal-blur').value = this.currentPreset.visual.blur;
     this.modal.querySelector('#blur-value').textContent = this.currentPreset.visual.blur;
     this.modal.querySelector('#particle-size').value = this.currentPreset.visual.particleSize;
     this.modal.querySelector('#particle-size-value').textContent = this.currentPreset.visual.particleSize;
     this.modal.querySelector('#trail-enabled').checked = this.currentPreset.visual.trailEnabled;
-    this.modal.querySelector('#background-color').value = this.currentPreset.visual.backgroundColor;
+    this.modal.querySelector('#background-color').value = this.currentPreset.visual.backgroundColor || '#000000';
     
-    this.modal.querySelector('#friction').value = this.currentPreset.physics.friction;
-    this.modal.querySelector('#friction-value').textContent = this.currentPreset.physics.friction;
-    this.modal.querySelector('#wall-damping').value = this.currentPreset.physics.wallDamping;
+    this.modal.querySelector('#modal-friction').value = this.currentPreset.physics.friction;
+    this.modal.querySelector('#modal-friction-value').textContent = this.currentPreset.physics.friction;
+    this.modal.querySelector('#modal-wall-damping').value = this.currentPreset.physics.wallDamping;
     this.modal.querySelector('#wall-damping-value').textContent = this.currentPreset.physics.wallDamping;
     this.modal.querySelector('#force-factor').value = this.currentPreset.physics.forceFactor;
     this.modal.querySelector('#force-factor-value').textContent = this.currentPreset.physics.forceFactor;
-    this.modal.querySelector('#collision-radius').value = this.currentPreset.physics.collisionRadius;
+    this.modal.querySelector('#modal-collision-radius').value = this.currentPreset.physics.collisionRadius;
     this.modal.querySelector('#collision-radius-value').textContent = this.currentPreset.physics.collisionRadius;
-    this.modal.querySelector('#social-radius').value = this.currentPreset.physics.socialRadius;
+    this.modal.querySelector('#modal-social-radius').value = this.currentPreset.physics.socialRadius;
     this.modal.querySelector('#social-radius-value').textContent = this.currentPreset.physics.socialRadius;
     
     this.updateSpeciesList();
@@ -834,6 +857,11 @@ export class PresetModal {
       this.forceEditor.setForceMatrix(this.currentPreset.forces.social);
       this.forceEditor.setSpecies(this.currentPreset.species.definitions);
     }
+    
+    // Update species glow control
+    if (this.speciesGlowControl) {
+      this.speciesGlowControl.updateFromParticleSystem();
+    }
   }
 
   getPresetFromUI() {
@@ -842,16 +870,16 @@ export class PresetModal {
     // Update species count from UI
     this.currentPreset.species.count = parseInt(this.modal.querySelector('#species-count').value);
     
-    this.currentPreset.visual.blur = parseFloat(this.modal.querySelector('#blur').value);
+    this.currentPreset.visual.blur = parseFloat(this.modal.querySelector('#modal-blur').value);
     this.currentPreset.visual.particleSize = parseFloat(this.modal.querySelector('#particle-size').value);
     this.currentPreset.visual.trailEnabled = this.modal.querySelector('#trail-enabled').checked;
     this.currentPreset.visual.backgroundColor = this.modal.querySelector('#background-color').value;
     
-    this.currentPreset.physics.friction = parseFloat(this.modal.querySelector('#friction').value);
-    this.currentPreset.physics.wallDamping = parseFloat(this.modal.querySelector('#wall-damping').value);
+    this.currentPreset.physics.friction = parseFloat(this.modal.querySelector('#modal-friction').value);
+    this.currentPreset.physics.wallDamping = parseFloat(this.modal.querySelector('#modal-wall-damping').value);
     this.currentPreset.physics.forceFactor = parseFloat(this.modal.querySelector('#force-factor').value);
-    this.currentPreset.physics.collisionRadius = parseFloat(this.modal.querySelector('#collision-radius').value);
-    this.currentPreset.physics.socialRadius = parseFloat(this.modal.querySelector('#social-radius').value);
+    this.currentPreset.physics.collisionRadius = parseFloat(this.modal.querySelector('#modal-collision-radius').value);
+    this.currentPreset.physics.socialRadius = parseFloat(this.modal.querySelector('#modal-social-radius').value);
     
     const positions = this.startPositionEditor.getPositions();
     positions.forEach((pos, index) => {

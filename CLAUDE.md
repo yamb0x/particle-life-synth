@@ -109,6 +109,9 @@ When working on this project:
 - Keep the vanilla JS approach
 - Don't add unnecessary comments to code
 
+## AI Collaboration Guidelines
+- Never decide that an issue is resolved before the user has tested it
+
 ## Current State
 
 - Visual engine: 100% complete ✓
@@ -134,8 +137,12 @@ When working on this project:
 The `/issues` folder contains all documented bugs and improvements:
 - When user asks to "tackle an open issue" or mentions bugs, check the `/issues` folder
 - Read `/issues/README.md` for current issue list and status
-- Each issue is a numbered .md file with full details
-- After fixing an issue, update the .md file with resolution and mark as resolved in README.md
+- Open issues are in the main `/issues` folder (e.g., `01.md`, `02.md`)
+- Resolved issues are in `/issues/completed/` subfolder
+- After fixing an issue:
+  1. Update the issue .md file with resolution details
+  2. Move the file to `/issues/completed/`
+  3. Update `/issues/README.md` to reflect the new location
 - Common user phrases that should trigger checking issues:
   - "fix a bug"
   - "tackle an issue"

@@ -1,4 +1,5 @@
 import { XYGraph } from './XYGraph.js';
+import { SpeciesGlowControl } from './SpeciesGlowControl.js';
 
 export class MainUI {
     constructor(particleSystem, presetManager) {
@@ -7,6 +8,7 @@ export class MainUI {
         this.isVisible = true;
         this.container = null;
         this.forceGraph = null;
+        this.speciesGlowControl = null;
         
         this.init();
         this.setupKeyboardShortcuts();
@@ -108,6 +110,7 @@ export class MainUI {
                             Dreamtime Effect
                         </label>
                     </div>
+                    <div id="species-glow-container"></div>
                 </div>
                 
                 <!-- Physics Settings -->
@@ -283,6 +286,25 @@ export class MainUI {
                 margin-top: var(--space-md);
                 text-align: center;
             }
+            
+            /* Species glow control styles */
+            .species-glow-control {
+                margin-top: var(--space-md);
+            }
+            
+            .species-glow-selector-group {
+                margin-bottom: var(--space-sm);
+            }
+            
+            .species-glow-selector-group .select-sm {
+                width: 100%;
+            }
+            
+            .glow-controls {
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-sm);
+            }
         `;
         document.head.appendChild(style);
         
@@ -305,6 +327,13 @@ export class MainUI {
                 this.updateGraphInfo();
             }
         });
+        
+        // Initialize Species Glow Control
+        this.speciesGlowControl = new SpeciesGlowControl(this.particleSystem);
+        const glowContainer = document.getElementById('species-glow-container');
+        if (glowContainer) {
+            glowContainer.appendChild(this.speciesGlowControl.createElement());
+        }
         
         // Setup event listeners AFTER DOM elements are added
         this.setupEventListeners();
@@ -377,6 +406,11 @@ export class MainUI {
             document.getElementById('total-particles').textContent = newSpecies * this.particleSystem.particlesPerSpecies;
             this.updateSpeciesSelectors(newSpecies);
             this.updateGraph();
+            
+            // Update species glow control
+            if (this.speciesGlowControl) {
+                this.speciesGlowControl.updateSpeciesList();
+            }
             
             // Sync to modal if open
             if (window.presetModal && window.presetModal.isOpen) {
@@ -691,6 +725,11 @@ export class MainUI {
         const bgColorMain = document.getElementById('background-color-main');
         if (bgColorMain && ps.backgroundColor) {
             bgColorMain.value = ps.backgroundColor;
+        }
+        
+        // Update species glow control
+        if (this.speciesGlowControl) {
+            this.speciesGlowControl.updateFromParticleSystem();
         }
     }
 }

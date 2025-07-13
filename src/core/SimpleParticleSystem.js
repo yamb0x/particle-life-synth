@@ -31,6 +31,10 @@ export class SimpleParticleSystem {
         this.glowIntensity = 0.5; // 0-1, how strong the glow effect is
         this.glowRadius = 2.0; // Multiplier for glow size relative to particle size
         
+        // Per-species glow values
+        this.speciesGlowSize = new Array(10).fill(1.0); // Glow size multiplier (0.5-3.0)
+        this.speciesGlowIntensity = new Array(10).fill(0); // Glow intensity (0-1)
+        
         // Physics settings
         this.friction = 0.98;
         this.wallDamping = 0.8;
@@ -43,6 +47,12 @@ export class SimpleParticleSystem {
         // Initialize species with distinct visual properties
         this.species = [];
         this.initializeSpecies();
+        
+        // Initialize per-species glow
+        for (let i = 0; i < this.numSpecies; i++) {
+            this.speciesGlowSize[i] = 1.0; // Default: normal size
+            this.speciesGlowIntensity[i] = 0; // Default: no extra glow
+        }
         
         // Asymmetric force matrices - the key to interesting behaviors!
         this.collisionRadius = this.createMatrix(15, 25); // Close range
@@ -156,6 +166,16 @@ export class SimpleParticleSystem {
             };
         }
         
+        // Reinitialize per-species glow for new species count
+        for (let i = 0; i < this.numSpecies; i++) {
+            if (this.speciesGlowSize[i] === undefined) {
+                this.speciesGlowSize[i] = 1.0;
+            }
+            if (this.speciesGlowIntensity[i] === undefined) {
+                this.speciesGlowIntensity[i] = 0;
+            }
+        }
+        
         // Reinitialize force matrices for new species count
         this.collisionRadius = this.createMatrix(15, 25);
         this.socialRadius = this.createMatrix(50, 150);
@@ -232,13 +252,19 @@ export class SimpleParticleSystem {
         // Update spatial grid for optimized neighbor search
         this.updateSpatialGrid();
         
-        // Trail effect - using globalAlpha to ensure complete fade to black
+        // Trail effect - using globalAlpha to create fading effect
         if (this.trailEnabled) {
-            // Set composite operation and alpha
+            // Set composite operation and alpha for trail effect
             this.ctx.globalCompositeOperation = 'source-over';
-            this.ctx.globalAlpha = this.blur;  // Use blur directly - 0.95 = 95% black = short trails
+            // Trail logic based on UI: "Lower = longer trails"
+            // blur = 0.5 (low) should give long trails (little fade)
+            // blur = 0.95 (high) should give short trails (lots of fade)
+            // fadeAlpha controls how much background to blend in
+            // For longer trails we want less fade, for shorter trails we want more fade
+            const fadeAlpha = this.blur; // Use blur directly as fade amount
+            this.ctx.globalAlpha = fadeAlpha;
             
-            // Fill with background color
+            // Fill with background color to create fade effect
             this.ctx.fillStyle = this.backgroundColor;
             this.ctx.fillRect(0, 0, this.width, this.height);
             
@@ -402,13 +428,40 @@ export class SimpleParticleSystem {
                 const species = this.species[speciesId];
                 const color = species.color;
                 const size = species.size;
-                const glowSize = size * this.glowRadius;
+                const baseGlowSize = size * this.glowRadius;
+                const speciesGlowSize = this.speciesGlowSize[speciesId] || 1.0;
+                const speciesGlowIntensity = this.speciesGlowIntensity[speciesId] || 0;
                 
-                // Get cached gradient
-                const gradient = this.getOrCreateGradient(speciesId, size);
-                
-                // Set transform and draw all particles of this species
                 this.ctx.save();
+                
+                // Draw enhanced glow if enabled
+                if (speciesGlowIntensity > 0) {
+                    // Multiple glow layers for enhanced effect
+                    const glowLayers = [
+                        { sizeMultiplier: 3.0, alpha: 0.05 * speciesGlowIntensity },
+                        { sizeMultiplier: 2.0, alpha: 0.1 * speciesGlowIntensity },
+                        { sizeMultiplier: 1.5, alpha: 0.15 * speciesGlowIntensity }
+                    ];
+                    
+                    for (const layer of glowLayers) {
+                        const layerGlowSize = baseGlowSize * speciesGlowSize * layer.sizeMultiplier;
+                        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, layerGlowSize);
+                        gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${layer.alpha})`);
+                        gradient.addColorStop(0.5, `rgba(${color.r}, ${color.g}, ${color.b}, ${layer.alpha * 0.5})`);
+                        gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+                        
+                        this.ctx.fillStyle = gradient;
+                        
+                        for (const particle of speciesParticles) {
+                            this.ctx.setTransform(1, 0, 0, 1, particle.x, particle.y);
+                            this.ctx.fillRect(-layerGlowSize, -layerGlowSize, layerGlowSize * 2, layerGlowSize * 2);
+                        }
+                    }
+                }
+                
+                // Draw standard glow
+                const glowSize = baseGlowSize * speciesGlowSize;
+                const gradient = this.getOrCreateGradient(speciesId, size);
                 this.ctx.fillStyle = gradient;
                 
                 for (const particle of speciesParticles) {
@@ -416,9 +469,9 @@ export class SimpleParticleSystem {
                     this.ctx.fillRect(-glowSize, -glowSize, glowSize * 2, glowSize * 2);
                 }
                 
-                this.ctx.restore();
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 
-                // Draw bright cores for this species
+                // Draw bright cores
                 this.ctx.fillStyle = `rgba(${Math.min(255, color.r + 50)}, ${Math.min(255, color.g + 50)}, ${Math.min(255, color.b + 50)}, ${species.opacity})`;
                 this.ctx.beginPath();
                 for (const particle of speciesParticles) {
@@ -426,6 +479,8 @@ export class SimpleParticleSystem {
                     this.ctx.arc(particle.x, particle.y, size * 0.5, 0, Math.PI * 2);
                 }
                 this.ctx.fill();
+                
+                this.ctx.restore();
             }
             
             // Restore composite operation
@@ -448,18 +503,49 @@ export class SimpleParticleSystem {
                 
                 const species = this.species[speciesId];
                 const color = species.color;
+                const speciesGlowSize = this.speciesGlowSize[speciesId] || 1.0;
+                const speciesGlowIntensity = this.speciesGlowIntensity[speciesId] || 0;
                 
-                // Set style once per species
+                this.ctx.save();
+                
+                // Draw enhanced glow if enabled
+                if (speciesGlowIntensity > 0) {
+                    this.ctx.globalCompositeOperation = 'lighter';
+                    
+                    // Multiple glow layers for enhanced effect
+                    const glowLayers = [
+                        { sizeMultiplier: 2.5, alpha: 0.03 * speciesGlowIntensity },
+                        { sizeMultiplier: 1.8, alpha: 0.06 * speciesGlowIntensity },
+                        { sizeMultiplier: 1.3, alpha: 0.1 * speciesGlowIntensity }
+                    ];
+                    
+                    for (const layer of glowLayers) {
+                        const layerGlowSize = species.size * speciesGlowSize * layer.sizeMultiplier;
+                        this.ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${layer.alpha})`;
+                        this.ctx.beginPath();
+                        
+                        for (const particle of speciesParticles) {
+                            this.ctx.moveTo(particle.x + layerGlowSize, particle.y);
+                            this.ctx.arc(particle.x, particle.y, layerGlowSize, 0, Math.PI * 2);
+                        }
+                        
+                        this.ctx.fill();
+                    }
+                    
+                    this.ctx.globalCompositeOperation = 'source-over';
+                }
+                
+                // Draw particles
                 this.ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${species.opacity})`;
                 this.ctx.beginPath();
                 
-                // Draw all particles of this species in one path
                 for (const particle of speciesParticles) {
                     this.ctx.moveTo(particle.x + species.size, particle.y);
                     this.ctx.arc(particle.x, particle.y, species.size, 0, Math.PI * 2);
                 }
                 
                 this.ctx.fill();
+                this.ctx.restore();
             }
         }
     }
@@ -539,6 +625,9 @@ export class SimpleParticleSystem {
                 particleCount: def.particleCount,
                 startPosition: def.startPosition
             };
+            // Load per-species glow if available
+            this.speciesGlowSize[i] = def.glowSize !== undefined ? def.glowSize : 1.0;
+            this.speciesGlowIntensity[i] = def.glowIntensity !== undefined ? def.glowIntensity : 0;
         });
         
         // Update physics settings
@@ -560,16 +649,10 @@ export class SimpleParticleSystem {
         this.trailEnabled = preset.visual.trailEnabled;
         this.backgroundColor = preset.visual.backgroundColor || '#000000';
         
-        // Update render mode settings if present
-        if (preset.renderMode) {
-            this.renderMode = preset.renderMode;
-        }
-        if (preset.glowIntensity !== undefined) {
-            this.glowIntensity = preset.glowIntensity;
-        }
-        if (preset.glowRadius !== undefined) {
-            this.glowRadius = preset.glowRadius;
-        }
+        // Update render mode settings with defaults if not present
+        this.renderMode = preset.renderMode || 'normal';
+        this.glowIntensity = preset.glowIntensity !== undefined ? preset.glowIntensity : 0.5;
+        this.glowRadius = preset.glowRadius !== undefined ? preset.glowRadius : 2.0;
         
         // Update force matrices
         this.collisionForce = preset.forces.collision;
@@ -659,7 +742,9 @@ export class SimpleParticleSystem {
                     size: s.size,
                     opacity: s.opacity,
                     particleCount: s.particleCount || this.particlesPerSpecies,
-                    startPosition: s.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 }
+                    startPosition: s.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 },
+                    glowSize: this.speciesGlowSize[i] || 1.0,
+                    glowIntensity: this.speciesGlowIntensity[i] || 0
                 }))
             },
             physics: {
@@ -679,7 +764,10 @@ export class SimpleParticleSystem {
             forces: {
                 collision: this.collisionForce,
                 social: this.socialForce
-            }
+            },
+            renderMode: this.renderMode,
+            glowIntensity: this.glowIntensity,
+            glowRadius: this.glowRadius
         };
         
         return preset;
@@ -696,7 +784,9 @@ export class SimpleParticleSystem {
             forceFactor: this.forceFactor,
             numSpecies: this.numSpecies,
             particlesPerSpecies: this.particlesPerSpecies,
-            socialForce: this.socialForce
+            socialForce: this.socialForce,
+            speciesGlowSize: this.speciesGlowSize.slice(0, this.numSpecies),
+            speciesGlowIntensity: this.speciesGlowIntensity.slice(0, this.numSpecies)
         };
     }
     
@@ -718,5 +808,31 @@ export class SimpleParticleSystem {
         if (this.socialForce[i] && j < this.socialForce[i].length) {
             this.socialForce[i][j] = value;
         }
+    }
+    
+    setSpeciesGlowSize(speciesId, value) {
+        if (speciesId >= 0 && speciesId < this.numSpecies) {
+            this.speciesGlowSize[speciesId] = Math.max(0.5, Math.min(3, value));
+        }
+    }
+    
+    getSpeciesGlowSize(speciesId) {
+        if (speciesId >= 0 && speciesId < this.numSpecies) {
+            return this.speciesGlowSize[speciesId] || 1.0;
+        }
+        return 1.0;
+    }
+    
+    setSpeciesGlowIntensity(speciesId, value) {
+        if (speciesId >= 0 && speciesId < this.numSpecies) {
+            this.speciesGlowIntensity[speciesId] = Math.max(0, Math.min(1, value));
+        }
+    }
+    
+    getSpeciesGlowIntensity(speciesId) {
+        if (speciesId >= 0 && speciesId < this.numSpecies) {
+            return this.speciesGlowIntensity[speciesId] || 0;
+        }
+        return 0;
     }
 }

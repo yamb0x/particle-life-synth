@@ -39,6 +39,7 @@ async function init() {
     const mainUI = new MainUI(particleSystem, presetManager);
     window.mainUI = mainUI; // Make it globally accessible
     
+    
     // Make updateUIFromPreset available globally for PresetModal
     window.updateUIFromPreset = function(particleSystem) {
         mainUI.updateUIFromPreset();

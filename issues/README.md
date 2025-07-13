@@ -38,19 +38,41 @@ Each issue is documented as a numbered markdown file (01.md, 02.md, etc.) with t
    - Priority: Medium
    - Status: Open
 
+6. **[09.md](09.md)** - Convert configuration panel to floating window
+   - Priority: High
+   - Status: Open
+   - Make configuration panel draggable with no background overlay
+   
+7. **[10.md](10.md)** - Add Copy/Paste Settings feature
+   - Priority: High
+   - Status: Open
+   - Copy settings from main UI, paste into configuration panel
+   
+8. **[11.md](11.md)** - Add preset selector to configuration panel
+   - Priority: Medium
+   - Status: Open
+   - Allow switching presets without closing configuration
+
+9. **[12.md](12.md)** - Glow effect performance optimization
+   - Priority: Low
+   - Status: Open
+   - Future optimization opportunities for glow rendering
+
 ### Resolved Issues
 
-1. **[05.md](05.md)** - Parameter inconsistency between configuration modal and floating UI
+Resolved issues have been moved to the `completed/` subfolder for better organization.
+
+1. **[completed/05.md](completed/05.md)** - Parameter inconsistency between configuration modal and floating UI
    - Priority: High
    - Status: ✅ **RESOLVED** (2025-07-12)
    - Fixed bidirectional parameter synchronization between both UIs
 
-2. **[07.md](07.md)** - Slider display values not updating despite event listeners
+2. **[completed/07.md](completed/07.md)** - Slider display values not updating despite event listeners
    - Priority: High
    - Status: ✅ **RESOLVED** (2025-07-13)
    - Fixed canvas z-index blocking UI interaction, duplicate element IDs, and modal interference
 
-3. **[08.md](08.md)** - Preset loading errors - missing startPosition properties
+3. **[completed/08.md](completed/08.md)** - Preset loading errors - missing startPosition properties
    - Priority: High
    - Status: ✅ **RESOLVED** (2025-07-13)
    - Fixed data validation and added defensive coding for incomplete preset data
@@ -63,11 +85,26 @@ Each issue is documented as a numbered markdown file (01.md, 02.md, etc.) with t
    - Resolution details
    - Date fixed
    - Any breaking changes
-4. Move the issue to "Resolved" section in this README
+4. Move the issue file to the `completed/` subfolder
+5. Update the issue reference in this README to point to `completed/XX.md`
 
 ## Adding New Issues
 
-1. Create a new file with the next number (e.g., 05.md)
+1. Create a new file with the next number (e.g., 09.md) in the main issues folder
 2. Follow the issue format template
 3. Add to this README under "Open Issues"
 4. Update CLAUDE.md if it's a high-priority issue
+
+## Folder Structure
+
+```
+issues/
+├── README.md           # This file - current issue status
+├── 01.md              # Open issue
+├── 02.md              # Open issue
+├── ...                # More open issues
+└── completed/         # Resolved issues
+    ├── 05.md         # Resolved issue
+    ├── 07.md         # Resolved issue
+    └── ...           # More resolved issues
+```

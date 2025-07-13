@@ -20,11 +20,11 @@ export class PresetManager {
       species: {
         count: 5,
         definitions: [
-          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.2, y: 0.2 }, radius: 0.1 } },
-          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.8, y: 0.2 }, radius: 0.1 } },
-          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.5, y: 0.8 }, radius: 0.1 } },
-          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.2, y: 0.8 }, radius: 0.1 } },
-          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.8, y: 0.8 }, radius: 0.1 } }
+          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.2, y: 0.2 }, radius: 0.1 }, glowSize: 1.0, glowIntensity: 0 },
+          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.8, y: 0.2 }, radius: 0.1 }, glowSize: 1.0, glowIntensity: 0 },
+          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.5, y: 0.8 }, radius: 0.1 }, glowSize: 1.0, glowIntensity: 0 },
+          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.2, y: 0.8 }, radius: 0.1 }, glowSize: 1.0, glowIntensity: 0 },
+          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.8, y: 0.8 }, radius: 0.1 }, glowSize: 1.0, glowIntensity: 0 }
         ]
       },
       physics: {
@@ -58,11 +58,11 @@ export class PresetManager {
       species: {
         count: 5,
         definitions: [
-          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
-          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.25 } },
-          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.2 } },
-          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.15 } },
-          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.1 } }
+          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.2, glowIntensity: 0.3 },
+          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.25 }, glowSize: 1.2, glowIntensity: 0.3 },
+          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.2 }, glowSize: 1.2, glowIntensity: 0.3 },
+          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.15 }, glowSize: 1.2, glowIntensity: 0.3 },
+          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.1 }, glowSize: 1.2, glowIntensity: 0.3 }
         ]
       },
       physics: {
@@ -96,11 +96,11 @@ export class PresetManager {
       species: {
         count: 5,
         definitions: [
-          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
-          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
-          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
-          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
-          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 } }
+          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.5, glowIntensity: 0.4 },
+          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.5, glowIntensity: 0.4 },
+          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.5, glowIntensity: 0.4 },
+          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.5, glowIntensity: 0.4 },
+          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.5, glowIntensity: 0.4 }
         ]
       },
       physics: {
@@ -134,11 +134,11 @@ export class PresetManager {
       species: {
         count: 5,
         definitions: [
-          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } },
-          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } },
-          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } },
-          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } },
-          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } }
+          { id: 0, name: 'Red', color: { r: 255, g: 100, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.3, glowIntensity: 0.2 },
+          { id: 1, name: 'Green', color: { r: 100, g: 255, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.3, glowIntensity: 0.2 },
+          { id: 2, name: 'Blue', color: { r: 100, g: 150, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.3, glowIntensity: 0.2 },
+          { id: 3, name: 'Yellow', color: { r: 255, g: 200, b: 100 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.3, glowIntensity: 0.2 },
+          { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.3, glowIntensity: 0.2 }
         ]
       },
       physics: {
@@ -176,10 +176,10 @@ export class PresetManager {
       species: {
         count: 4,
         definitions: [
-          { id: 0, name: 'Cyan', color: { r: 100, g: 255, b: 255 }, size: 4, opacity: 0.8, particleCount: 80, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.3 } },
-          { id: 1, name: 'Magenta', color: { r: 255, g: 100, b: 255 }, size: 3.5, opacity: 0.8, particleCount: 80, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.2 } },
-          { id: 2, name: 'Gold', color: { r: 255, g: 215, b: 100 }, size: 4.5, opacity: 0.7, particleCount: 60, startPosition: { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.15 } },
-          { id: 3, name: 'Violet', color: { r: 150, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 } }
+          { id: 0, name: 'Cyan', color: { r: 100, g: 255, b: 255 }, size: 4, opacity: 0.8, particleCount: 80, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 2.0, glowIntensity: 0.7 },
+          { id: 1, name: 'Magenta', color: { r: 255, g: 100, b: 255 }, size: 3.5, opacity: 0.8, particleCount: 80, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.2 }, glowSize: 2.2, glowIntensity: 0.8 },
+          { id: 2, name: 'Gold', color: { r: 255, g: 215, b: 100 }, size: 4.5, opacity: 0.7, particleCount: 60, startPosition: { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.15 }, glowSize: 2.5, glowIntensity: 0.9 },
+          { id: 3, name: 'Violet', color: { r: 150, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.8, glowIntensity: 0.6 }
         ]
       },
       physics: {
