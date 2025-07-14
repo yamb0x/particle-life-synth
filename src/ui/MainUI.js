@@ -1,5 +1,5 @@
 import { XYGraph } from './XYGraph.js';
-import { SpeciesGlowControl } from './SpeciesGlowControl.js';
+import { PARAMETER_MAP, generateDefaultSynthAssignments } from '../utils/ParameterMapping.js';
 
 export class MainUI {
     constructor(particleSystem, presetManager) {
@@ -8,7 +8,9 @@ export class MainUI {
         this.isVisible = true;
         this.container = null;
         this.forceGraph = null;
-        this.speciesGlowControl = null;
+        this.copiedSettings = null;
+        this.currentEditingPreset = null;
+        this.synthAssignments = generateDefaultSynthAssignments();
         
         this.init();
         this.setupKeyboardShortcuts();
@@ -20,7 +22,7 @@ export class MainUI {
         this.container.className = 'panel main-ui';
         this.container.innerHTML = `
             <div class="panel-header">
-                <h3 class="panel-title">Particle Life</h3>
+                <h3 class="panel-title">Particle Life Synth</h3>
                 <button class="btn btn-icon btn-ghost" id="minimize-btn" title="Hide panel (C)">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M4 6h8v1H4z"/>
@@ -28,13 +30,11 @@ export class MainUI {
                 </button>
             </div>
             <div class="panel-content">
-                <!-- Preset Section -->
+                
+                <!-- 1. PRESETS Section -->
                 <div class="section">
+                    <h4 class="section-title">Presets</h4>
                     <div class="control-group">
-                        <label>
-                            Preset
-                            <button class="btn btn-primary btn-sm" id="configure-preset-btn">Configure</button>
-                        </label>
                         <select class="select" id="preset-selector">
                             <option value="">Custom</option>
                             <option value="predatorPrey">Predator-Prey</option>
@@ -45,126 +45,130 @@ export class MainUI {
                             <option value="random">Randomize</option>
                         </select>
                     </div>
+                    <div class="control-group">
+                        <button class="btn btn-primary btn-block" id="load-preset-btn">Load Preset</button>
+                    </div>
                 </div>
                 
-                <!-- Particle Settings -->
+                <!-- 2. PARTICLES Section -->
                 <div class="section">
                     <h4 class="section-title">Particles</h4>
                     <div class="control-group">
                         <label>
-                            Per Species
+                            Amount Scale
                             <span class="value-display" id="particles-per-species-value">${this.particleSystem.particlesPerSpecies}</span>
                         </label>
                         <input type="range" class="range-slider" id="particles-per-species" 
                                min="0" max="1000" step="10" value="${this.particleSystem.particlesPerSpecies}">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="particles-amount-synth" 
+                                   placeholder="e.g. LFO Rate, Grain Density" 
+                                   data-parameter="particles_amount_scale">
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>
                             Species Count
-                            <span class="value-display" id="num-species-value">${this.particleSystem.numSpecies}</span>
+                            <span class="value-display" id="species-count-value">${this.particleSystem.numSpecies}</span>
                         </label>
-                        <input type="range" class="range-slider" id="num-species" 
-                               min="1" max="10" step="1" value="${this.particleSystem.numSpecies}">
+                        <input type="range" class="range-slider" id="species-count" 
+                               min="1" max="20" step="1" value="${this.particleSystem.numSpecies}">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="species-count-synth" 
+                                   placeholder="e.g. Voice Count, OSC Mix" 
+                                   data-parameter="particles_species_count">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Initial Distribution</label>
+                        <select class="select select-sm" id="start-pattern">
+                            <option value="cluster">Cluster</option>
+                            <option value="ring">Ring</option>
+                            <option value="grid">Grid</option>
+                            <option value="random">Random</option>
+                        </select>
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="distribution-synth" 
+                                   placeholder="e.g. Wave Shape, Sample Start" 
+                                   data-parameter="particles_distribution_pattern">
+                        </div>
                     </div>
                     <div class="info-text">
                         Total: <span id="total-particles">${this.particleSystem.numSpecies * this.particleSystem.particlesPerSpecies}</span> particles
                     </div>
                 </div>
                 
-                <!-- Visual Settings -->
-                <div class="section">
-                    <h4 class="section-title">Visual</h4>
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="trails" ${this.particleSystem.trailEnabled ? 'checked' : ''}>
-                            Enable Trails
-                        </label>
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            Trail Length
-                            <span class="value-display" id="main-blur-value">${this.particleSystem.blur.toFixed(2)}</span>
-                        </label>
-                        <input type="range" class="range-slider" id="blur" 
-                               min="0.5" max="0.99" step="0.01" value="${this.particleSystem.blur}">
-                        <span class="info-text">Lower = longer trails</span>
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            Particle Size
-                            <span class="value-display" id="particle-size-value">${this.particleSystem.particleSize.toFixed(1)}</span>
-                        </label>
-                        <input type="range" class="range-slider" id="particle-size" 
-                               min="0.5" max="20" step="0.5" value="${this.particleSystem.particleSize}">
-                        <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 4px;">
-                            Visual size only (doesn't affect physics)
-                        </div>
-                    </div>
-                    <div class="control-group">
-                        <label>Background Color</label>
-                        <input type="color" id="background-color-main" value="#000000" style="width: 100%; height: 32px; border: 1px solid var(--border-default); border-radius: var(--radius-sm);">
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="dreamtime-mode" ${this.particleSystem.renderMode === 'dreamtime' ? 'checked' : ''}>
-                            Dreamtime Effect
-                        </label>
-                    </div>
-                    <div id="species-glow-container"></div>
-                </div>
-                
-                <!-- Physics Settings -->
+                <!-- 3. PHYSICS Section -->
                 <div class="section">
                     <h4 class="section-title">Physics</h4>
                     <div class="control-group">
                         <label>
                             Force Strength
-                            <span class="value-display" id="main-force-value">${this.particleSystem.forceFactor.toFixed(1)}</span>
+                            <span class="value-display" id="force-strength-value">${this.particleSystem.forceFactor.toFixed(1)}</span>
                         </label>
-                        <input type="range" class="range-slider" id="force" 
+                        <input type="range" class="range-slider" id="force-strength" 
                                min="0.1" max="10" step="0.1" value="${this.particleSystem.forceFactor}">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="force-strength-synth" 
+                                   placeholder="e.g. Filter Cutoff, LFO Amount" 
+                                   data-parameter="physics_force_strength">
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>
                             Friction
-                            <span class="value-display" id="main-friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
+                            <span class="value-display" id="friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="friction" 
-                               min="0" max="1.0" step="0.01" value="${1.0 - this.particleSystem.friction}">
+                               min="0" max="0.2" step="0.01" value="${1.0 - this.particleSystem.friction}">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="friction-synth" 
+                                   placeholder="e.g. Envelope Decay, Damping" 
+                                   data-parameter="physics_friction_amount">
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>
                             Wall Bounce
-                            <span class="value-display" id="main-wall-damping-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
+                            <span class="value-display" id="wall-bounce-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
                         </label>
-                        <input type="range" class="range-slider" id="wall-damping" 
+                        <input type="range" class="range-slider" id="wall-bounce" 
                                min="0" max="2.0" step="0.05" value="${this.particleSystem.wallDamping}">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="wall-bounce-synth" 
+                                   placeholder="e.g. Distortion, Compression" 
+                                   data-parameter="physics_wall_bounce">
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>
                             Collision Radius
-                            <span class="value-display" id="main-collision-radius-value">${this.particleSystem.collisionRadius[0][0]}</span>
+                            <span class="value-display" id="collision-radius-value">${this.particleSystem.collisionRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="collision-radius" 
                                min="1" max="100" step="1" value="${this.particleSystem.collisionRadius[0][0]}">
-                        <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 4px;">
-                            Distance for collision forces (independent of visual size)
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="collision-radius-synth" 
+                                   placeholder="e.g. Resonance, Feedback" 
+                                   data-parameter="physics_collision_radius">
                         </div>
                     </div>
                     <div class="control-group">
                         <label>
                             Social Radius
-                            <span class="value-display" id="main-social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
+                            <span class="value-display" id="social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="social-radius" 
                                min="1" max="500" step="5" value="${this.particleSystem.socialRadius[0][0]}">
-                        <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 4px;">
-                            Distance for attraction/repulsion forces
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="social-radius-synth" 
+                                   placeholder="e.g. Chorus Width, Stereo" 
+                                   data-parameter="physics_social_radius">
                         </div>
                     </div>
                 </div>
                 
-                <!-- Force Relationships -->
+                <!-- 4. FORCE RELATIONSHIPS Section -->
                 <div class="section">
                     <h4 class="section-title">Force Relationships</h4>
                     <div class="species-selectors">
@@ -193,21 +197,206 @@ export class MainUI {
                     <button class="btn btn-secondary btn-block btn-sm" id="clear-forces-btn">Clear All Forces</button>
                 </div>
                 
-                <!-- Info Message -->
-                <div class="info-message">
-                    For per-species settings (colors, names, particle counts) and starting positions, use the Configure panel
+                <!-- 5. EFFECTS Section -->
+                <div class="section">
+                    <h4 class="section-title">Effects</h4>
+                    
+                    <!-- Trail Effect -->
+                    <div class="effect-group">
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="trails-enabled" ${this.particleSystem.trailEnabled ? 'checked' : ''}>
+                                Enable Trails
+                            </label>
+                        </div>
+                        <div class="control-group" id="trail-controls" style="${!this.particleSystem.trailEnabled ? 'display: none;' : ''}">
+                            <label>
+                                Trail Length
+                                <span class="value-display" id="trail-length-value">${this.particleSystem.blur.toFixed(2)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="trail-length" 
+                                   min="0.0" max="0.99" step="0.01" value="${this.particleSystem.blur}">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="trail-length-synth" 
+                                       placeholder="e.g. Reverb Size, Delay Time" 
+                                       data-parameter="effects_trail_length">
+                            </div>
+                            <span class="info-text">Lower = longer trails</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Halo Effect (renamed from Dreamtime) -->
+                    <div class="effect-group">
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="halo-enabled" ${this.particleSystem.renderMode === 'dreamtime' ? 'checked' : ''}>
+                                Enable Halo
+                            </label>
+                        </div>
+                        <div class="control-group" id="halo-controls" style="${this.particleSystem.renderMode !== 'dreamtime' ? 'display: none;' : ''}">
+                            <label>
+                                Halo Intensity
+                                <span class="value-display" id="halo-intensity-value">${this.particleSystem.glowIntensity?.toFixed(2) || '0.80'}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="halo-intensity" 
+                                   min="0.0" max="1.0" step="0.05" value="${this.particleSystem.glowIntensity || 0.8}">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="halo-intensity-synth" 
+                                       placeholder="e.g. Ambient Level, Pad Mix" 
+                                       data-parameter="effects_halo_intensity">
+                            </div>
+                        </div>
+                        <div class="control-group" id="halo-radius-control" style="${this.particleSystem.renderMode !== 'dreamtime' ? 'display: none;' : ''}">
+                            <label>
+                                Halo Radius
+                                <span class="value-display" id="halo-radius-value">${this.particleSystem.glowRadius?.toFixed(1) || '3.0'}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="halo-radius" 
+                                   min="1.0" max="5.0" step="0.1" value="${this.particleSystem.glowRadius || 3.0}">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="halo-radius-synth" 
+                                       placeholder="e.g. Chorus Depth, Spread" 
+                                       data-parameter="effects_halo_radius">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Species Glow Effect -->
+                    <div class="effect-group">
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="species-glow-enabled">
+                                Species Glow
+                            </label>
+                        </div>
+                        <div class="control-group" id="species-glow-controls" style="display: none;">
+                            <label>Glow Species</label>
+                            <select class="select select-sm" id="glow-species-selector">
+                                <option value="0">Red</option>
+                                <option value="1">Green</option>
+                                <option value="2">Blue</option>
+                                <option value="3">Yellow</option>
+                                <option value="4">Purple</option>
+                            </select>
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="glow-species-synth" 
+                                       placeholder="e.g. Lead Voice, Solo Target" 
+                                       data-parameter="effects_species_glow_target">
+                            </div>
+                        </div>
+                        <div class="control-group" id="species-glow-size-control" style="display: none;">
+                            <label>
+                                Glow Size
+                                <span class="value-display" id="species-glow-size-value">1.0</span>
+                            </label>
+                            <input type="range" class="range-slider" id="species-glow-size" 
+                                   min="0.5" max="3.0" step="0.1" value="1.0">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="glow-size-synth" 
+                                       placeholder="e.g. Lead Width, Voice Size" 
+                                       data-parameter="effects_species_glow_size">
+                            </div>
+                        </div>
+                        <div class="control-group" id="species-glow-intensity-control" style="display: none;">
+                            <label>
+                                Glow Intensity
+                                <span class="value-display" id="species-glow-intensity-value">0.0</span>
+                            </label>
+                            <input type="range" class="range-slider" id="species-glow-intensity" 
+                                   min="0.0" max="1.0" step="0.05" value="0.0">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="glow-intensity-synth" 
+                                       placeholder="e.g. Lead Level, Solo Mix" 
+                                       data-parameter="effects_species_glow_intensity">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 6. COLORS Section -->
+                <div class="section">
+                    <h4 class="section-title">Colors</h4>
+                    <div class="control-group">
+                        <label>Background Color</label>
+                        <input type="color" id="background-color" value="#000000">
+                    </div>
+                    <div class="control-group">
+                        <label>Particle Size
+                            <span class="value-display" id="particle-size-value">${this.particleSystem.particleSize.toFixed(1)}</span>
+                        </label>
+                        <input type="range" class="range-slider" id="particle-size" 
+                               min="0.5" max="20" step="0.5" value="${this.particleSystem.particleSize}">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="particle-size-synth" 
+                                   placeholder="e.g. Note Size, Grain Size" 
+                                   data-parameter="visual_particle_size">
+                        </div>
+                        <div class="info-text">Visual size only (doesn't affect physics)</div>
+                    </div>
+                    <div class="control-group">
+                        <label>Species Colors</label>
+                        <div id="species-colors-container">
+                            <!-- Dynamically generated color pickers based on species count -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 7. ACTIONS Section -->
+                <div class="section">
+                    <h4 class="section-title">Actions</h4>
+                    <button class="btn btn-primary btn-block" id="copy-settings-btn">
+                        Copy Settings (X)
+                    </button>
+                    <button class="btn btn-secondary btn-block" id="configure-preset-btn">
+                        Configure Presets
+                    </button>
+                    <div class="quick-actions-row">
+                        <button class="btn btn-secondary btn-sm" id="randomize-forces-btn">
+                            🎲 Randomize Forces (R)
+                        </button>
+                        <button class="btn btn-secondary btn-sm" id="reset-defaults-btn">
+                            🔄 Reset to Defaults
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         
-        // Add styles specific to MainUI
+        // Add enhanced styles
         const style = document.createElement('style');
         style.textContent = `
+            :root {
+                /* Professional Color Palette */
+                --text-primary: #ffffff;
+                --text-secondary: #cccccc;
+                --text-tertiary: #999999;
+                --text-accent: #4a9eff;
+                
+                /* Typography Scale */
+                --font-size-xs: 11px;
+                --font-size-sm: 12px;
+                --font-size-md: 14px;
+                --font-size-lg: 16px;
+                --font-size-xl: 18px;
+                
+                /* Font Weights */
+                --font-weight-normal: 400;
+                --font-weight-medium: 500;
+                --font-weight-semibold: 600;
+                
+                /* Spacing System */
+                --space-xs: 4px;
+                --space-sm: 8px;
+                --space-md: 12px;
+                --space-lg: 16px;
+                --space-xl: 24px;
+            }
+            
             .main-ui {
                 position: fixed;
                 top: 10px;
                 right: 10px;
-                width: 280px;
+                width: 320px;
                 max-height: calc(100vh - 20px);
                 overflow-y: auto;
                 z-index: var(--z-sticky);
@@ -215,22 +404,78 @@ export class MainUI {
             }
             
             .main-ui.hidden {
-                transform: translateX(300px);
+                transform: translateX(340px);
                 opacity: 0;
             }
             
             .panel-title {
                 margin: 0;
-                font-size: var(--font-size-md);
-                font-weight: 600;
+                font-size: var(--font-size-lg);
+                font-weight: var(--font-weight-semibold);
                 color: var(--text-primary);
+            }
+            
+            .section {
+                margin-bottom: var(--space-xl);
+                padding: var(--space-md);
+                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.02);
+            }
+            
+            .section-title {
+                font-size: var(--font-size-md);
+                font-weight: var(--font-weight-semibold);
+                color: var(--text-primary);
+                text-transform: none;
+                margin-bottom: var(--space-md);
+            }
+            
+            .value-display {
+                font-size: var(--font-size-sm);
+                font-weight: var(--font-weight-medium);
+                color: var(--text-accent);
+                margin-left: var(--space-sm);
+            }
+            
+            .control-group label {
+                font-size: var(--font-size-sm);
+                font-weight: var(--font-weight-normal);
+                color: var(--text-secondary);
+                text-transform: none;
             }
             
             .info-text {
                 font-size: var(--font-size-xs);
                 color: var(--text-tertiary);
+                font-style: italic;
                 margin-top: var(--space-xs);
             }
+            
+            .synth-assignment {
+                margin-top: var(--space-xs);
+            }
+            
+            .synth-field {
+                width: 100%;
+                padding: var(--space-xs) var(--space-sm);
+                font-size: var(--font-size-xs);
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-sm);
+                color: var(--text-secondary);
+            }
+            
+            .synth-field:focus {
+                outline: none;
+                border-color: var(--text-accent);
+                background: rgba(255, 255, 255, 0.08);
+            }
+            
+            .synth-field::placeholder {
+                color: var(--text-tertiary);
+                font-size: var(--font-size-xs);
+            }
+            
             
             .species-selectors {
                 display: flex;
@@ -252,10 +497,11 @@ export class MainUI {
             
             .select-sm {
                 padding: var(--space-xs) var(--space-sm);
+                font-size: var(--font-size-sm);
             }
             
             .btn-sm {
-                padding: 2px 6px;
+                padding: var(--space-xs) var(--space-sm);
                 font-size: var(--font-size-xs);
             }
             
@@ -264,46 +510,71 @@ export class MainUI {
                 margin-top: var(--space-sm);
             }
             
+            .quick-actions-row {
+                margin-top: var(--space-md);
+                display: flex;
+                gap: var(--space-sm);
+                justify-content: center;
+            }
+            
+            .quick-actions-row .btn {
+                flex: 1;
+                max-width: 180px;
+            }
+            
             input[type="checkbox"] {
                 margin-right: var(--space-sm);
                 width: 12px;
                 height: 12px;
             }
             
-            /* Make sliders full width in labels */
             .control-group input[type="range"] {
                 flex: 1;
                 margin: 0 var(--space-sm);
             }
             
-            /* Info message */
-            .info-message {
-                font-size: var(--font-size-xs);
-                color: var(--text-tertiary);
-                background: var(--bg-primary);
-                padding: var(--space-sm);
-                border-radius: var(--radius-sm);
-                margin-top: var(--space-md);
-                text-align: center;
+            .effect-group {
+                margin-bottom: var(--space-lg);
+                padding-bottom: var(--space-lg);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             }
             
-            /* Species glow control styles */
-            .species-glow-control {
-                margin-top: var(--space-md);
+            .effect-group:last-child {
+                border-bottom: none;
+                margin-bottom: 0;
+                padding-bottom: 0;
             }
             
-            .species-glow-selector-group {
-                margin-bottom: var(--space-sm);
-            }
-            
-            .species-glow-selector-group .select-sm {
-                width: 100%;
-            }
-            
-            .glow-controls {
+            .species-color-row {
                 display: flex;
-                flex-direction: column;
+                align-items: center;
                 gap: var(--space-sm);
+                margin-bottom: var(--space-xs);
+            }
+            
+            .species-label {
+                font-size: var(--font-size-xs);
+                color: var(--text-secondary);
+                width: 80px;
+            }
+            
+            .species-color {
+                width: 40px;
+                height: 24px;
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-sm);
+                cursor: pointer;
+            }
+            
+            .species-amount {
+                flex: 1;
+                padding: var(--space-xs);
+                font-size: var(--font-size-xs);
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-sm);
+                color: var(--text-primary);
+                text-align: center;
             }
         `;
         document.head.appendChild(style);
@@ -312,7 +583,7 @@ export class MainUI {
         
         // Initialize XY Graph
         this.forceGraph = new XYGraph('force-graph-container', {
-            width: 256,
+            width: 288,
             height: 120,
             minX: -1,
             maxX: 1,
@@ -323,46 +594,44 @@ export class MainUI {
             onChange: (value) => {
                 const fromSpecies = parseInt(document.getElementById('from-species').value);
                 const toSpecies = parseInt(document.getElementById('to-species').value);
+                console.log(`Setting force from ${fromSpecies} to ${toSpecies}: ${value}`);
                 this.particleSystem.setSocialForce(fromSpecies, toSpecies, value);
                 this.updateGraphInfo();
+                
+                // Force a redraw to see immediate effect
+                if (this.particleSystem.socialForce[fromSpecies]) {
+                    console.log('Current force matrix row:', this.particleSystem.socialForce[fromSpecies]);
+                }
             }
         });
         
-        // Initialize Species Glow Control
-        this.speciesGlowControl = new SpeciesGlowControl(this.particleSystem);
-        const glowContainer = document.getElementById('species-glow-container');
-        if (glowContainer) {
-            glowContainer.appendChild(this.speciesGlowControl.createElement());
-        }
-        
-        // Setup event listeners AFTER DOM elements are added
+        // Setup event listeners
         this.setupEventListeners();
         
-        // Set initial background color
-        const bgColorMain = document.getElementById('background-color-main');
-        if (bgColorMain) {
-            bgColorMain.value = this.particleSystem.backgroundColor;
-        }
-        
-        // Initial updates
-        this.updatePresetSelector();
+        // Set initial values
+        this.updateUIFromParticleSystem();
+        this.updateSpeciesColors(this.particleSystem.numSpecies);
         this.updateGraph();
         
-        // Set initial preset
-        const lastSelectedPreset = localStorage.getItem('lastSelectedPreset') || 'predatorPrey';
-        const selector = document.getElementById('preset-selector');
-        if (selector) {
-            selector.value = lastSelectedPreset;
-        }
-        
-        // Sync UI with loaded preset values
-        this.updateUIFromPreset();
     }
     
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
-                this.toggleVisibility();
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            
+            switch(e.key.toLowerCase()) {
+                case 'c':
+                    this.toggleVisibility();
+                    e.preventDefault();
+                    break;
+                case 'x':
+                    this.copySettings();
+                    e.preventDefault();
+                    break;
+                case 'r':
+                    this.randomizeForces();
+                    e.preventDefault();
+                    break;
             }
         });
     }
@@ -370,6 +639,161 @@ export class MainUI {
     toggleVisibility() {
         this.isVisible = !this.isVisible;
         this.container.classList.toggle('hidden', !this.isVisible);
+    }
+    
+    copySettings() {
+        // Capture all current settings including synth assignments
+        // Use exportPreset to get complete and consistent state
+        const completePreset = this.particleSystem.exportPreset();
+        
+        // Add UI-specific state that's not in the particle system
+        this.copiedSettings = {
+            ...completePreset,
+            // UI state additions
+            uiState: {
+                selectedGlowSpecies: parseInt(document.getElementById('glow-species-selector').value),
+                speciesGlowEnabled: document.getElementById('species-glow-enabled').checked,
+                fromSpecies: parseInt(document.getElementById('from-species').value),
+                toSpecies: parseInt(document.getElementById('to-species').value),
+                currentForceValue: this.particleSystem.socialForce[
+                    parseInt(document.getElementById('from-species').value)
+                ][parseInt(document.getElementById('to-species').value)]
+            },
+            synthAssignments: this.saveSynthAssignments()
+        };
+        
+        // Visual feedback
+        const btn = document.getElementById('copy-settings-btn');
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#4a9eff';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '';
+        }, 1500);
+        
+        // Enable paste in preset modal if it exists
+        if (window.presetModal) {
+            window.presetModal.enablePaste(this.copiedSettings);
+        }
+    }
+    
+    randomizeForces() {
+        this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrix();
+        this.updateGraph();
+        
+        // Visual feedback
+        const btn = document.getElementById('randomize-forces-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✓ Randomized!';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+        }, 1500);
+    }
+    
+    saveSynthAssignments() {
+        const assignments = {};
+        document.querySelectorAll('.synth-field').forEach(field => {
+            const parameter = field.dataset.parameter;
+            const assignment = field.value.trim();
+            if (assignment) {
+                assignments[parameter] = assignment;
+            }
+        });
+        return assignments;
+    }
+    
+    loadSynthAssignments(assignments) {
+        Object.entries(assignments || {}).forEach(([parameter, assignment]) => {
+            const field = document.querySelector(`[data-parameter="${parameter}"]`);
+            if (field) {
+                field.value = assignment;
+            }
+        });
+    }
+    
+    updateSpeciesColors(count) {
+        const container = document.getElementById('species-colors-container');
+        container.innerHTML = '';
+        
+        const defaultColors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
+                              'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
+        
+        for (let i = 0; i < count; i++) {
+            const species = this.particleSystem.species[i];
+            let colorValue;
+            
+            if (species?.color) {
+                // Convert RGB object to hex string if needed
+                if (typeof species.color === 'object' && species.color.r !== undefined) {
+                    colorValue = this.rgbToHex(species.color);
+                } else {
+                    colorValue = species.color;
+                }
+            } else {
+                colorValue = this.generateSpeciesColor(i);
+            }
+            
+            const row = document.createElement('div');
+            row.className = 'species-color-row';
+            row.innerHTML = `
+                <span class="species-label">${defaultColors[i] || `Species ${i + 1}`}</span>
+                <input type="color" class="species-color" data-species="${i}" 
+                       value="${colorValue}">
+                <input type="number" class="species-amount" data-species="${i}" 
+                       min="0" max="1000" step="10" 
+                       value="${species?.particleCount || this.particleSystem.particlesPerSpecies}">
+            `;
+            container.appendChild(row);
+        }
+        
+        // Add event listeners
+        container.querySelectorAll('.species-color').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const speciesIndex = parseInt(e.target.dataset.species);
+                if (this.particleSystem.species[speciesIndex]) {
+                    // Convert hex to RGB object for particle system
+                    const hex = e.target.value;
+                    const r = parseInt(hex.substr(1, 2), 16);
+                    const g = parseInt(hex.substr(3, 2), 16);
+                    const b = parseInt(hex.substr(5, 2), 16);
+                    this.particleSystem.species[speciesIndex].color = { r, g, b };
+                }
+            });
+        });
+        
+        container.querySelectorAll('.species-amount').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const speciesIndex = parseInt(e.target.dataset.species);
+                const value = parseInt(e.target.value) || 0;
+                if (this.particleSystem.species[speciesIndex]) {
+                    this.particleSystem.species[speciesIndex].particleCount = value;
+                    this.particleSystem.initializeParticles();
+                    this.updateTotalParticles();
+                }
+            });
+        });
+    }
+    
+    generateSpeciesColor(index) {
+        const hue = (index * 360 / 20) % 360;
+        return `hsl(${hue}, 70%, 50%)`;
+    }
+    
+    rgbToHex(color) {
+        const toHex = (n) => {
+            const hex = Math.round(Math.max(0, Math.min(255, n))).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
+    }
+    
+    updateTotalParticles() {
+        const total = this.particleSystem.species.reduce((sum, s) => sum + (s.particleCount || 0), 0);
+        const totalElement = document.getElementById('total-particles');
+        if (totalElement) {
+            totalElement.textContent = total;
+        }
     }
     
     setupEventListeners() {
@@ -380,7 +804,29 @@ export class MainUI {
         
         // Preset controls
         document.getElementById('preset-selector').addEventListener('change', (e) => {
-            this.handlePresetChange(e.target.value);
+            const presetKey = e.target.value;
+            if (presetKey && presetKey !== 'custom') {
+                this.currentEditingPreset = presetKey;
+                document.getElementById('load-preset-btn').textContent = 
+                    presetKey ? `Load ${this.presetManager.getPreset(presetKey)?.name || presetKey}` : 'Load Preset';
+            } else {
+                this.currentEditingPreset = null;
+                document.getElementById('load-preset-btn').textContent = 'Load Preset';
+            }
+        });
+        
+        document.getElementById('load-preset-btn').addEventListener('click', () => {
+            const presetKey = document.getElementById('preset-selector').value;
+            if (presetKey === 'random') {
+                this.randomizeForces();
+            } else if (presetKey) {
+                const preset = this.presetManager.getPreset(presetKey);
+                if (preset) {
+                    this.particleSystem.loadFullPreset(preset);
+                    this.updateUIFromParticleSystem();
+                    this.updateGraph();
+                }
+            }
         });
         
         document.getElementById('configure-preset-btn').addEventListener('click', () => {
@@ -390,167 +836,91 @@ export class MainUI {
         
         // Particle controls
         document.getElementById('particles-per-species').addEventListener('input', (e) => {
-            const newCount = parseInt(e.target.value);
-            this.particleSystem.particlesPerSpecies = newCount;
-            this.particleSystem.initializeParticles();
-            document.getElementById('particles-per-species-value').textContent = newCount;
-            document.getElementById('total-particles').textContent = this.particleSystem.numSpecies * newCount;
-        });
-        
-        document.getElementById('num-species').addEventListener('input', (e) => {
-            const newSpecies = parseInt(e.target.value);
-            this.particleSystem.numSpecies = newSpecies;
-            this.particleSystem.initializeSpecies();
-            this.particleSystem.initializeParticles();
-            document.getElementById('num-species-value').textContent = newSpecies;
-            document.getElementById('total-particles').textContent = newSpecies * this.particleSystem.particlesPerSpecies;
-            this.updateSpeciesSelectors(newSpecies);
-            this.updateGraph();
-            
-            // Update species glow control
-            if (this.speciesGlowControl) {
-                this.speciesGlowControl.updateSpeciesList();
-            }
-            
-            // Sync to modal if open
-            if (window.presetModal && window.presetModal.isOpen) {
-                const speciesCountSlider = document.getElementById('species-count');
-                const speciesCountValue = document.getElementById('species-count-value');
-                if (speciesCountSlider && speciesCountValue) {
-                    speciesCountSlider.value = newSpecies;
-                    speciesCountValue.textContent = newSpecies;
-                    // Update the modal's currentPreset and regenerate species list
-                    window.presetModal.updateSpeciesCount(newSpecies);
+            const value = parseInt(e.target.value);
+            this.particleSystem.particlesPerSpecies = value;
+            // Update species particle counts
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                if (this.particleSystem.species[i]) {
+                    this.particleSystem.species[i].particleCount = value;
                 }
             }
+            // Reinitialize with positions
+            this.particleSystem.initializeParticlesWithPositions();
+            document.getElementById('particles-per-species-value').textContent = value;
+            this.updateTotalParticles();
+        });
+        
+        document.getElementById('species-count').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
             
-            // Update radius matrices after species count changes
-            const collisionValue = parseFloat(document.getElementById('collision-radius').value);
-            const socialValue = parseFloat(document.getElementById('social-radius').value);
-            for (let i = 0; i < newSpecies; i++) {
-                for (let j = 0; j < newSpecies; j++) {
-                    if (this.particleSystem.collisionRadius[i]) {
-                        this.particleSystem.collisionRadius[i][j] = collisionValue;
-                    }
-                    if (this.particleSystem.socialRadius[i]) {
-                        this.particleSystem.socialRadius[i][j] = socialValue;
-                    }
+            // Use the proper API method for species count changes
+            if (this.particleSystem.setSpeciesCount(value)) {
+                // Update UI elements only if the change was successful
+                document.getElementById('species-count-value').textContent = value;
+                this.updateSpeciesSelectors(value);
+                this.updateSpeciesColors(value);
+                this.updateGraph();
+                this.updateTotalParticles();
+            }
+        });
+        
+        document.getElementById('start-pattern').addEventListener('change', (e) => {
+            const pattern = e.target.value;
+            // Update all species with new pattern
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                if (this.particleSystem.species[i]) {
+                    this.particleSystem.species[i].startPosition = {
+                        type: pattern,
+                        center: { x: 0.5, y: 0.5 },
+                        radius: 0.2
+                    };
                 }
             }
-        });
-        
-        // Visual controls
-        document.getElementById('trails').addEventListener('change', (e) => {
-            this.particleSystem.trailEnabled = e.target.checked;
-            this.syncToModal('trail-enabled', e.target.checked);
-        });
-        
-        document.getElementById('blur').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.blur = value;
-            const blurDisplay = document.getElementById('main-blur-value');
-            if (blurDisplay) {
-                blurDisplay.textContent = value.toFixed(2);
-            }
-            this.syncToModal('blur', value);
-        });
-        
-        document.getElementById('particle-size').addEventListener('input', (e) => {
-            const newSize = parseFloat(e.target.value);
-            this.particleSystem.particleSize = newSize;
-            // Update all species to use the new size with small variation but ensuring minimum size
-            for (let i = 0; i < this.particleSystem.species.length; i++) {
-                const variation = (Math.random() - 0.5) * 0.5; // Smaller variation ±0.25
-                this.particleSystem.species[i].size = Math.max(0.5, newSize + variation); // Ensure minimum size
-            }
-            document.getElementById('particle-size-value').textContent = newSize.toFixed(1);
-            this.syncToModal('particle-size', newSize);
-        });
-        
-        document.getElementById('background-color-main').addEventListener('change', (e) => {
-            this.particleSystem.backgroundColor = e.target.value;
-            this.syncToModal('background-color', e.target.value);
-        });
-        
-        document.getElementById('dreamtime-mode').addEventListener('change', (e) => {
-            this.particleSystem.renderMode = e.target.checked ? 'dreamtime' : 'normal';
-            // Adjust default glow settings for dreamtime mode
-            if (e.target.checked) {
-                this.particleSystem.glowIntensity = 0.8;
-                this.particleSystem.glowRadius = 3.0;
-                this.particleSystem.blur = 0.97; // Slightly longer trails for dreamtime
-                // Update the blur slider to reflect the new value
-                const blurSlider = document.getElementById('blur');
-                const blurValue = document.getElementById('blur-value');
-                if (blurSlider && blurValue) {
-                    blurSlider.value = 0.97;
-                    blurValue.textContent = '0.97';
-                }
-            }
-            // Clear gradient cache when switching render modes
-            this.particleSystem.clearCaches();
+            // Reinitialize particles with new positions
+            this.particleSystem.initializeParticlesWithPositions();
         });
         
         // Physics controls
-        document.getElementById('force').addEventListener('input', (e) => {
+        document.getElementById('force-strength').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.forceFactor = value;
-            const forceDisplay = document.getElementById('main-force-value');
-            if (forceDisplay) {
-                forceDisplay.textContent = value.toFixed(1);
-            }
-            this.syncToModal('force-factor', value);
+            document.getElementById('force-strength-value').textContent = value.toFixed(1);
         });
         
-        // Friction control
         document.getElementById('friction').addEventListener('input', (e) => {
             const uiFriction = parseFloat(e.target.value);
             this.particleSystem.friction = 1.0 - uiFriction;
-            const frictionDisplay = document.getElementById('main-friction-value');
-            if (frictionDisplay) {
-                frictionDisplay.textContent = uiFriction.toFixed(2);
-            }
-            this.syncToModal('friction', uiFriction);
+            document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
         });
         
-        document.getElementById('wall-damping').addEventListener('input', (e) => {
+        document.getElementById('wall-bounce').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.wallDamping = value;
-            const wallDisplay = document.getElementById('main-wall-damping-value');
-            if (wallDisplay) {
-                wallDisplay.textContent = value.toFixed(2);
-            }
-            this.syncToModal('wall-damping', value);
+            document.getElementById('wall-bounce-value').textContent = value.toFixed(2);
         });
         
         document.getElementById('collision-radius').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
-            // Update all collision radii to the same value
             for (let i = 0; i < this.particleSystem.numSpecies; i++) {
                 for (let j = 0; j < this.particleSystem.numSpecies; j++) {
-                    this.particleSystem.collisionRadius[i][j] = value;
+                    if (this.particleSystem.collisionRadius[i]) {
+                        this.particleSystem.collisionRadius[i][j] = value;
+                    }
                 }
             }
-            const collisionDisplay = document.getElementById('main-collision-radius-value');
-            if (collisionDisplay) {
-                collisionDisplay.textContent = value;
-            }
-            this.syncToModal('collision-radius', value);
+            document.getElementById('collision-radius-value').textContent = value;
         });
         
         document.getElementById('social-radius').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
-            // Update all social radii to the same value
             for (let i = 0; i < this.particleSystem.numSpecies; i++) {
                 for (let j = 0; j < this.particleSystem.numSpecies; j++) {
-                    this.particleSystem.socialRadius[i][j] = value;
+                    if (this.particleSystem.socialRadius[i]) {
+                        this.particleSystem.socialRadius[i][j] = value;
+                    }
                 }
             }
-            const socialDisplay = document.getElementById('main-social-radius-value');
-            if (socialDisplay) {
-                socialDisplay.textContent = value;
-            }
-            this.syncToModal('social-radius', value);
+            document.getElementById('social-radius-value').textContent = value;
         });
         
         // Force relationship controls
@@ -565,84 +935,164 @@ export class MainUI {
             }
             this.updateGraph();
         });
-    }
-    
-    handlePresetChange(presetKey) {
-        if (presetKey && presetKey !== 'random') {
-            localStorage.setItem('lastSelectedPreset', presetKey);
-        }
         
-        if (presetKey === 'random') {
-            this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrix();
-            this.updateGraph();
-        } else if (presetKey) {
-            const preset = this.presetManager.getPreset(presetKey);
-            if (preset) {
-                this.particleSystem.loadFullPreset(preset);
-                this.updateUIFromPreset();
-                this.updateGraph();
+        // Effects controls
+        document.getElementById('trails-enabled').addEventListener('change', (e) => {
+            this.particleSystem.trailEnabled = e.target.checked;
+            document.getElementById('trail-controls').style.display = e.target.checked ? '' : 'none';
+        });
+        
+        document.getElementById('trail-length').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.blur = value;
+            document.getElementById('trail-length-value').textContent = value.toFixed(2);
+        });
+        
+        document.getElementById('halo-enabled').addEventListener('change', (e) => {
+            this.particleSystem.renderMode = e.target.checked ? 'dreamtime' : 'normal';
+            document.getElementById('halo-controls').style.display = e.target.checked ? '' : 'none';
+            document.getElementById('halo-radius-control').style.display = e.target.checked ? '' : 'none';
+            if (e.target.checked) {
+                this.particleSystem.glowIntensity = parseFloat(document.getElementById('halo-intensity').value);
+                this.particleSystem.glowRadius = parseFloat(document.getElementById('halo-radius').value);
             }
-        }
-    }
-    
-    syncToModal(parameterId, value) {
-        // Update corresponding controls in the modal if it's open
-        if (!window.presetModal || !window.presetModal.isOpen) return;
+            this.particleSystem.clearCaches();
+        });
         
-        // Find elements within the modal only
-        const modal = document.querySelector('.preset-modal');
-        if (!modal) return;
+        document.getElementById('halo-intensity').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.glowIntensity = value;
+            document.getElementById('halo-intensity-value').textContent = value.toFixed(2);
+            this.particleSystem.clearCaches();
+        });
         
-        const modalElement = modal.querySelector(`#${parameterId}`);
-        if (modalElement) {
-            if (modalElement.type === 'checkbox') {
-                modalElement.checked = value;
+        document.getElementById('halo-radius').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.glowRadius = value;
+            document.getElementById('halo-radius-value').textContent = value.toFixed(1);
+            this.particleSystem.clearCaches();
+        });
+        
+        document.getElementById('species-glow-enabled').addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            document.getElementById('species-glow-controls').style.display = enabled ? '' : 'none';
+            document.getElementById('species-glow-size-control').style.display = enabled ? '' : 'none';
+            document.getElementById('species-glow-intensity-control').style.display = enabled ? '' : 'none';
+            
+            if (!enabled) {
+                // Disable glow for all species using proper API
+                this.particleSystem.clearAllSpeciesGlow();
             } else {
-                modalElement.value = value;
+                // Enable glow for selected species using proper API
+                const selectedSpecies = parseInt(document.getElementById('glow-species-selector').value);
+                const intensity = parseFloat(document.getElementById('species-glow-intensity').value);
+                const size = parseFloat(document.getElementById('species-glow-size').value);
+                this.particleSystem.setSpeciesGlow(selectedSpecies, { intensity, size });
             }
+        });
+        
+        document.getElementById('glow-species-selector').addEventListener('change', (e) => {
+            const selectedSpecies = parseInt(e.target.value);
+            console.log('Selected species for glow:', selectedSpecies);
             
-            // Update corresponding value display within the modal only
-            const valueDisplay = modal.querySelector(`#${parameterId}-value`);
-            if (valueDisplay) {
-                if (typeof value === 'number') {
-                    valueDisplay.textContent = parameterId === 'particle-size' ? value.toFixed(1) : 
-                                             (parameterId.includes('radius') ? value : value.toFixed(2));
-                } else {
-                    valueDisplay.textContent = value;
-                }
+            // Update sliders to show current values for selected species using proper API
+            const glowSettings = this.particleSystem.getSpeciesGlow(selectedSpecies);
+            
+            document.getElementById('species-glow-size').value = glowSettings.size;
+            document.getElementById('species-glow-size-value').textContent = glowSettings.size.toFixed(1);
+            
+            document.getElementById('species-glow-intensity').value = glowSettings.intensity;
+            document.getElementById('species-glow-intensity-value').textContent = glowSettings.intensity.toFixed(2);
+            
+            console.log('Updated sliders - Size:', glowSettings.size, 'Intensity:', glowSettings.intensity);
+        });
+        
+        document.getElementById('species-glow-size').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('species-glow-size-value').textContent = value.toFixed(1);
+            const selectedSpecies = parseInt(document.getElementById('glow-species-selector').value);
+            this.particleSystem.setSpeciesGlow(selectedSpecies, { size: value });
+        });
+        
+        document.getElementById('species-glow-intensity').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('species-glow-intensity-value').textContent = value.toFixed(2);
+            const selectedSpecies = parseInt(document.getElementById('glow-species-selector').value);
+            this.particleSystem.setSpeciesGlow(selectedSpecies, { intensity: value });
+        });
+        
+        // Visual controls
+        document.getElementById('background-color').addEventListener('change', (e) => {
+            this.particleSystem.backgroundColor = e.target.value;
+        });
+        
+        document.getElementById('particle-size').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.particleSize = value;
+            for (let i = 0; i < this.particleSystem.species.length; i++) {
+                const variation = (Math.random() - 0.5) * 0.5;
+                this.particleSystem.species[i].size = Math.max(0.5, value + variation);
             }
-        }
+            document.getElementById('particle-size-value').textContent = value.toFixed(1);
+        });
+        
+        // Action buttons
+        document.getElementById('copy-settings-btn').addEventListener('click', () => {
+            this.copySettings();
+        });
+        
+        document.getElementById('randomize-forces-btn').addEventListener('click', () => {
+            this.randomizeForces();
+        });
+        
+        document.getElementById('reset-defaults-btn').addEventListener('click', () => {
+            // Reset to default values
+            this.particleSystem.loadDefaults();
+            this.updateUIFromParticleSystem();
+            this.updateGraph();
+        });
+        
+        // Synth assignment fields - save on change
+        document.querySelectorAll('.synth-field').forEach(field => {
+            field.addEventListener('change', () => {
+                this.synthAssignments = this.saveSynthAssignments();
+            });
+        });
     }
-
+    
     updateSpeciesSelectors(numSpecies) {
-        const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta'];
-        const fromSelect = document.getElementById('from-species');
-        const toSelect = document.getElementById('to-species');
+        const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
+                       'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
-        fromSelect.innerHTML = '';
-        toSelect.innerHTML = '';
+        const selectors = ['from-species', 'to-species', 'glow-species-selector'];
         
-        for (let i = 0; i < numSpecies; i++) {
-            const fromOption = document.createElement('option');
-            fromOption.value = i;
-            fromOption.textContent = colors[i] || `Species ${i + 1}`;
-            fromSelect.appendChild(fromOption);
+        selectors.forEach(selectorId => {
+            const select = document.getElementById(selectorId);
+            if (!select) return;
             
-            const toOption = document.createElement('option');
-            toOption.value = i;
-            toOption.textContent = colors[i] || `Species ${i + 1}`;
-            toSelect.appendChild(toOption);
-        }
-        
-        if (numSpecies > 1) {
-            toSelect.value = '1';
-        }
+            const currentValue = select.value;
+            select.innerHTML = '';
+            
+            for (let i = 0; i < numSpecies; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = colors[i] || `Species ${i + 1}`;
+                select.appendChild(option);
+            }
+            
+            // Restore previous value if valid
+            if (currentValue && parseInt(currentValue) < numSpecies) {
+                select.value = currentValue;
+            } else if (selectorId === 'to-species' && numSpecies > 1) {
+                select.value = '1';
+            }
+        });
     }
     
     updateGraph() {
         const fromSpecies = parseInt(document.getElementById('from-species').value);
         const toSpecies = parseInt(document.getElementById('to-species').value);
-        const force = this.particleSystem.socialForce[fromSpecies][toSpecies];
+        const force = this.particleSystem.socialForce[fromSpecies]?.[toSpecies] || 0;
         
         this.forceGraph.setValue(force);
         this.updateGraphInfo();
@@ -651,8 +1101,9 @@ export class MainUI {
     updateGraphInfo() {
         const fromSpecies = parseInt(document.getElementById('from-species').value);
         const toSpecies = parseInt(document.getElementById('to-species').value);
-        const force = this.particleSystem.socialForce[fromSpecies][toSpecies];
-        const colorNames = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta'];
+        const force = this.particleSystem.socialForce[fromSpecies]?.[toSpecies] || 0;
+        const colorNames = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
+                           'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
         const fromName = colorNames[fromSpecies] || `Species ${fromSpecies + 1}`;
         const toName = colorNames[toSpecies] || `Species ${toSpecies + 1}`;
@@ -660,76 +1111,141 @@ export class MainUI {
         this.forceGraph.setInfo(`${fromName} → ${toName}: ${force.toFixed(2)}`);
     }
     
-    updatePresetSelector() {
-        const selector = document.getElementById('preset-selector');
-        const currentValue = selector.value;
-        
-        while (selector.options.length > 6) {
-            selector.remove(6);
-        }
-        
-        const allPresets = this.presetManager.getAllPresets();
-        allPresets.forEach(preset => {
-            if (!['predatorPrey', 'crystallization', 'vortex', 'symbiosis'].includes(preset.key)) {
-                const option = document.createElement('option');
-                option.value = preset.key;
-                option.textContent = preset.name;
-                selector.appendChild(option);
-            }
-        });
-        
-        selector.value = currentValue;
-    }
-    
-    updateUIFromPreset() {
+    updateUIFromParticleSystem() {
         const ps = this.particleSystem;
         
-        // Update visual controls
-        document.getElementById('trails').checked = ps.trailEnabled;
-        document.getElementById('blur').value = ps.blur;
-        document.getElementById('main-blur-value').textContent = ps.blur.toFixed(2);
-        document.getElementById('particle-size').value = ps.particleSize;
-        document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
-        document.getElementById('dreamtime-mode').checked = ps.renderMode === 'dreamtime';
+        // PARTICLES Section
+        document.getElementById('particles-per-species').value = ps.particlesPerSpecies;
+        document.getElementById('particles-per-species-value').textContent = ps.particlesPerSpecies;
+        document.getElementById('species-count').value = ps.numSpecies;
+        document.getElementById('species-count-value').textContent = ps.numSpecies;
         
-        // Update physics controls
-        document.getElementById('force').value = ps.forceFactor;
-        document.getElementById('main-force-value').textContent = ps.forceFactor.toFixed(1);
-        const uiFriction = 1.0 - ps.friction;
-        document.getElementById('friction').value = uiFriction;
-        document.getElementById('main-friction-value').textContent = uiFriction.toFixed(2);
-        document.getElementById('wall-damping').value = ps.wallDamping;
-        document.getElementById('main-wall-damping-value').textContent = ps.wallDamping.toFixed(2);
-        
-        // Get the average collision and social radius (they should all be the same)
-        const collisionRadius = ps.collisionRadius[0][0];
-        const socialRadius = ps.socialRadius[0][0];
-        document.getElementById('collision-radius').value = collisionRadius;
-        document.getElementById('main-collision-radius-value').textContent = collisionRadius;
-        document.getElementById('social-radius').value = socialRadius;
-        document.getElementById('main-social-radius-value').textContent = socialRadius;
-        
-        // Update particle counts
-        const totalParticles = ps.species.reduce((sum, s) => sum + (s.particleCount || ps.particlesPerSpecies), 0);
-        const avgParticlesPerSpecies = Math.round(totalParticles / ps.numSpecies);
-        document.getElementById('particles-per-species').value = avgParticlesPerSpecies;
-        document.getElementById('particles-per-species-value').textContent = avgParticlesPerSpecies;
-        document.getElementById('num-species').value = ps.numSpecies;
-        document.getElementById('num-species-value').textContent = ps.numSpecies;
-        document.getElementById('total-particles').textContent = totalParticles;
-        
-        // Update species selectors if needed
-        this.updateSpeciesSelectors(ps.numSpecies);
-        
-        // Update background color if available
-        const bgColorMain = document.getElementById('background-color-main');
-        if (bgColorMain && ps.backgroundColor) {
-            bgColorMain.value = ps.backgroundColor;
+        // Update start pattern if available
+        if (ps.species[0]?.startPosition?.type) {
+            document.getElementById('start-pattern').value = ps.species[0].startPosition.type;
         }
         
-        // Update species glow control
-        if (this.speciesGlowControl) {
-            this.speciesGlowControl.updateFromParticleSystem();
+        // PHYSICS Section
+        document.getElementById('force-strength').value = ps.forceFactor;
+        document.getElementById('force-strength-value').textContent = ps.forceFactor.toFixed(1);
+        const uiFriction = 1.0 - ps.friction;
+        document.getElementById('friction').value = uiFriction;
+        document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
+        document.getElementById('wall-bounce').value = ps.wallDamping;
+        document.getElementById('wall-bounce-value').textContent = ps.wallDamping.toFixed(2);
+        document.getElementById('collision-radius').value = ps.collisionRadius[0]?.[0] || 15;
+        document.getElementById('collision-radius-value').textContent = ps.collisionRadius[0]?.[0] || 15;
+        document.getElementById('social-radius').value = ps.socialRadius[0]?.[0] || 50;
+        document.getElementById('social-radius-value').textContent = ps.socialRadius[0]?.[0] || 50;
+        
+        // EFFECTS Section
+        // Trail Effect
+        document.getElementById('trails-enabled').checked = ps.trailEnabled;
+        document.getElementById('trail-controls').style.display = ps.trailEnabled ? '' : 'none';
+        document.getElementById('trail-length').value = ps.blur;
+        document.getElementById('trail-length-value').textContent = ps.blur.toFixed(2);
+        
+        // Halo Effect
+        const haloEnabled = ps.renderMode === 'dreamtime';
+        document.getElementById('halo-enabled').checked = haloEnabled;
+        document.getElementById('halo-controls').style.display = haloEnabled ? '' : 'none';
+        document.getElementById('halo-radius-control').style.display = haloEnabled ? '' : 'none';
+        document.getElementById('halo-intensity').value = ps.glowIntensity || 0.8;
+        document.getElementById('halo-intensity-value').textContent = (ps.glowIntensity || 0.8).toFixed(2);
+        document.getElementById('halo-radius').value = ps.glowRadius || 3.0;
+        document.getElementById('halo-radius-value').textContent = (ps.glowRadius || 3.0).toFixed(1);
+        
+        // Species Glow Effect
+        this.updateSpeciesGlowUI(ps);
+        
+        // COLORS Section
+        document.getElementById('background-color').value = ps.backgroundColor || '#000000';
+        document.getElementById('particle-size').value = ps.particleSize;
+        document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
+        
+        // Update species colors in UI
+        this.updateSpeciesColors(ps.numSpecies);
+        
+        // Update selectors and totals
+        this.updateSpeciesSelectors(ps.numSpecies);
+        this.updateTotalParticles();
+        
+        // Update force relationship graph
+        this.updateGraph();
+    }
+    
+    updatePresetSelector() {
+        const selector = document.getElementById('preset-selector');
+        if (!selector) return;
+        
+        // Clear existing options except built-in ones
+        const builtInOptions = ['', 'predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime', 'random'];
+        const optionsToRemove = [];
+        
+        for (let i = 0; i < selector.options.length; i++) {
+            const option = selector.options[i];
+            if (!builtInOptions.includes(option.value)) {
+                optionsToRemove.push(option);
+            }
+        }
+        
+        // Remove non-built-in options
+        optionsToRemove.forEach(option => option.remove());
+        
+        // Add user presets
+        const userPresets = this.presetManager.getUserPresets();
+        userPresets.forEach(preset => {
+            const option = document.createElement('option');
+            option.value = preset.key;
+            option.textContent = preset.name;
+            selector.appendChild(option);
+        });
+        
+        // Insert separator before random option if there are user presets
+        if (userPresets.length > 0) {
+            const randomOption = selector.querySelector('option[value="random"]');
+            if (randomOption) {
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '─────────────';
+                selector.insertBefore(separator, randomOption);
+            }
+        }
+    }
+    
+    updateSpeciesGlowUI(ps) {
+        // Update species glow dropdown
+        const glowSelector = document.getElementById('glow-species-selector');
+        if (glowSelector) {
+            // Clear existing options
+            glowSelector.innerHTML = '';
+            
+            // Add options for each species
+            for (let i = 0; i < ps.numSpecies; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = ps.species[i]?.name || `Species ${i + 1}`;
+                glowSelector.appendChild(option);
+            }
+            
+            // Set to first species by default
+            glowSelector.value = 0;
+            
+            // Update glow sliders with current values for first species
+            const firstSpeciesGlow = ps.getSpeciesGlow(0);
+            document.getElementById('species-glow-size').value = firstSpeciesGlow.size;
+            document.getElementById('species-glow-size-value').textContent = firstSpeciesGlow.size.toFixed(1);
+            document.getElementById('species-glow-intensity').value = firstSpeciesGlow.intensity;
+            document.getElementById('species-glow-intensity-value').textContent = firstSpeciesGlow.intensity.toFixed(2);
+            
+            // Update glow enabled state
+            const hasGlow = ps.speciesGlowIntensity.some(intensity => intensity > 0);
+            document.getElementById('species-glow-enabled').checked = hasGlow;
+            
+            // Show/hide glow controls based on enabled state
+            document.getElementById('species-glow-controls').style.display = hasGlow ? '' : 'none';
+            document.getElementById('species-glow-size-control').style.display = hasGlow ? '' : 'none';
+            document.getElementById('species-glow-intensity-control').style.display = hasGlow ? '' : 'none';
         }
     }
 }

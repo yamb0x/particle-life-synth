@@ -57,11 +57,49 @@ async function init() {
         particleSystem.resize(canvas.width, canvas.height);
     });
     
+    // Create performance overlay
+    function createPerformanceOverlay() {
+        const overlay = document.createElement('div');
+        overlay.id = 'performance-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            color: #ff6666;
+            font-family: monospace;
+            font-size: 11px;
+            text-align: right;
+            pointer-events: none;
+            z-index: 1000;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        `;
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+    
+    const perfOverlay = createPerformanceOverlay();
+    
     // Animation loop
     let lastTime = 0;
+    let frameCount = 0;
+    let fpsTime = 0;
+    let currentFPS = 60;
+    
     function animate(currentTime) {
         const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
         lastTime = currentTime;
+        
+        // Calculate FPS
+        frameCount++;
+        if (currentTime >= fpsTime + 1000) {
+            currentFPS = Math.round((frameCount * 1000) / (currentTime - fpsTime));
+            frameCount = 0;
+            fpsTime = currentTime;
+            
+            // Update performance overlay
+            const totalParticles = particleSystem.species.reduce((sum, s) => sum + (s.particleCount || 0), 0);
+            perfOverlay.innerHTML = `FPS: ${currentFPS}<br>Particles: ${totalParticles}`;
+        }
         
         particleSystem.update(deltaTime);
         

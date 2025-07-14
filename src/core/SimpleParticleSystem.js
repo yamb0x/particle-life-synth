@@ -144,6 +144,251 @@ export class SimpleParticleSystem {
         }
     }
     
+    applyTrailDecay() {
+        // Smart trail decay using image data manipulation
+        // This prevents the gray residue accumulation issue
+        const imageData = this.ctx.getImageData(0, 0, this.width, this.height);
+        const data = imageData.data;
+        
+        // Parse background color to get RGB values
+        let bgR = 0, bgG = 0, bgB = 0;
+        if (this.backgroundColor.startsWith('#')) {
+            const hex = this.backgroundColor.slice(1);
+            bgR = parseInt(hex.substr(0, 2), 16) || 0;
+            bgG = parseInt(hex.substr(2, 2), 16) || 0;
+            bgB = parseInt(hex.substr(4, 2), 16) || 0;
+        }
+        
+        // Apply decay to each pixel
+        // this.blur represents trail length (0.5-0.99, higher = shorter trails)
+        // Convert to decay factor (higher blur = more decay toward background)
+        const decayFactor = this.blur;
+        
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+            
+            // Only process non-transparent pixels
+            if (a > 0) {
+                // Decay towards background color
+                data[i] = Math.floor(r * decayFactor + bgR * (1 - decayFactor));
+                data[i + 1] = Math.floor(g * decayFactor + bgG * (1 - decayFactor));
+                data[i + 2] = Math.floor(b * decayFactor + bgB * (1 - decayFactor));
+                // Keep alpha intact for proper compositing
+                data[i + 3] = a;
+            }
+        }
+        
+        this.ctx.putImageData(imageData, 0, 0);
+    }
+    
+    // Species glow management API
+    setSpeciesGlow(speciesId, settings) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) {
+            console.warn(`Invalid species ID: ${speciesId}, must be 0-${this.numSpecies - 1}`);
+            return false;
+        }
+        
+        // Ensure arrays are properly sized
+        this.ensureGlowArraysSize();
+        
+        if (settings.intensity !== undefined) {
+            this.speciesGlowIntensity[speciesId] = Math.max(0, Math.min(1, settings.intensity));
+        }
+        
+        if (settings.size !== undefined) {
+            this.speciesGlowSize[speciesId] = Math.max(0.5, Math.min(3.0, settings.size));
+        }
+        
+        return true;
+    }
+    
+    getSpeciesGlow(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) {
+            console.warn(`Invalid species ID: ${speciesId}, must be 0-${this.numSpecies - 1}`);
+            return { intensity: 0, size: 1.0 };
+        }
+        
+        // Ensure arrays are properly sized
+        this.ensureGlowArraysSize();
+        
+        return {
+            intensity: this.speciesGlowIntensity[speciesId] || 0,
+            size: this.speciesGlowSize[speciesId] || 1.0
+        };
+    }
+    
+    clearAllSpeciesGlow() {
+        this.ensureGlowArraysSize();
+        for (let i = 0; i < this.numSpecies; i++) {
+            this.speciesGlowIntensity[i] = 0;
+        }
+    }
+    
+    ensureGlowArraysSize() {
+        // Resize arrays if needed
+        if (this.speciesGlowIntensity.length < this.numSpecies) {
+            this.speciesGlowIntensity = Array.from({ length: this.numSpecies }, (_, i) => 
+                this.speciesGlowIntensity[i] || 0
+            );
+        }
+        
+        if (this.speciesGlowSize.length < this.numSpecies) {
+            this.speciesGlowSize = Array.from({ length: this.numSpecies }, (_, i) => 
+                this.speciesGlowSize[i] || 1.0
+            );
+        }
+    }
+    
+    // Species count management API
+    setSpeciesCount(newCount) {
+        if (newCount < 1 || newCount > 20) {
+            console.warn(`Invalid species count: ${newCount}, must be 1-20`);
+            return false;
+        }
+        
+        const oldCount = this.numSpecies;
+        this.numSpecies = newCount;
+        
+        // Preserve existing force matrices where possible
+        this.preserveAndResizeForceMatrices(oldCount, newCount);
+        
+        // Resize glow arrays
+        this.ensureGlowArraysSize();
+        
+        // Resize species array
+        this.resizeSpeciesArray(oldCount, newCount);
+        
+        // Reinitialize particles with new species count
+        this.initializeParticlesWithPositions();
+        
+        return true;
+    }
+    
+    preserveAndResizeForceMatrices(oldCount, newCount) {
+        // Preserve collision radius
+        const oldCollisionRadius = this.collisionRadius;
+        const defaultCollisionRadius = oldCollisionRadius[0] ? oldCollisionRadius[0][0] : 15;
+        this.collisionRadius = this.createMatrix(defaultCollisionRadius, defaultCollisionRadius);
+        
+        // Preserve social radius
+        const oldSocialRadius = this.socialRadius;
+        const defaultSocialRadius = oldSocialRadius[0] ? oldSocialRadius[0][0] : 50;
+        this.socialRadius = this.createMatrix(defaultSocialRadius, defaultSocialRadius);
+        
+        // Preserve collision force
+        const oldCollisionForce = this.collisionForce;
+        const defaultCollisionForce = oldCollisionForce[0] ? oldCollisionForce[0][0] : -0.5;
+        this.collisionForce = this.createMatrix(defaultCollisionForce, defaultCollisionForce);
+        
+        // Preserve existing social forces where possible
+        const oldSocialForce = this.socialForce;
+        const newSocialForce = this.createAsymmetricMatrix();
+        
+        if (oldSocialForce && Array.isArray(oldSocialForce)) {
+            for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+                for (let j = 0; j < Math.min(oldCount, newCount); j++) {
+                    if (oldSocialForce[i] && oldSocialForce[i][j] !== undefined) {
+                        newSocialForce[i][j] = oldSocialForce[i][j];
+                    }
+                }
+            }
+        }
+        
+        this.socialForce = newSocialForce;
+    }
+    
+    resizeSpeciesArray(oldCount, newCount) {
+        // Preserve existing species configurations
+        const oldSpecies = [...this.species];
+        this.species = [];
+        
+        for (let i = 0; i < newCount; i++) {
+            if (i < oldCount && oldSpecies[i]) {
+                // Keep existing species configuration
+                this.species[i] = { ...oldSpecies[i] };
+            } else {
+                // Create new species with default configuration
+                this.species[i] = {
+                    color: this.generateSpeciesColor(i),
+                    startPosition: {
+                        type: 'random',
+                        center: { x: 0.5, y: 0.5 },
+                        radius: 0.2
+                    }
+                };
+            }
+        }
+    }
+    
+    generateSpeciesColor(index) {
+        // Generate consistent colors for species
+        const hue = (index * 137.5) % 360; // Golden angle spacing
+        // Convert HSL to RGB object for consistency
+        return this.hslToRgb(hue, 70, 60);
+    }
+    
+    // Color conversion utilities
+    hslToRgb(h, s, l) {
+        s /= 100;
+        l /= 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l - c / 2;
+        let r, g, b;
+        
+        if (0 <= h && h < 60) {
+            r = c; g = x; b = 0;
+        } else if (60 <= h && h < 120) {
+            r = x; g = c; b = 0;
+        } else if (120 <= h && h < 180) {
+            r = 0; g = c; b = x;
+        } else if (180 <= h && h < 240) {
+            r = 0; g = x; b = c;
+        } else if (240 <= h && h < 300) {
+            r = x; g = 0; b = c;
+        } else if (300 <= h && h < 360) {
+            r = c; g = 0; b = x;
+        }
+        
+        return {
+            r: Math.round((r + m) * 255),
+            g: Math.round((g + m) * 255),
+            b: Math.round((b + m) * 255)
+        };
+    }
+    
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+    
+    rgbToHex(r, g, b) {
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+    
+    normalizeColor(color) {
+        // Ensure color is in RGB object format
+        if (typeof color === 'string') {
+            if (color.startsWith('#')) {
+                return this.hexToRgb(color);
+            } else if (color.startsWith('hsl')) {
+                // Parse HSL string and convert
+                const hslMatch = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+                if (hslMatch) {
+                    return this.hslToRgb(parseInt(hslMatch[1]), parseInt(hslMatch[2]), parseInt(hslMatch[3]));
+                }
+            }
+        }
+        return color; // Already RGB object
+    }
+    
     initializeSpecies() {
         // Clear caches when species change
         this.clearCaches();
@@ -162,7 +407,13 @@ export class SimpleParticleSystem {
             this.species[i] = {
                 color: baseColors[i % baseColors.length],
                 size: 2 + Math.random() * 2, // Vary particle sizes
-                opacity: 0.8 + Math.random() * 0.2 // Vary particle opacity
+                opacity: 0.8 + Math.random() * 0.2, // Vary particle opacity
+                particleCount: this.particlesPerSpecies,
+                startPosition: {
+                    type: this.startPattern || 'cluster',
+                    center: { x: 0.5, y: 0.5 },
+                    radius: 0.2
+                }
             };
         }
         
@@ -218,7 +469,7 @@ export class SimpleParticleSystem {
     
     setCanvas(canvas) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        this.ctx = canvas.getContext('2d', { willReadFrequently: true });
     }
     
     initializeParticles() {
@@ -252,31 +503,17 @@ export class SimpleParticleSystem {
         // Update spatial grid for optimized neighbor search
         this.updateSpatialGrid();
         
-        // Trail effect - using globalAlpha to create fading effect
+        // Trail effect - Smart buffering approach to prevent gray residue
         if (this.trailEnabled) {
-            // Set composite operation and alpha for trail effect
-            this.ctx.globalCompositeOperation = 'source-over';
-            // Trail logic based on UI: "Lower = longer trails"
-            // blur = 0.5 (low) should give long trails (little fade)
-            // blur = 0.95 (high) should give short trails (lots of fade)
-            // fadeAlpha controls how much background to blend in
-            // For longer trails we want less fade, for shorter trails we want more fade
-            const fadeAlpha = this.blur; // Use blur directly as fade amount
-            this.ctx.globalAlpha = fadeAlpha;
-            
-            // Fill with background color to create fade effect
-            this.ctx.fillStyle = this.backgroundColor;
-            this.ctx.fillRect(0, 0, this.width, this.height);
-            
-            // Reset alpha for particle rendering
-            this.ctx.globalAlpha = 1.0;
+            this.applyTrailDecay();
         } else {
-            // Clear canvas completely - ensure alpha is 1.0 for full clear
-            this.ctx.globalCompositeOperation = 'source-over';
-            this.ctx.globalAlpha = 1.0;
+            // Clear canvas completely
             this.ctx.fillStyle = this.backgroundColor;
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
+        
+        // Ensure alpha is reset
+        this.ctx.globalAlpha = 1.0;
         
         // Update each particle with optimized force calculations
         for (let i = 0; i < this.particles.length; i++) {
@@ -404,6 +641,9 @@ export class SimpleParticleSystem {
     render() {
         // Reset temp array pool for this frame
         this.resetTempArrays();
+        
+        // Ensure we use source-over for normal blending
+        this.ctx.globalCompositeOperation = 'source-over';
         
         if (this.renderMode === 'dreamtime') {
             // Save current composite operation
@@ -612,13 +852,19 @@ export class SimpleParticleSystem {
         // Clear caches when loading new preset
         this.clearCaches();
         
-        // Update species configuration
-        this.numSpecies = preset.species.count;
-        this.species = [];
+        // Load PARTICLES Section
+        if (preset.particles) {
+            this.particlesPerSpecies = preset.particles.particlesPerSpecies || this.particlesPerSpecies;
+            this.numSpecies = preset.particles.numSpecies || preset.species.count;
+        } else {
+            this.numSpecies = preset.species.count;
+        }
         
+        // Load SPECIES Section
+        this.species = [];
         preset.species.definitions.forEach((def, i) => {
             this.species[i] = {
-                color: def.color,
+                color: this.normalizeColor(def.color),
                 size: def.size,
                 opacity: def.opacity,
                 name: def.name,
@@ -630,33 +876,61 @@ export class SimpleParticleSystem {
             this.speciesGlowIntensity[i] = def.glowIntensity !== undefined ? def.glowIntensity : 0;
         });
         
-        // Update physics settings
-        // Convert friction from UI value (0-0.2) to physics value (0.8-1.0)
-        // UI: 0 = no friction, 0.2 = max friction
-        // Physics: 1.0 = no friction, 0.8 = max friction
+        // Load PHYSICS Section
         this.friction = 1.0 - preset.physics.friction;
         this.wallDamping = preset.physics.wallDamping;
         this.forceFactor = preset.physics.forceFactor;
-        // Convert single values to matrices for all species interactions
-        const collisionR = preset.physics.collisionRadius;
-        const socialR = preset.physics.socialRadius;
-        this.collisionRadius = this.createMatrix(collisionR, collisionR);
-        this.socialRadius = this.createMatrix(socialR, socialR);
         
-        // Update visual settings
+        // Load full matrices if available, otherwise create from single values
+        if (preset.physics.collisionRadius && Array.isArray(preset.physics.collisionRadius)) {
+            this.collisionRadius = preset.physics.collisionRadius;
+        } else {
+            const collisionR = preset.physics.collisionRadiusValue || preset.physics.collisionRadius || 15;
+            this.collisionRadius = this.createMatrix(collisionR, collisionR);
+        }
+        
+        if (preset.physics.socialRadius && Array.isArray(preset.physics.socialRadius)) {
+            this.socialRadius = preset.physics.socialRadius;
+        } else {
+            const socialR = preset.physics.socialRadiusValue || preset.physics.socialRadius || 50;
+            this.socialRadius = this.createMatrix(socialR, socialR);
+        }
+        
+        // Load VISUAL Section
         this.blur = preset.visual.blur;
         this.particleSize = preset.visual.particleSize;
         this.trailEnabled = preset.visual.trailEnabled;
         this.backgroundColor = preset.visual.backgroundColor || '#000000';
         
-        // Update render mode settings with defaults if not present
-        this.renderMode = preset.renderMode || 'normal';
-        this.glowIntensity = preset.glowIntensity !== undefined ? preset.glowIntensity : 0.5;
-        this.glowRadius = preset.glowRadius !== undefined ? preset.glowRadius : 2.0;
+        // Load EFFECTS Section
+        if (preset.effects) {
+            // Trail Effect
+            this.trailEnabled = preset.effects.trailEnabled !== undefined ? preset.effects.trailEnabled : this.trailEnabled;
+            this.blur = preset.effects.trailLength !== undefined ? preset.effects.trailLength : this.blur;
+            
+            // Halo Effect
+            this.renderMode = preset.effects.haloEnabled ? 'dreamtime' : 'normal';
+            this.glowIntensity = preset.effects.haloIntensity !== undefined ? preset.effects.haloIntensity : 0.8;
+            this.glowRadius = preset.effects.haloRadius !== undefined ? preset.effects.haloRadius : 3.0;
+            
+            // Species Glow Effect
+            if (preset.effects.speciesGlowArrays) {
+                this.speciesGlowSize = [...preset.effects.speciesGlowArrays.sizes] || [...this.speciesGlowSize];
+                this.speciesGlowIntensity = [...preset.effects.speciesGlowArrays.intensities] || [...this.speciesGlowIntensity];
+            }
+        } else {
+            // Fallback to old structure
+            this.renderMode = preset.renderMode || 'normal';
+            this.glowIntensity = preset.glowIntensity !== undefined ? preset.glowIntensity : 0.5;
+            this.glowRadius = preset.glowRadius !== undefined ? preset.glowRadius : 2.0;
+        }
         
-        // Update force matrices
+        // Load FORCES Section
         this.collisionForce = preset.forces.collision;
         this.socialForce = preset.forces.social;
+        
+        // Ensure arrays are properly sized
+        this.ensureGlowArraysSize();
         
         // Reinitialize particles with new configuration
         this.initializeParticlesWithPositions();
@@ -733,12 +1007,21 @@ export class SimpleParticleSystem {
         const preset = {
             name: 'Custom',
             version: '1.0',
+            
+            // PARTICLES Section
+            particles: {
+                particlesPerSpecies: this.particlesPerSpecies,
+                numSpecies: this.numSpecies,
+                startPattern: this.species[0]?.startPosition?.type || 'cluster'
+            },
+            
+            // SPECIES Section
             species: {
                 count: this.numSpecies,
                 definitions: this.species.map((s, i) => ({
                     id: i,
                     name: s.name || `Species ${i + 1}`,
-                    color: s.color,
+                    color: this.normalizeColor(s.color),
                     size: s.size,
                     opacity: s.opacity,
                     particleCount: s.particleCount || this.particlesPerSpecies,
@@ -747,24 +1030,55 @@ export class SimpleParticleSystem {
                     glowIntensity: this.speciesGlowIntensity[i] || 0
                 }))
             },
+            
+            // PHYSICS Section
             physics: {
                 // Convert friction from physics value (0.8-1.0) to UI value (0-0.2)
                 friction: 1.0 - this.friction,
                 wallDamping: this.wallDamping,
                 forceFactor: this.forceFactor,
-                collisionRadius: this.collisionRadius[0][0],
-                socialRadius: this.socialRadius[0][0]
+                // Store full matrices, not just [0][0] values
+                collisionRadius: this.collisionRadius,
+                socialRadius: this.socialRadius,
+                // Store single values for UI compatibility
+                collisionRadiusValue: this.collisionRadius[0][0],
+                socialRadiusValue: this.socialRadius[0][0]
             },
+            
+            // VISUAL Section
             visual: {
                 blur: this.blur,
                 particleSize: this.particleSize,
                 trailEnabled: this.trailEnabled,
                 backgroundColor: this.backgroundColor
             },
+            
+            // EFFECTS Section
+            effects: {
+                // Trail Effect
+                trailEnabled: this.trailEnabled,
+                trailLength: this.blur,
+                
+                // Halo Effect
+                haloEnabled: this.renderMode === 'dreamtime',
+                haloIntensity: this.glowIntensity || 0.8,
+                haloRadius: this.glowRadius || 3.0,
+                
+                // Species Glow Effect
+                speciesGlowEnabled: this.speciesGlowIntensity.some(intensity => intensity > 0),
+                speciesGlowArrays: {
+                    sizes: [...this.speciesGlowSize],
+                    intensities: [...this.speciesGlowIntensity]
+                }
+            },
+            
+            // FORCES Section
             forces: {
                 collision: this.collisionForce,
                 social: this.socialForce
             },
+            
+            // RENDER MODE & GLOBAL SETTINGS
             renderMode: this.renderMode,
             glowIntensity: this.glowIntensity,
             glowRadius: this.glowRadius
@@ -788,6 +1102,40 @@ export class SimpleParticleSystem {
             speciesGlowSize: this.speciesGlowSize.slice(0, this.numSpecies),
             speciesGlowIntensity: this.speciesGlowIntensity.slice(0, this.numSpecies)
         };
+    }
+    
+    // Reset to default values
+    loadDefaults() {
+        this.numSpecies = 5;
+        this.particlesPerSpecies = 150;
+        this.particleSize = 3.0;
+        this.blur = 0.97;
+        this.trailEnabled = true;
+        this.friction = 0.95; // Physics value (0.05 UI value)
+        this.wallDamping = 0.9;
+        this.forceFactor = 0.5;
+        this.backgroundColor = '#000000';
+        this.renderMode = 'normal';
+        this.glowIntensity = 0.8;
+        this.glowRadius = 3.0;
+        this.startPattern = 'cluster';
+        
+        // Reset matrices
+        this.collisionRadius = this.createMatrix(15, 15);
+        this.socialRadius = this.createMatrix(50, 50);
+        this.socialForce = this.createAsymmetricMatrix();
+        this.collisionForce = this.createMatrix(-0.5, -0.5);
+        
+        // Reset species glow arrays
+        this.speciesGlowSize = new Array(20).fill(1.0);
+        this.speciesGlowIntensity = new Array(20).fill(0);
+        
+        // Reinitialize species and particles
+        this.initializeSpecies();
+        this.initializeParticles();
+        
+        // Clear caches
+        this.clearCaches();
     }
     
     resize(width, height) {

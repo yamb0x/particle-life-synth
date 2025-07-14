@@ -58,6 +58,22 @@ Each issue is documented as a numbered markdown file (01.md, 02.md, etc.) with t
    - Status: Open
    - Future optimization opportunities for glow rendering
 
+10. **[14.md](14.md)** - Post-Refactoring Bugs and Architecture Issues
+    - Priority: **CRITICAL**
+    - Status: Open
+    - Multiple core features broken after UI refactor
+    - Trail rendering leaves gray residue
+    - Species glow selector not working
+    - Species count changes don't reinitialize properly
+    - Missing paste functionality in configuration modal
+
+11. **[15.md](15.md)** - Color Picker Values Reset When Opening Configuration Modal
+    - Priority: **HIGH**
+    - Status: Open
+    - Colors get overwritten when modal opens, breaking copy-paste workflow
+    - User confusion as colors change unexpectedly
+    - Debugging infrastructure in place
+
 ### Resolved Issues
 
 Resolved issues have been moved to the `completed/` subfolder for better organization.

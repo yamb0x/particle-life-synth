@@ -17,6 +17,15 @@ export class PresetManager {
     this.presets.set('predatorPrey', {
       name: 'Predator-Prey',
       version: '1.0',
+      description: 'Classic predator-prey dynamics with chase and hunt behaviors',
+      
+      // PARTICLES Section - NEW FORMAT
+      particles: {
+        particlesPerSpecies: 100,
+        numSpecies: 5,
+        startPattern: 'cluster'
+      },
+      
       species: {
         count: 5,
         definitions: [
@@ -27,19 +36,41 @@ export class PresetManager {
           { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'cluster', center: { x: 0.8, y: 0.8 }, radius: 0.1 }, glowSize: 1.0, glowIntensity: 0 }
         ]
       },
+      
+      // PHYSICS Section - NEW FORMAT
       physics: {
         friction: 0.05,
         wallDamping: 0.9,
         forceFactor: 0.5,
-        collisionRadius: 15,
-        socialRadius: 50
+        // Store full matrices
+        collisionRadius: Array(5).fill().map(() => Array(5).fill(15)),
+        socialRadius: Array(5).fill().map(() => Array(5).fill(50)),
+        // Store single values for UI compatibility
+        collisionRadiusValue: 15,
+        socialRadiusValue: 50
       },
+      
       visual: {
         blur: 0.97,
         particleSize: 2,
         trailEnabled: true,
         backgroundColor: '#000000'
       },
+      
+      // EFFECTS Section - NEW FORMAT
+      effects: {
+        trailEnabled: true,
+        trailLength: 0.97,
+        haloEnabled: false,
+        haloIntensity: 0.0,
+        haloRadius: 1.0,
+        speciesGlowEnabled: false,
+        speciesGlowArrays: {
+          sizes: [1.0, 1.0, 1.0, 1.0, 1.0],
+          intensities: [0.0, 0.0, 0.0, 0.0, 0.0]
+        }
+      },
+      
       forces: {
         collision: Array(5).fill().map(() => Array(5).fill(-1)),
         social: [
@@ -55,6 +86,15 @@ export class PresetManager {
     this.presets.set('crystallization', {
       name: 'Crystallization',
       version: '1.0',
+      description: 'Symmetric clustering with glowing crystal-like formations',
+      
+      // PARTICLES Section - NEW FORMAT
+      particles: {
+        particlesPerSpecies: 100,
+        numSpecies: 5,
+        startPattern: 'ring'
+      },
+      
       species: {
         count: 5,
         definitions: [
@@ -65,19 +105,41 @@ export class PresetManager {
           { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'ring', center: { x: 0.5, y: 0.5 }, radius: 0.1 }, glowSize: 1.2, glowIntensity: 0.3 }
         ]
       },
+      
+      // PHYSICS Section - NEW FORMAT
       physics: {
         friction: 0.1,
         wallDamping: 0.95,
         forceFactor: 0.3,
-        collisionRadius: 15,
-        socialRadius: 80
+        // Store full matrices
+        collisionRadius: Array(5).fill().map(() => Array(5).fill(15)),
+        socialRadius: Array(5).fill().map(() => Array(5).fill(80)),
+        // Store single values for UI compatibility
+        collisionRadiusValue: 15,
+        socialRadiusValue: 80
       },
+      
       visual: {
         blur: 0.95,
         particleSize: 2,
         trailEnabled: true,
         backgroundColor: '#000000'
       },
+      
+      // EFFECTS Section - NEW FORMAT
+      effects: {
+        trailEnabled: true,
+        trailLength: 0.95,
+        haloEnabled: false,
+        haloIntensity: 0.0,
+        haloRadius: 1.0,
+        speciesGlowEnabled: true,
+        speciesGlowArrays: {
+          sizes: [1.2, 1.2, 1.2, 1.2, 1.2],
+          intensities: [0.3, 0.3, 0.3, 0.3, 0.3]
+        }
+      },
+      
       forces: {
         collision: Array(5).fill().map(() => Array(5).fill(-1)),
         social: [
@@ -93,6 +155,15 @@ export class PresetManager {
     this.presets.set('vortex', {
       name: 'Vortex',
       version: '1.0',
+      description: 'Spinning vortex dynamics with enhanced glow effects',
+      
+      // PARTICLES Section - NEW FORMAT
+      particles: {
+        particlesPerSpecies: 100,
+        numSpecies: 5,
+        startPattern: 'grid'
+      },
+      
       species: {
         count: 5,
         definitions: [
@@ -103,19 +174,41 @@ export class PresetManager {
           { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'grid', center: { x: 0.5, y: 0.5 }, radius: 0.3 }, glowSize: 1.5, glowIntensity: 0.4 }
         ]
       },
+      
+      // PHYSICS Section - NEW FORMAT
       physics: {
         friction: 0.02,
         wallDamping: 0.85,
         forceFactor: 0.6,
-        collisionRadius: 15,
-        socialRadius: 60
+        // Store full matrices
+        collisionRadius: Array(5).fill().map(() => Array(5).fill(15)),
+        socialRadius: Array(5).fill().map(() => Array(5).fill(60)),
+        // Store single values for UI compatibility
+        collisionRadiusValue: 15,
+        socialRadiusValue: 60
       },
+      
       visual: {
         blur: 0.98,
         particleSize: 2,
         trailEnabled: true,
         backgroundColor: '#000000'
       },
+      
+      // EFFECTS Section - NEW FORMAT
+      effects: {
+        trailEnabled: true,
+        trailLength: 0.98,
+        haloEnabled: false,
+        haloIntensity: 0.0,
+        haloRadius: 1.0,
+        speciesGlowEnabled: true,
+        speciesGlowArrays: {
+          sizes: [1.5, 1.5, 1.5, 1.5, 1.5],
+          intensities: [0.4, 0.4, 0.4, 0.4, 0.4]
+        }
+      },
+      
       forces: {
         collision: Array(5).fill().map(() => Array(5).fill(-1)),
         social: [
@@ -131,6 +224,15 @@ export class PresetManager {
     this.presets.set('symbiosis', {
       name: 'Symbiosis',
       version: '1.0',
+      description: 'Cooperative mutual relationships with subtle glow effects',
+      
+      // PARTICLES Section - NEW FORMAT
+      particles: {
+        particlesPerSpecies: 100,
+        numSpecies: 5,
+        startPattern: 'random'
+      },
+      
       species: {
         count: 5,
         definitions: [
@@ -141,19 +243,41 @@ export class PresetManager {
           { id: 4, name: 'Purple', color: { r: 255, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.3, glowIntensity: 0.2 }
         ]
       },
+      
+      // PHYSICS Section - NEW FORMAT
       physics: {
         friction: 0.05,
         wallDamping: 0.9,
         forceFactor: 0.4,
-        collisionRadius: 15,
-        socialRadius: 70
+        // Store full matrices
+        collisionRadius: Array(5).fill().map(() => Array(5).fill(15)),
+        socialRadius: Array(5).fill().map(() => Array(5).fill(70)),
+        // Store single values for UI compatibility
+        collisionRadiusValue: 15,
+        socialRadiusValue: 70
       },
+      
       visual: {
         blur: 0.96,
         particleSize: 2,
         trailEnabled: true,
         backgroundColor: '#000000'
       },
+      
+      // EFFECTS Section - NEW FORMAT
+      effects: {
+        trailEnabled: true,
+        trailLength: 0.96,
+        haloEnabled: false,
+        haloIntensity: 0.0,
+        haloRadius: 1.0,
+        speciesGlowEnabled: true,
+        speciesGlowArrays: {
+          sizes: [1.3, 1.3, 1.3, 1.3, 1.3],
+          intensities: [0.2, 0.2, 0.2, 0.2, 0.2]
+        }
+      },
+      
       forces: {
         collision: Array(5).fill().map(() => Array(5).fill(-1)),
         social: [
@@ -169,10 +293,17 @@ export class PresetManager {
     // Dreamtime preset with ethereal glow effect
     this.presets.set('dreamtime', {
       name: 'Dreamtime',
+      version: '1.0',
       description: 'Ethereal particles with glowing auras in a dream-like dance',
-      renderMode: 'dreamtime',
-      glowIntensity: 0.8,
-      glowRadius: 3.0,
+      
+      // PARTICLES Section - NEW FORMAT
+      particles: {
+        particlesPerSpecies: 80,
+        numSpecies: 4,
+        startPattern: 'ring'
+      },
+      
+      // SPECIES Section
       species: {
         count: 4,
         definitions: [
@@ -182,19 +313,48 @@ export class PresetManager {
           { id: 3, name: 'Violet', color: { r: 150, g: 100, b: 255 }, size: 3, opacity: 0.9, particleCount: 100, startPosition: { type: 'random', center: { x: 0.5, y: 0.5 }, radius: 0.4 }, glowSize: 1.8, glowIntensity: 0.6 }
         ]
       },
+      
+      // PHYSICS Section - NEW FORMAT
       physics: {
         friction: 0.02,
         wallDamping: 0.95,
         forceFactor: 0.4,
-        collisionRadius: 20,
-        socialRadius: 80
+        // Store full matrices
+        collisionRadius: Array(4).fill().map(() => Array(4).fill(20)),
+        socialRadius: Array(4).fill().map(() => Array(4).fill(80)),
+        // Store single values for UI compatibility
+        collisionRadiusValue: 20,
+        socialRadiusValue: 80
       },
+      
+      // VISUAL Section
       visual: {
         blur: 0.98,
         particleSize: 4,
         trailEnabled: true,
         backgroundColor: '#000000'
       },
+      
+      // EFFECTS Section - NEW FORMAT
+      effects: {
+        // Trail Effect
+        trailEnabled: true,
+        trailLength: 0.98,
+        
+        // Halo Effect
+        haloEnabled: true,
+        haloIntensity: 0.8,
+        haloRadius: 3.0,
+        
+        // Species Glow Effect
+        speciesGlowEnabled: true,
+        speciesGlowArrays: {
+          sizes: [2.0, 2.2, 2.5, 1.8],
+          intensities: [0.7, 0.8, 0.9, 0.6]
+        }
+      },
+      
+      // FORCES Section
       forces: {
         collision: Array(4).fill().map(() => Array(4).fill(-0.5)),
         social: [
@@ -203,7 +363,12 @@ export class PresetManager {
           [-0.3, 0.1, 0.0, 0.3],
           [0.1, -0.2, 0.3, 0.0]
         ]
-      }
+      },
+      
+      // RENDER MODE & GLOBAL SETTINGS
+      renderMode: 'dreamtime',
+      glowIntensity: 0.8,
+      glowRadius: 3.0
     });
   }
 
@@ -345,5 +510,22 @@ export class PresetManager {
         social: Array(5).fill().map(() => Array(5).fill(0))
       }
     };
+  }
+  
+  getUserPresets() {
+    const userPresets = [];
+    const builtInKeys = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
+    
+    for (const [key, preset] of this.presets.entries()) {
+      if (!builtInKeys.includes(key)) {
+        userPresets.push({
+          key: key,
+          name: preset.name || key,
+          preset: preset
+        });
+      }
+    }
+    
+    return userPresets;
   }
 }

@@ -179,6 +179,7 @@ export class PresetModal {
       
       <div class="preset-modal-footer">
         <div class="preset-save-status"></div>
+        <button class="btn btn-secondary btn-sm preset-btn-paste">Paste from Floating UI</button>
         <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
         <button class="btn btn-secondary btn-sm preset-btn-close">Close</button>
         <button class="btn btn-secondary btn-sm preset-btn-save-new">Save as New</button>
@@ -401,6 +402,7 @@ export class PresetModal {
     this.modal.querySelector('.preset-btn-save').addEventListener('click', () => this.save());
     this.modal.querySelector('.preset-btn-save-new').addEventListener('click', () => this.saveAsNew());
     this.modal.querySelector('.preset-btn-delete').addEventListener('click', () => this.deletePreset());
+    this.modal.querySelector('.preset-btn-paste').addEventListener('click', () => this.pasteSettings());
     
     // Force preset buttons
     this.modal.querySelectorAll('.force-preset-btn').forEach(btn => {
@@ -657,6 +659,7 @@ export class PresetModal {
         }
         this.markChanged();
       });
+      
       colorPicker.setColor(species.color);
       
       speciesDiv.innerHTML = `
@@ -708,8 +711,8 @@ export class PresetModal {
     this.currentPresetKey = presetKey;
     if (presetKey && this.presetManager.getPreset(presetKey)) {
       this.currentPreset = JSON.parse(JSON.stringify(this.presetManager.getPreset(presetKey)));
-    } else if (presetKey === '') {
-      // Empty string means "Custom" - export current state
+    } else if (presetKey === '' || presetKey === null) {
+      // Empty string or null means "Custom" - export current state
       this.currentPreset = this.particleSystem.exportPreset();
       this.currentPresetKey = null;
     } else {
@@ -723,6 +726,13 @@ export class PresetModal {
     this.hasChanges = false;
     this.switchTab('species');
     this.updateSaveStatus('');
+    
+    // Enable paste button if there are copied settings
+    if (window.mainUI && window.mainUI.copiedSettings) {
+      this.enablePaste(window.mainUI.copiedSettings);
+    } else {
+      this.enablePaste(null);
+    }
   }
 
   updateButtonStates() {
@@ -793,7 +803,7 @@ export class PresetModal {
     }
     
     // Don't auto-save built-in presets
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
     if (builtInPresets.includes(this.currentPresetKey)) {
       this.updateSaveStatus('Built-in preset (save as new)');
       return;
@@ -865,35 +875,187 @@ export class PresetModal {
   }
 
   getPresetFromUI() {
-    this.currentPreset.name = this.modal.querySelector('.preset-name-input').value;
+    // Get the current state from the particle system
+    const preset = this.particleSystem.exportPreset();
     
-    // Update species count from UI
-    this.currentPreset.species.count = parseInt(this.modal.querySelector('#species-count').value);
+    // Override with the preset name from the modal
+    preset.name = this.modal.querySelector('.preset-name-input').value;
     
-    this.currentPreset.visual.blur = parseFloat(this.modal.querySelector('#modal-blur').value);
-    this.currentPreset.visual.particleSize = parseFloat(this.modal.querySelector('#particle-size').value);
-    this.currentPreset.visual.trailEnabled = this.modal.querySelector('#trail-enabled').checked;
-    this.currentPreset.visual.backgroundColor = this.modal.querySelector('#background-color').value;
-    
-    this.currentPreset.physics.friction = parseFloat(this.modal.querySelector('#modal-friction').value);
-    this.currentPreset.physics.wallDamping = parseFloat(this.modal.querySelector('#modal-wall-damping').value);
-    this.currentPreset.physics.forceFactor = parseFloat(this.modal.querySelector('#force-factor').value);
-    this.currentPreset.physics.collisionRadius = parseFloat(this.modal.querySelector('#modal-collision-radius').value);
-    this.currentPreset.physics.socialRadius = parseFloat(this.modal.querySelector('#modal-social-radius').value);
-    
-    const positions = this.startPositionEditor.getPositions();
-    positions.forEach((pos, index) => {
-      if (this.currentPreset.species.definitions[index]) {
-        this.currentPreset.species.definitions[index].startPosition = pos;
-      }
-    });
-    
-    // Get force matrix from editor
-    if (this.forceEditor && this.forceEditor.forceMatrix) {
-      this.currentPreset.forces.social = this.forceEditor.forceMatrix;
+    // Update specific values that might have been modified in the modal
+    const speciesCountInput = this.modal.querySelector('#species-count');
+    if (speciesCountInput) {
+      preset.species.count = parseInt(speciesCountInput.value);
     }
     
-    return this.currentPreset;
+    // Update species-specific properties from modal UI
+    this.updateSpeciesPropertiesFromUI(preset);
+    
+    // Update visual settings from modal if they exist
+    const modalBlur = this.modal.querySelector('#modal-blur');
+    if (modalBlur) {
+      preset.visual.blur = parseFloat(modalBlur.value);
+    }
+    
+    const particleSize = this.modal.querySelector('#particle-size');
+    if (particleSize) {
+      preset.visual.particleSize = parseFloat(particleSize.value);
+    }
+    
+    const trailEnabled = this.modal.querySelector('#trail-enabled');
+    if (trailEnabled) {
+      preset.visual.trailEnabled = trailEnabled.checked;
+    }
+    
+    const backgroundColor = this.modal.querySelector('#background-color');
+    if (backgroundColor) {
+      preset.visual.backgroundColor = backgroundColor.value;
+    }
+    
+    // Update physics settings from modal if they exist
+    const modalFriction = this.modal.querySelector('#modal-friction');
+    if (modalFriction) {
+      preset.physics.friction = parseFloat(modalFriction.value);
+    }
+    
+    const modalWallDamping = this.modal.querySelector('#modal-wall-damping');
+    if (modalWallDamping) {
+      preset.physics.wallDamping = parseFloat(modalWallDamping.value);
+    }
+    
+    const forceFactor = this.modal.querySelector('#force-factor');
+    if (forceFactor) {
+      preset.physics.forceFactor = parseFloat(forceFactor.value);
+    }
+    
+    const modalCollisionRadius = this.modal.querySelector('#modal-collision-radius');
+    if (modalCollisionRadius) {
+      // Update both the single value and the matrix for UI compatibility
+      preset.physics.collisionRadiusValue = parseFloat(modalCollisionRadius.value);
+      // Don't overwrite the matrix - keep the existing matrix structure
+    }
+    
+    const modalSocialRadius = this.modal.querySelector('#modal-social-radius');
+    if (modalSocialRadius) {
+      // Update both the single value and the matrix for UI compatibility
+      preset.physics.socialRadiusValue = parseFloat(modalSocialRadius.value);
+      // Don't overwrite the matrix - keep the existing matrix structure
+    }
+    
+    // Update start positions from editor if available
+    if (this.startPositionEditor) {
+      const positions = this.startPositionEditor.getPositions();
+      positions.forEach((pos, index) => {
+        if (preset.species.definitions[index]) {
+          preset.species.definitions[index].startPosition = pos;
+        }
+      });
+    }
+    
+    // Update force matrix from editor if available
+    if (this.forceEditor && this.forceEditor.forceMatrix) {
+      preset.forces.social = this.forceEditor.forceMatrix;
+    }
+    
+    // Update effects from modal UI
+    this.updateEffectsFromUI(preset);
+    
+    // Update synth assignments from main UI
+    this.updateSynthAssignmentsFromUI(preset);
+    
+    return preset;
+  }
+  
+  updateSpeciesPropertiesFromUI(preset) {
+    // Update species colors, names, sizes, opacity, and other properties from modal UI
+    const speciesList = this.modal.querySelector('#species-list');
+    if (!speciesList) return;
+    
+    const speciesContainers = speciesList.querySelectorAll('.species-container');
+    speciesContainers.forEach((container, index) => {
+      if (!preset.species.definitions[index]) return;
+      
+      // Update species name
+      const nameInput = container.querySelector('.species-name-input');
+      if (nameInput) {
+        preset.species.definitions[index].name = nameInput.value;
+      }
+      
+      // Update species color from color picker
+      const colorInput = container.querySelector('.species-color-input');
+      if (colorInput) {
+        preset.species.definitions[index].color = this.particleSystem.hexToRgb(colorInput.value);
+      }
+      
+      // Update species size
+      const sizeInput = container.querySelector('.species-size-input');
+      if (sizeInput) {
+        preset.species.definitions[index].size = parseFloat(sizeInput.value);
+      }
+      
+      // Update species opacity
+      const opacityInput = container.querySelector('.species-opacity-input');
+      if (opacityInput) {
+        preset.species.definitions[index].opacity = parseFloat(opacityInput.value);
+      }
+      
+      // Update particle count
+      const particleCountInput = container.querySelector('.species-particles-input');
+      if (particleCountInput) {
+        preset.species.definitions[index].particleCount = parseInt(particleCountInput.value);
+      }
+      
+      // Update glow settings
+      const glowSizeInput = container.querySelector('.species-glow-size-input');
+      if (glowSizeInput) {
+        preset.species.definitions[index].glowSize = parseFloat(glowSizeInput.value);
+      }
+      
+      const glowIntensityInput = container.querySelector('.species-glow-intensity-input');
+      if (glowIntensityInput) {
+        preset.species.definitions[index].glowIntensity = parseFloat(glowIntensityInput.value);
+      }
+    });
+  }
+  
+  updateEffectsFromUI(preset) {
+    // Update halo effects
+    const haloEnabled = this.modal.querySelector('#halo-enabled');
+    if (haloEnabled) {
+      preset.effects.haloEnabled = haloEnabled.checked;
+    }
+    
+    const haloIntensity = this.modal.querySelector('#halo-intensity');
+    if (haloIntensity) {
+      preset.effects.haloIntensity = parseFloat(haloIntensity.value);
+    }
+    
+    const haloRadius = this.modal.querySelector('#halo-radius');
+    if (haloRadius) {
+      preset.effects.haloRadius = parseFloat(haloRadius.value);
+    }
+    
+    // Update trail effects
+    const trailEnabled = this.modal.querySelector('#trail-enabled');
+    if (trailEnabled) {
+      preset.effects.trailEnabled = trailEnabled.checked;
+    }
+    
+    // Update species glow arrays from particle system
+    if (this.particleSystem.speciesGlowSize && this.particleSystem.speciesGlowIntensity) {
+      preset.effects.speciesGlowArrays = {
+        sizes: [...this.particleSystem.speciesGlowSize.slice(0, this.particleSystem.numSpecies)],
+        intensities: [...this.particleSystem.speciesGlowIntensity.slice(0, this.particleSystem.numSpecies)]
+      };
+      preset.effects.speciesGlowEnabled = preset.effects.speciesGlowArrays.intensities.some(i => i > 0);
+    }
+  }
+  
+  updateSynthAssignmentsFromUI(preset) {
+    // Get synth assignments from main UI
+    const mainUI = window.mainUI;
+    if (mainUI && mainUI.synthAssignments) {
+      preset.synthAssignments = { ...mainUI.synthAssignments };
+    }
   }
 
   apply() {
@@ -915,7 +1077,7 @@ export class PresetModal {
     }
     
     // Check if it's a built-in preset
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
     if (builtInPresets.includes(this.currentPresetKey)) {
       // Can't save over built-in presets, must save as new
       return this.saveAsNew();
@@ -978,7 +1140,7 @@ export class PresetModal {
     }
     
     // Show warning for built-in presets
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
     const isBuiltIn = builtInPresets.includes(this.currentPresetKey);
     
     const message = isBuiltIn 
@@ -1006,6 +1168,187 @@ export class PresetModal {
         alert(`Preset "${preset.name}" has been deleted.`);
       } catch (error) {
         alert('Failed to delete preset: ' + error.message);
+      }
+    }
+  }
+  
+  pasteSettings() {
+    // Check if there are copied settings available from MainUI
+    const mainUI = window.mainUI;
+    if (!mainUI || !mainUI.copiedSettings) {
+      alert('No settings copied from Floating UI. Please copy settings first.');
+      return;
+    }
+    
+    const settings = mainUI.copiedSettings;
+    
+    try {
+      // Apply the complete preset to the particle system
+      this.particleSystem.loadFullPreset(settings);
+      
+      // Update modal UI to reflect the new settings
+      this.syncAllModalElements(settings);
+      
+      // Update the force editor if on forces tab
+      if (this.activeTab === 'forces' && this.forceEditor) {
+        this.forceEditor.setForceMatrix(this.particleSystem.socialForce);
+        this.forceEditor.updateMatrixView();
+      }
+      
+      // Update the start position editor if on layout tab
+      if (this.activeTab === 'layout' && this.startPositionEditor) {
+        this.startPositionEditor.setSpecies(this.particleSystem.species);
+      }
+      
+      // Apply UI-specific state
+      if (settings.uiState) {
+        this.applyUIState(settings.uiState);
+      }
+      
+      // Apply synth assignments to main UI
+      if (settings.synthAssignments && mainUI.loadSynthAssignments) {
+        mainUI.loadSynthAssignments(settings.synthAssignments);
+      }
+      
+      // Refresh the UI to show the pasted settings
+      this.loadPresetToUI();
+      this.markChanged();
+      
+      // Update main UI to reflect changes
+      if (mainUI.updateUIFromParticleSystem) {
+        mainUI.updateUIFromParticleSystem();
+      }
+      
+      // Show success message
+      this.updateSaveStatus('✓ Settings pasted from Floating UI');
+      
+    } catch (error) {
+      console.error('Paste settings error:', error);
+      alert('Failed to paste settings: ' + error.message);
+    }
+  }
+  
+  syncAllModalElements(settings) {
+    // Sync all modal elements with the new settings
+    
+    // Species count
+    if (settings.particles && settings.particles.numSpecies !== this.particleSystem.numSpecies) {
+      const speciesCountInput = this.modal.querySelector('#species-count');
+      const speciesCountValue = this.modal.querySelector('#species-count-value');
+      if (speciesCountInput) {
+        speciesCountInput.value = settings.particles.numSpecies;
+        if (speciesCountValue) {
+          speciesCountValue.textContent = settings.particles.numSpecies;
+        }
+        this.updateSpeciesCount(settings.particles.numSpecies);
+      }
+    }
+    
+    // Physics settings
+    if (settings.physics) {
+      this.syncToModal('modal-friction', settings.physics.friction);
+      this.syncToModal('modal-wall-damping', settings.physics.wallDamping);
+      this.syncToModal('force-factor', settings.physics.forceFactor);
+      this.syncToModal('modal-collision-radius', settings.physics.collisionRadiusValue || settings.physics.collisionRadius);
+      this.syncToModal('modal-social-radius', settings.physics.socialRadiusValue || settings.physics.socialRadius);
+    }
+    
+    // Visual settings
+    if (settings.visual) {
+      this.syncToModal('background-color', settings.visual.backgroundColor);
+      this.syncToModal('particle-size', settings.visual.particleSize);
+      this.syncToModal('modal-blur', settings.visual.blur);
+      this.syncToModal('trail-enabled', settings.visual.trailEnabled);
+    }
+    
+    // Effects settings
+    if (settings.effects) {
+      this.syncToModal('trail-enabled', settings.effects.trailEnabled);
+      
+      // Halo settings
+      if (settings.effects.haloEnabled !== undefined) {
+        this.particleSystem.renderMode = settings.effects.haloEnabled ? 'dreamtime' : 'normal';
+        this.syncToModal('halo-enabled', settings.effects.haloEnabled);
+        this.syncToModal('halo-intensity', settings.effects.haloIntensity);
+        this.syncToModal('halo-radius', settings.effects.haloRadius);
+      }
+    }
+  }
+  
+  applyUIState(uiState) {
+    // Apply UI-specific state that's not part of the particle system
+    
+    // Species glow state
+    if (uiState.speciesGlowEnabled !== undefined) {
+      const glowEnabledCheckbox = this.modal.querySelector('#species-glow-enabled');
+      if (glowEnabledCheckbox) {
+        glowEnabledCheckbox.checked = uiState.speciesGlowEnabled;
+      }
+    }
+    
+    // Force relationship selectors
+    if (uiState.fromSpecies !== undefined) {
+      const fromSpeciesSelect = this.modal.querySelector('#force-from-species');
+      if (fromSpeciesSelect) {
+        fromSpeciesSelect.value = uiState.fromSpecies;
+      }
+    }
+    
+    if (uiState.toSpecies !== undefined) {
+      const toSpeciesSelect = this.modal.querySelector('#force-to-species');
+      if (toSpeciesSelect) {
+        toSpeciesSelect.value = uiState.toSpecies;
+      }
+    }
+  }
+  
+  syncToModal(elementId, value) {
+    const element = this.modal.querySelector(`#${elementId}`);
+    if (element) {
+      if (element.type === 'checkbox') {
+        element.checked = value;
+      } else if (element.type === 'color') {
+        element.value = value;
+      } else {
+        element.value = value;
+      }
+      
+      // Update value displays
+      const valueDisplay = this.modal.querySelector(`#${elementId}-value`);
+      if (valueDisplay) {
+        valueDisplay.textContent = typeof value === 'number' ? value.toFixed(2) : value;
+      }
+      
+      // Sync to particle system
+      const syncMapping = {
+        'friction': 'friction',
+        'wall-damping': 'wall-damping',
+        'force-factor': 'force-factor',
+        'modal-collision-radius': 'collision-radius',
+        'modal-social-radius': 'social-radius',
+        'modal-blur': 'blur',
+        'particle-size': 'particle-size'
+      };
+      
+      if (syncMapping[elementId]) {
+        this.syncToParticleSystem(syncMapping[elementId], value);
+        this.syncToMainUI(syncMapping[elementId], value);
+      }
+    }
+  }
+  
+  enablePaste(copiedSettings) {
+    // Enable or disable the paste button based on availability of copied settings
+    const pasteButton = this.modal.querySelector('.preset-btn-paste');
+    if (pasteButton) {
+      if (copiedSettings) {
+        pasteButton.disabled = false;
+        pasteButton.title = 'Paste settings from Floating UI';
+        pasteButton.style.opacity = '1';
+      } else {
+        pasteButton.disabled = true;
+        pasteButton.title = 'No settings copied. Copy settings from Floating UI first.';
+        pasteButton.style.opacity = '0.5';
       }
     }
   }
