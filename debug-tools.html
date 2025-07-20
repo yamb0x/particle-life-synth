@@ -235,6 +235,7 @@
                 <button onclick="checkStorage()">Check Storage</button>
                 <button onclick="testPresetSave()">Test Preset Save</button>
                 <button onclick="clearStorage()" class="warning">Clear Storage</button>
+                <button onclick="deleteAllPresets()" class="error">Delete ALL Presets</button>
                 <button onclick="checkMemoryLeaks()">Check Memory Leaks</button>
             </div>
             
@@ -693,6 +694,156 @@
                 
             } catch (error) {
                 log(`Storage check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteAllPresets() {
+            log('🗑️ Starting complete preset deletion...', 'warning');
+            
+            if (!confirm('⚠️ WARNING: This will delete ALL presets and clear all storage. This cannot be undone. Continue?')) {
+                log('Preset deletion cancelled by user', 'info');
+                return;
+            }
+            
+            try {
+                const { win } = await getApp();
+                
+                // Get preset manager and storage
+                const presetManager = win.presetManager;
+                const storage = new win.PresetStorage?.constructor() || presetManager?.storage;
+                
+                if (!presetManager && !storage) {
+                    log('✗ No preset manager or storage found', 'error');
+                    return;
+                }
+                
+                // Get all stored presets via storage directly
+                let presets = {};
+                let deletedCount = 0;
+                
+                // Try to get presets from storage
+                if (storage && storage.getAllPresets) {
+                    try {
+                        presets = await storage.getAllPresets();
+                        log(`Found ${Object.keys(presets).length} presets in storage`, 'info');
+                    } catch (error) {
+                        log(`Could not get presets from storage: ${error.message}`, 'warning');
+                    }
+                }
+                
+                // Also try preset manager
+                if (presetManager && presetManager.getAllPresets) {
+                    try {
+                        const managerPresets = await presetManager.getAllPresets();
+                        const managerKeys = Array.isArray(managerPresets) ? 
+                            managerPresets.map(p => p.key) : 
+                            Object.keys(managerPresets);
+                        log(`Found ${managerKeys.length} presets in manager`, 'info');
+                        
+                        // Merge preset keys
+                        managerKeys.forEach(key => {
+                            if (key && key !== 'undefined') {
+                                presets[key] = { key };
+                            }
+                        });
+                    } catch (error) {
+                        log(`Could not get presets from manager: ${error.message}`, 'warning');
+                    }
+                }
+                
+                // Handle case where presets might be an array or object
+                let presetList = [];
+                if (Array.isArray(presets)) {
+                    presetList = presets;
+                } else if (typeof presets === 'object' && presets !== null) {
+                    presetList = Object.values(presets);
+                }
+                
+                log(`Processing ${presetList.length} presets for deletion...`, 'info');
+                
+                // Delete ALL presets via both manager and storage
+                for (const preset of presetList) {
+                    if (preset && preset.key) {
+                        try {
+                            // Delete via preset manager
+                            if (presetManager && presetManager.deletePreset) {
+                                await presetManager.deletePreset(preset.key);
+                            }
+                            
+                            // Delete via storage directly
+                            if (storage && storage.deletePreset) {
+                                await storage.deletePreset(preset.key);
+                            }
+                            
+                            deletedCount++;
+                            log(`Deleted preset: ${preset.key}`, 'success');
+                        } catch (error) {
+                            log(`Failed to delete preset ${preset.key}: ${error.message}`, 'warning');
+                        }
+                    }
+                }
+                
+                // Clear ALL localStorage entries related to presets
+                const localStorageKeys = Object.keys(localStorage);
+                const presetKeys = localStorageKeys.filter(key => 
+                    key.startsWith('preset_') || 
+                    key === 'userPresets' || 
+                    key === 'lastSelectedPreset' || 
+                    key === 'lastScene' ||
+                    key === 'particleLifePresets' ||
+                    key === 'particleLifePresetsMeta'
+                );
+                
+                presetKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    log(`Removed from localStorage: ${key}`, 'info');
+                });
+                
+                // Clear IndexedDB completely
+                try {
+                    const deleteRequest = indexedDB.deleteDatabase('ParticleLifeDB');
+                    deleteRequest.onsuccess = () => {
+                        log('✓ IndexedDB deleted successfully', 'success');
+                    };
+                    deleteRequest.onerror = () => {
+                        log('✗ Failed to delete IndexedDB', 'error');
+                    };
+                } catch (error) {
+                    log(`Error deleting IndexedDB: ${error.message}`, 'warning');
+                }
+                
+                // Update UI to reflect changes
+                if (win.mainUI && win.mainUI.updatePresetSelector) {
+                    win.mainUI.updatePresetSelector();
+                    log('✓ Updated main UI preset selector', 'success');
+                }
+                
+                log(`✅ Cleanup complete! Deleted ${deletedCount} presets and cleared all storage.`, 'success');
+                log('🔄 Refresh the main app to see the clean state.', 'info');
+                
+            } catch (error) {
+                log(`❌ Preset deletion failed: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        async function clearStorage() {
+            log('Clearing general storage...', 'warning');
+            
+            try {
+                // Clear general localStorage items (but not presets)
+                const keysToRemove = ['lastScene', 'lastSelectedPreset'];
+                keysToRemove.forEach(key => {
+                    if (localStorage.getItem(key)) {
+                        localStorage.removeItem(key);
+                        log(`Removed ${key} from localStorage`, 'info');
+                    }
+                });
+                
+                log('✓ General storage cleared', 'success');
+                
+            } catch (error) {
+                log(`Storage clear failed: ${error.message}`, 'error');
             }
         }
         

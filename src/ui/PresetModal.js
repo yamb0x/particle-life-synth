@@ -1,4 +1,4 @@
-import { StartPositionEditor } from './StartPositionEditor.js';
+import { DistributionDrawer } from './DistributionDrawer.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ForceEditor } from './ForceEditor.js';
 import { SpeciesGlowControl } from './SpeciesGlowControl.js';
@@ -10,7 +10,7 @@ export class PresetModal {
     this.currentPreset = null;
     this.currentPresetKey = null;
     this.activeTab = 'species';
-    this.startPositionEditor = null;
+    this.distributionDrawer = null;
     this.forceEditor = null;
     this.colorPickers = [];
     this.speciesGlowControl = null;
@@ -32,6 +32,12 @@ export class PresetModal {
     
     this.modal.innerHTML = `
       <div class="preset-modal-header">
+        <div class="preset-selector-group">
+          <label class="preset-selector-label">Preset:</label>
+          <select class="select preset-selector" id="modal-preset-selector">
+            <option value="">New Preset</option>
+          </select>
+        </div>
         <input type="text" class="input preset-name-input" placeholder="Preset Name" value="New Preset">
         <button class="btn btn-icon btn-ghost preset-modal-close">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -169,10 +175,52 @@ export class PresetModal {
         
         <div class="preset-tab-content" data-content="layout">
           <div class="layout-controls">
-            <h3>Starting Positions</h3>
-            <p>Click and drag species positions. Select a species to change its spawn pattern.</p>
-            <canvas id="start-position-canvas" width="400" height="400"></canvas>
-            <div id="position-pattern-controls"></div>
+            <h3>Initial Distribution</h3>
+            <p>Paint custom distributions or use pattern tools. Each species can have unique starting positions.</p>
+            <canvas id="distribution-drawer-canvas" width="400" height="300"></canvas>
+            
+            <div class="distribution-modal-controls">
+              <div class="control-group">
+                <label>Species:</label>
+                <select class="select" id="modal-distribution-species">
+                  <option value="0">Red</option>
+                  <option value="1">Green</option>
+                  <option value="2">Blue</option>
+                  <option value="3">Yellow</option>
+                  <option value="4">Purple</option>
+                </select>
+              </div>
+              
+              <div class="control-group">
+                <label>
+                  Brush Size
+                  <span class="value-display" id="modal-brush-size-value">25</span>
+                </label>
+                <input type="range" class="range-slider" id="modal-brush-size" min="5" max="80" value="25">
+              </div>
+              
+              <div class="control-group">
+                <label>
+                  Opacity
+                  <span class="value-display" id="modal-opacity-value">0.7</span>
+                </label>
+                <input type="range" class="range-slider" id="modal-opacity" min="0.1" max="1.0" step="0.1" value="0.7">
+              </div>
+              
+              <div class="pattern-buttons-modal">
+                <button class="btn btn-secondary btn-sm pattern-btn active" data-pattern="draw">✏️ Paint</button>
+                <button class="btn btn-secondary btn-sm pattern-btn" data-pattern="erase">🧽 Erase</button>
+                <button class="btn btn-secondary btn-sm pattern-btn" data-pattern="cluster">○ Cluster</button>
+                <button class="btn btn-secondary btn-sm pattern-btn" data-pattern="ring">⊙ Ring</button>
+                <button class="btn btn-secondary btn-sm pattern-btn" data-pattern="grid">⊞ Grid</button>
+                <button class="btn btn-secondary btn-sm pattern-btn" data-pattern="random">∴ Random</button>
+              </div>
+              
+              <div class="modal-action-buttons">
+                <button class="btn btn-secondary btn-sm" id="modal-clear-distribution">Clear All</button>
+                <button class="btn btn-secondary btn-sm" id="modal-apply-distribution">Apply to Particles</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -208,11 +256,30 @@ export class PresetModal {
           background: var(--bg-tertiary);
           border-bottom: 1px solid var(--border-default);
           padding: var(--space-md) var(--space-lg);
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+        }
+        
+        .preset-selector-group {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+        }
+        
+        .preset-selector-label {
+          font-size: var(--font-size-md);
+          color: var(--text-secondary);
+          font-weight: var(--font-weight-medium);
+        }
+        
+        .preset-selector {
+          min-width: 150px;
+          font-size: var(--font-size-md);
         }
         
         .preset-name-input {
           flex: 1;
-          margin-right: var(--space-md);
           font-size: var(--font-size-lg);
         }
         
@@ -326,12 +393,24 @@ export class PresetModal {
       document.head.appendChild(style);
     }
     
-    const canvas = this.modal.querySelector('#start-position-canvas');
-    this.startPositionEditor = new StartPositionEditor(canvas, () => this.markChanged());
+    const canvas = this.modal.querySelector('#distribution-drawer-canvas');
+    this.distributionDrawer = new DistributionDrawer(canvas, this.particleSystem, {
+      compact: false,
+      onChange: () => this.markChanged()
+    });
     
     const forceCanvas = this.modal.querySelector('#force-editor-canvas');
     this.forceEditor = new ForceEditor(forceCanvas, () => this.markChanged());
     this.forceEditor.setInfoElement(this.modal.querySelector('#force-info'));
+    
+    // Initialize Distribution Drawer for layout tab (extended version)
+    const distributionCanvas = this.modal.querySelector('#distribution-drawer-canvas');
+    if (distributionCanvas) {
+      this.distributionDrawer = new DistributionDrawer(distributionCanvas, this.particleSystem, {
+        compact: false, // Extended version for configuration panel
+        onChange: () => this.markChanged()
+      });
+    }
     
     // Initialize Species Glow Control
     this.speciesGlowControl = new SpeciesGlowControl(this.particleSystem);
@@ -345,6 +424,43 @@ export class PresetModal {
     this.modal.querySelector('.preset-modal-close').addEventListener('click', () => this.close());
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) this.close();
+    });
+    
+    // Preset dropdown change handler
+    this.modal.querySelector('#modal-preset-selector').addEventListener('change', (e) => {
+      const newPresetKey = e.target.value;
+      
+      // Check if there are unsaved changes
+      if (this.hasChanges) {
+        const confirm = window.confirm('You have unsaved changes. Do you want to switch presets anyway?');
+        if (!confirm) {
+          // Restore previous selection
+          e.target.value = this.currentPresetKey || '';
+          return;
+        }
+      }
+      
+      // Load the selected preset
+      if (newPresetKey) {
+        const preset = this.presetManager.getPreset(newPresetKey);
+        if (preset) {
+          this.currentPresetKey = newPresetKey;
+          this.currentPreset = JSON.parse(JSON.stringify(preset));
+          this.loadPresetToUI();
+          this.updateButtonStates();
+          this.hasChanges = false;
+          this.updateSaveStatus('');
+        }
+      } else {
+        // New preset selected
+        this.currentPresetKey = null;
+        this.currentPreset = this.particleSystem.exportPreset();
+        this.currentPreset.name = 'New Preset';
+        this.loadPresetToUI();
+        this.updateButtonStates();
+        this.hasChanges = false;
+        this.updateSaveStatus('');
+      }
     });
     
     this.modal.querySelectorAll('.preset-tab').forEach(tab => {
@@ -411,6 +527,37 @@ export class PresetModal {
         this.markChanged();
       });
     });
+    
+    // Distribution drawer controls for layout tab
+    const modalDistributionSpecies = this.modal.querySelector('#modal-distribution-species');
+    if (modalDistributionSpecies) {
+      modalDistributionSpecies.addEventListener('change', (e) => {
+        if (this.distributionDrawer) {
+          const speciesId = parseInt(e.target.value);
+          this.distributionDrawer.setSpecies(speciesId);
+        }
+      });
+    }
+    
+    const modalClearDistribution = this.modal.querySelector('#modal-clear-distribution');
+    if (modalClearDistribution) {
+      modalClearDistribution.addEventListener('click', () => {
+        if (this.distributionDrawer) {
+          this.distributionDrawer.clear();
+          this.markChanged();
+        }
+      });
+    }
+    
+    const modalApplyDistribution = this.modal.querySelector('#modal-apply-distribution');
+    if (modalApplyDistribution) {
+      modalApplyDistribution.addEventListener('click', () => {
+        if (this.distributionDrawer) {
+          this.distributionDrawer.applyToParticleSystem();
+          this.markChanged();
+        }
+      });
+    }
   }
 
   switchTab(tabName) {
@@ -424,8 +571,9 @@ export class PresetModal {
       content.classList.toggle('active', content.dataset.content === tabName);
     });
     
-    if (tabName === 'layout' && this.currentPreset) {
-      this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
+    if (tabName === 'layout' && this.currentPreset && this.distributionDrawer) {
+      // Convert species definitions to distribution data and apply
+      this.updateDistributionFromPreset(this.currentPreset.species.definitions);
     }
     
     if (tabName === 'forces' && this.currentPreset) {
@@ -573,8 +721,8 @@ export class PresetModal {
     this.particleSystem.socialForce = this.currentPreset.forces.social;
     
     this.updateSpeciesList();
-    if (this.activeTab === 'layout') {
-      this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
+    if (this.activeTab === 'layout' && this.distributionDrawer) {
+      this.updateDistributionFromPreset(this.currentPreset.species.definitions);
     }
     
     // Update main UI species count display
@@ -638,6 +786,55 @@ export class PresetModal {
     };
   }
 
+  updateDistributionFromPreset(speciesDefinitions) {
+    if (!this.distributionDrawer || !speciesDefinitions) return;
+    
+    // Convert species startPositions to distribution data
+    const distributionData = {};
+    
+    speciesDefinitions.forEach((def, index) => {
+      if (def.startPosition && def.startPosition.type === 'custom' && def.startPosition.customPoints) {
+        distributionData[index] = def.startPosition.customPoints;
+      }
+    });
+    
+    // Apply to distribution drawer
+    if (Object.keys(distributionData).length > 0) {
+      this.distributionDrawer.importDistribution(distributionData);
+    }
+  }
+
+  updateModalDistributionSpeciesSelector() {
+    const selector = this.modal.querySelector('#modal-distribution-species');
+    if (!selector || !this.currentPreset) return;
+    
+    const currentValue = selector.value;
+    selector.innerHTML = '';
+    
+    const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta'];
+    
+    this.currentPreset.species.definitions.forEach((species, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = `● ${species.name || colors[index] || `Species ${index + 1}`}`;
+      
+      // Set color based on species color if available
+      if (species.color) {
+        const color = `rgb(${species.color.r}, ${species.color.g}, ${species.color.b})`;
+        option.style.color = color;
+      }
+      
+      selector.appendChild(option);
+    });
+    
+    // Restore previous value if valid
+    if (currentValue && parseInt(currentValue) < this.currentPreset.species.definitions.length) {
+      selector.value = currentValue;
+    } else {
+      selector.value = '0';
+    }
+  }
+
   updateSpeciesList() {
     const container = this.modal.querySelector('#species-list');
     container.innerHTML = '';
@@ -656,8 +853,8 @@ export class PresetModal {
           if (this.particleSystem.species[index]) {
             this.particleSystem.species[index].color = color;
           }
-          if (this.activeTab === 'layout') {
-            this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
+          if (this.activeTab === 'layout' && this.distributionDrawer) {
+            this.updateDistributionFromPreset(this.currentPreset.species.definitions);
           }
           this.markChanged();
         }
@@ -708,10 +905,49 @@ export class PresetModal {
         this.markChanged();
       });
     });
+    
+    // Update modal distribution species selector
+    this.updateModalDistributionSpeciesSelector();
   }
 
+  populatePresetDropdown() {
+    const selector = this.modal.querySelector('#modal-preset-selector');
+    if (!selector) return;
+    
+    // Clear existing options
+    selector.innerHTML = '<option value="">New Preset</option>';
+    
+    // No built-in presets anymore
+    
+    // Add separator if there are user presets
+    const userPresets = this.presetManager.getUserPresets();
+    if (userPresets.length > 0) {
+      const separator = document.createElement('option');
+      separator.disabled = true;
+      separator.textContent = '─────────────';
+      selector.appendChild(separator);
+      
+      // Add user presets
+      userPresets.forEach(preset => {
+        const option = document.createElement('option');
+        option.value = preset.key;
+        option.textContent = preset.name;
+        selector.appendChild(option);
+      });
+    }
+  }
+  
   open(presetKey = null) {
     this.currentPresetKey = presetKey;
+    
+    // Populate the preset dropdown
+    this.populatePresetDropdown();
+    
+    // Set the dropdown to current preset
+    const selector = this.modal.querySelector('#modal-preset-selector');
+    if (selector) {
+      selector.value = presetKey || '';
+    }
     
     // Set loading flag to prevent color updates during initialization
     this.isLoadingPreset = true;
@@ -758,7 +994,7 @@ export class PresetModal {
     const saveBtn = this.modal.querySelector('.preset-btn-save');
     const saveNewBtn = this.modal.querySelector('.preset-btn-save-new');
     const deleteBtn = this.modal.querySelector('.preset-btn-delete');
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    const builtInPresets = [];
     const isBuiltIn = builtInPresets.includes(this.currentPresetKey);
     const isNew = !this.currentPresetKey;
     
@@ -797,7 +1033,7 @@ export class PresetModal {
     this.hasChanges = true;
     
     // Check if it's a built-in preset
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+    const builtInPresets = [];
     if (builtInPresets.includes(this.currentPresetKey)) {
       this.updateSaveStatus('Modified built-in preset (save as new)');
     } else {
@@ -822,7 +1058,7 @@ export class PresetModal {
     }
     
     // Don't auto-save built-in presets
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
+    const builtInPresets = [];
     if (builtInPresets.includes(this.currentPresetKey)) {
       this.updateSaveStatus('Built-in preset (save as new)');
       return;
@@ -879,7 +1115,9 @@ export class PresetModal {
     this.modal.querySelector('#social-radius-value').textContent = this.currentPreset.physics.socialRadius;
     
     this.updateSpeciesList();
-    this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
+    if (this.distributionDrawer) {
+      this.updateDistributionFromPreset(this.currentPreset.species.definitions);
+    }
     
     // Load force matrix
     if (this.currentPreset.forces && this.currentPreset.forces.social) {
@@ -960,12 +1198,39 @@ export class PresetModal {
       // Don't overwrite the matrix - keep the existing matrix structure
     }
     
-    // Update start positions from editor if available
-    if (this.startPositionEditor) {
-      const positions = this.startPositionEditor.getPositions();
-      positions.forEach((pos, index) => {
-        if (preset.species.definitions[index]) {
-          preset.species.definitions[index].startPosition = pos;
+    // Update start positions from distribution drawer if available
+    if (this.distributionDrawer) {
+      const distribution = this.distributionDrawer.exportDistribution();
+      Object.entries(distribution).forEach(([speciesId, points]) => {
+        const index = parseInt(speciesId);
+        if (preset.species.definitions[index] && points.length > 0) {
+          // Calculate center and radius for the preset format
+          let centerX = 0, centerY = 0, totalWeight = 0;
+          for (const point of points) {
+            const weight = point.opacity;
+            centerX += point.x * weight;
+            centerY += point.y * weight;
+            totalWeight += weight;
+          }
+          if (totalWeight > 0) {
+            centerX /= totalWeight;
+            centerY /= totalWeight;
+            
+            let avgRadius = 0;
+            for (const point of points) {
+              const dist = Math.sqrt((point.x - centerX) ** 2 + (point.y - centerY) ** 2);
+              avgRadius += dist;
+            }
+            avgRadius /= points.length;
+            avgRadius = Math.max(0.05, Math.min(0.4, avgRadius));
+            
+            preset.species.definitions[index].startPosition = {
+              type: 'custom',
+              center: { x: centerX, y: centerY },
+              radius: avgRadius,
+              customPoints: points
+            };
+          }
         }
       });
     }
@@ -1096,7 +1361,7 @@ export class PresetModal {
     }
     
     // Check if it's a built-in preset
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
+    const builtInPresets = [];
     if (builtInPresets.includes(this.currentPresetKey)) {
       // Can't save over built-in presets, must save as new
       return this.saveAsNew();
@@ -1159,7 +1424,7 @@ export class PresetModal {
     }
     
     // Show warning for built-in presets
-    const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime'];
+    const builtInPresets = [];
     const isBuiltIn = builtInPresets.includes(this.currentPresetKey);
     
     const message = isBuiltIn 
@@ -1217,9 +1482,9 @@ export class PresetModal {
         this.forceEditor.updateMatrixView();
       }
       
-      // Update the start position editor if on layout tab
-      if (this.activeTab === 'layout' && this.startPositionEditor) {
-        this.startPositionEditor.setSpecies(this.particleSystem.species);
+      // Update the distribution drawer if on layout tab
+      if (this.activeTab === 'layout' && this.distributionDrawer) {
+        this.distributionDrawer.updateFromParticleSystem();
       }
       
       // Apply UI-specific state

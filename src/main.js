@@ -42,16 +42,89 @@ async function init() {
     const presetModal = new PresetModal(particleSystem, presetManager);
     window.presetModal = presetModal; // Make it globally accessible
     
-    // Load the last selected preset or default
-    const lastSelectedPreset = localStorage.getItem('lastSelectedPreset') || 'predatorPrey';
-    const presetToLoad = presetManager.getPreset(lastSelectedPreset) || presetManager.getPreset('predatorPrey');
-    if (presetToLoad) {
-        particleSystem.loadFullPreset(presetToLoad);
+    // Auto-save scene state on changes
+    let saveTimeout;
+    const autoSaveScene = () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            try {
+                const currentScene = particleSystem.exportPreset();
+                
+                // Validate before saving
+                if (validateSceneData(currentScene)) {
+                    localStorage.setItem('lastScene', JSON.stringify(currentScene));
+                    console.log('Auto-saved current scene');
+                } else {
+                    console.warn('Invalid scene data, skipping auto-save');
+                }
+            } catch (error) {
+                console.warn('Failed to auto-save scene:', error);
+            }
+        }, 2000); // 2-second debounce
+    };
+    
+    // Validation function for scene data
+    const validateSceneData = (sceneData) => {
+        if (!sceneData || typeof sceneData !== 'object') return false;
+        
+        // Check for reasonable species count
+        if (sceneData.numSpecies && (sceneData.numSpecies < 1 || sceneData.numSpecies > 20)) {
+            console.warn('Invalid species count in scene data:', sceneData.numSpecies);
+            return false;
+        }
+        
+        // Check for reasonable particle count
+        if (sceneData.particlesPerSpecies && (sceneData.particlesPerSpecies < 0 || sceneData.particlesPerSpecies > 2000)) {
+            console.warn('Invalid particles per species in scene data:', sceneData.particlesPerSpecies);
+            return false;
+        }
+        
+        return true;
+    };
+    
+    // Load the last scene or default preset
+    try {
+        const lastScene = localStorage.getItem('lastScene');
+        if (lastScene) {
+            const sceneData = JSON.parse(lastScene);
+            
+            // Validate the scene data before loading
+            if (validateSceneData(sceneData)) {
+                particleSystem.loadFullPreset(sceneData);
+                console.log('Loaded valid last scene from localStorage');
+            } else {
+                console.warn('Invalid scene data found, clearing localStorage');
+                localStorage.removeItem('lastScene');
+                localStorage.removeItem('lastSelectedPreset');
+                // No default preset to load - system will use default parameters
+            }
+        } else {
+            // Fallback to last selected preset if available
+            const lastSelectedPreset = localStorage.getItem('lastSelectedPreset');
+            if (lastSelectedPreset) {
+                const presetToLoad = presetManager.getPreset(lastSelectedPreset);
+                if (presetToLoad) {
+                    particleSystem.loadFullPreset(presetToLoad);
+                }
+            }
+            // If no preset available, system will use default parameters
+        }
+    } catch (error) {
+        console.warn('Failed to load last scene, clearing localStorage:', error);
+        localStorage.removeItem('lastScene');
+        localStorage.removeItem('lastSelectedPreset');
+        // No default preset to load - system will use default parameters
     }
     
     // Create main UI with new design system
-    const mainUI = new MainUI(particleSystem, presetManager);
+    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene);
     window.mainUI = mainUI; // Make it globally accessible
+    
+    // Update the preset selector to include saved presets
+    mainUI.updatePresetSelector();
+    
+    // Make emergency reset available globally for console access
+    window.emergencyReset = () => mainUI.emergencyReset();
     
     
     // Make updateUIFromPreset available globally for PresetModal
@@ -78,11 +151,11 @@ async function init() {
         overlay.style.cssText = `
             position: fixed;
             top: 10px;
-            right: 10px;
+            left: 10px;
             color: #ff6666;
             font-family: monospace;
             font-size: 11px;
-            text-align: right;
+            text-align: left;
             pointer-events: none;
             z-index: 1000;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
@@ -112,7 +185,8 @@ async function init() {
             
             // Update performance overlay
             const totalParticles = particleSystem.particles.length;
-            perfOverlay.innerHTML = `FPS: ${currentFPS}<br>Particles: ${totalParticles}`;
+            const organisms = particleSystem.numSpecies;
+            perfOverlay.innerHTML = `FPS: ${currentFPS}<br>Particles: ${totalParticles}<br>Organisms: ${organisms}`;
         }
         
         particleSystem.update(deltaTime);

@@ -1,13 +1,16 @@
 import { XYGraph } from './XYGraph.js';
+import { DistributionDrawer } from './DistributionDrawer.js';
 import { PARAMETER_MAP, generateDefaultSynthAssignments } from '../utils/ParameterMapping.js';
 
 export class MainUI {
-    constructor(particleSystem, presetManager) {
+    constructor(particleSystem, presetManager, autoSaveCallback = null) {
         this.particleSystem = particleSystem;
         this.presetManager = presetManager;
+        this.autoSaveCallback = autoSaveCallback;
         this.isVisible = true;
         this.container = null;
         this.forceGraph = null;
+        this.distributionDrawer = null;
         this.copiedSettings = null;
         this.currentEditingPreset = null;
         this.synthAssignments = generateDefaultSynthAssignments();
@@ -48,7 +51,7 @@ export class MainUI {
             'minimize-btn', 'preset-selector', 'load-preset-btn', 'configure-preset-btn',
             // Particle controls
             'particles-per-species', 'particles-per-species-value', 'species-count', 'species-count-value',
-            'start-pattern', 'total-particles',
+            'distribution-canvas', 'distribution-species', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear', 'total-particles',
             // Physics controls
             'force-strength', 'force-strength-value', 'friction', 'friction-value',
             'wall-bounce', 'wall-bounce-value', 'collision-radius', 'collision-radius-value',
@@ -105,11 +108,6 @@ export class MainUI {
                     <div class="control-group">
                         <select class="select" id="preset-selector">
                             <option value="">Custom</option>
-                            <option value="predatorPrey">Predator-Prey</option>
-                            <option value="crystallization">Crystallization</option>
-                            <option value="vortex">Vortex</option>
-                            <option value="symbiosis">Symbiosis</option>
-                            <option value="dreamtime">Dreamtime</option>
                             <option value="random">Randomize</option>
                         </select>
                     </div>
@@ -149,12 +147,34 @@ export class MainUI {
                     </div>
                     <div class="control-group">
                         <label>Initial Distribution</label>
-                        <select class="select select-sm" id="start-pattern">
-                            <option value="cluster">Cluster</option>
-                            <option value="ring">Ring</option>
-                            <option value="grid">Grid</option>
-                            <option value="random">Random</option>
-                        </select>
+                        <div class="distribution-drawer-container">
+                            <canvas class="distribution-drawer" id="distribution-canvas"></canvas>
+                            <div class="distribution-controls">
+                                <div class="control-row">
+                                    <select class="select select-sm" id="distribution-species">
+                                        <option value="0">Red</option>
+                                        <option value="1">Green</option>
+                                        <option value="2">Blue</option>
+                                        <option value="3">Yellow</option>
+                                        <option value="4">Purple</option>
+                                    </select>
+                                    <span class="value-display" id="distribution-brush-value">20</span>
+                                </div>
+                                <div class="control-row">
+                                    <input type="range" class="range-slider" id="distribution-brush-slider" min="5" max="50" value="20">
+                                    <input type="number" class="input input-sm" id="distribution-brush" value="20" min="5" max="50">
+                                </div>
+                                <div class="pattern-buttons">
+                                    <button class="btn btn-xs pattern-btn active" data-pattern="draw" title="Paint">✏️</button>
+                                    <button class="btn btn-xs pattern-btn" data-pattern="erase" title="Erase">🧽</button>
+                                    <button class="btn btn-xs pattern-btn" data-pattern="cluster" title="Cluster">○</button>
+                                    <button class="btn btn-xs pattern-btn" data-pattern="ring" title="Ring">⊙</button>
+                                    <button class="btn btn-xs pattern-btn" data-pattern="grid" title="Grid">⊞</button>
+                                    <button class="btn btn-xs pattern-btn" data-pattern="random" title="Random">∴</button>
+                                    <button class="btn btn-xs pattern-btn clear-btn" id="distribution-clear" title="Clear">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="synth-assignment">
                             <input type="text" class="synth-field" id="distribution-synth" 
                                    placeholder="e.g. Wave Shape, Sample Start" 
@@ -644,6 +664,117 @@ export class MainUI {
                 color: var(--text-primary);
                 text-align: center;
             }
+            
+            .distribution-drawer-container {
+                margin-top: var(--space-sm);
+            }
+            
+            .distribution-drawer {
+                width: 100%;
+                height: 120px;
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                background: var(--bg-primary);
+                cursor: crosshair;
+                display: block;
+                transition: border-color var(--transition-fast);
+            }
+            
+            .distribution-drawer:hover {
+                border-color: var(--border-hover);
+            }
+            
+            .distribution-controls {
+                margin-top: var(--space-sm);
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-sm);
+            }
+            
+            .control-row {
+                display: flex;
+                align-items: center;
+                gap: var(--space-sm);
+                justify-content: space-between;
+            }
+            
+            .pattern-buttons {
+                display: flex;
+                gap: var(--space-xs);
+                flex-wrap: wrap;
+                justify-content: space-between;
+            }
+            
+            .pattern-btn {
+                padding: 4px 6px;
+                min-width: 24px;
+                height: 24px;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-sm);
+                color: var(--text-secondary);
+                cursor: pointer;
+                transition: all var(--transition-fast);
+                flex: 1;
+                max-width: 40px;
+            }
+            
+            .pattern-btn:hover {
+                background: var(--bg-hover);
+                border-color: var(--border-hover);
+                color: var(--text-primary);
+            }
+            
+            .pattern-btn.active {
+                background: var(--accent-primary);
+                border-color: var(--accent-primary);
+                color: white;
+            }
+            
+            .btn-xs {
+                padding: 3px 5px;
+                font-size: 10px;
+                min-height: 22px;
+                line-height: 1;
+            }
+            
+            .input-sm {
+                padding: 3px 6px;
+                font-size: var(--font-size-xs);
+                height: 24px;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-sm);
+                color: var(--text-primary);
+                width: 45px;
+                text-align: center;
+            }
+            
+            .input-sm:focus {
+                outline: none;
+                border-color: var(--accent-primary);
+                background: var(--bg-primary);
+            }
+            
+            .clear-btn {
+                background: #cc6666 !important;
+                border-color: #cc6666 !important;
+                color: white !important;
+            }
+            
+            .clear-btn:hover {
+                background: #aa5555 !important;
+                border-color: #aa5555 !important;
+            }
+            
+            .range-slider {
+                flex: 1;
+                margin: 0 var(--space-sm);
+            }
         `;
         document.head.appendChild(style);
         
@@ -665,6 +796,7 @@ export class MainUI {
                 console.log(`Setting force from ${fromSpecies} to ${toSpecies}: ${value}`);
                 this.particleSystem.setSocialForce(fromSpecies, toSpecies, value);
                 this.updateGraphInfo();
+                this.triggerAutoSave();
                 
                 // Force a redraw to see immediate effect
                 if (this.particleSystem.socialForce[fromSpecies]) {
@@ -673,8 +805,34 @@ export class MainUI {
             }
         });
         
+        // Initialize Distribution Drawer
+        const distributionCanvas = document.getElementById('distribution-canvas');
+        
+        // Set canvas size to match simulation aspect ratio for accurate preview
+        this.setupDistributionCanvasSize(distributionCanvas);
+        
+        this.distributionDrawer = new DistributionDrawer(distributionCanvas, this.particleSystem, {
+            compact: true,
+            onChange: (distribution) => {
+                this.applyDistributionToParticleSystem();
+                this.triggerAutoSave();
+            }
+        });
+        
         // Setup event listeners
         this.setupEventListeners();
+        
+        // Handle window resize to update distribution canvas
+        window.addEventListener('resize', () => {
+            // Wait a bit for canvas resize to complete
+            setTimeout(() => {
+                if (this.distributionDrawer) {
+                    const distributionCanvas = document.getElementById('distribution-canvas');
+                    this.setupDistributionCanvasSize(distributionCanvas);
+                    this.distributionDrawer.resize();
+                }
+            }, 100);
+        });
         
         // Set initial values
         this.updateUIFromParticleSystem();
@@ -685,8 +843,21 @@ export class MainUI {
         this.validateUIElements();
     }
     
+    triggerAutoSave() {
+        if (this.autoSaveCallback) {
+            this.autoSaveCallback();
+        }
+    }
+    
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
+            // Emergency reset: Ctrl/Cmd + Shift + R
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
+                this.emergencyReset();
+                e.preventDefault();
+                return;
+            }
+            
             if (e.ctrlKey || e.metaKey || e.altKey) return;
             
             switch(e.key.toLowerCase()) {
@@ -700,15 +871,48 @@ export class MainUI {
                     break;
                 case 'r':
                     this.randomizeForces();
+                    this.triggerAutoSave();
                     e.preventDefault();
                     break;
             }
         });
     }
     
+    emergencyReset() {
+        const confirm = window.confirm('Emergency Reset: This will clear all saved data and reset to defaults. Continue?');
+        if (confirm) {
+            try {
+                // Clear all localStorage
+                localStorage.removeItem('lastScene');
+                localStorage.removeItem('lastSelectedPreset');
+                console.log('Cleared localStorage');
+                
+                // Reset to default preset
+                const defaultPreset = this.presetManager.getPreset('predatorPrey');
+                if (defaultPreset) {
+                    this.particleSystem.loadFullPreset(defaultPreset);
+                    this.updateUIFromParticleSystem();
+                    this.updateGraph();
+                    console.log('Reset to default preset');
+                }
+                
+                alert('Emergency reset complete! App reset to default state.');
+            } catch (error) {
+                console.error('Emergency reset failed:', error);
+                alert('Emergency reset failed. Please refresh the page.');
+            }
+        }
+    }
+    
     toggleVisibility() {
         this.isVisible = !this.isVisible;
         this.container.classList.toggle('hidden', !this.isVisible);
+        
+        // Also toggle performance overlay visibility
+        const perfOverlay = document.getElementById('performance-overlay');
+        if (perfOverlay) {
+            perfOverlay.style.display = this.isVisible ? 'block' : 'none';
+        }
     }
     
     copySettings() {
@@ -794,6 +998,39 @@ export class MainUI {
         });
     }
     
+    setupDistributionCanvasSize(canvas) {
+        // Calculate aspect ratio from simulation canvas
+        const simAspectRatio = this.particleSystem.width / this.particleSystem.height;
+        
+        // Set a reasonable width for the floating UI and calculate height to match aspect ratio
+        const maxWidth = 288; // Keep same max width as before
+        const maxHeight = 160; // Reasonable max height for UI
+        
+        let width, height;
+        
+        // Fit within max dimensions while preserving aspect ratio
+        if (simAspectRatio > maxWidth / maxHeight) {
+            // Simulation is wider - constrain by width
+            width = maxWidth;
+            height = Math.round(maxWidth / simAspectRatio);
+        } else {
+            // Simulation is taller - constrain by height
+            height = maxHeight;
+            width = Math.round(maxHeight * simAspectRatio);
+        }
+        
+        // Ensure minimum dimensions for usability
+        width = Math.max(200, width);
+        height = Math.max(100, height);
+        
+        // Set canvas dimensions
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        
+    }
+    
     updateSpeciesColors(count) {
         const container = document.getElementById('species-colors-container');
         container.innerHTML = '';
@@ -840,6 +1077,7 @@ export class MainUI {
                     const g = parseInt(hex.substr(3, 2), 16);
                     const b = parseInt(hex.substr(5, 2), 16);
                     this.particleSystem.species[speciesIndex].color = { r, g, b };
+                    this.triggerAutoSave();
                 }
             });
         });
@@ -847,11 +1085,23 @@ export class MainUI {
         container.querySelectorAll('.species-amount').forEach(input => {
             input.addEventListener('change', (e) => {
                 const speciesIndex = parseInt(e.target.dataset.species);
-                const value = parseInt(e.target.value) || 0;
+                let value = parseInt(e.target.value) || 0;
+                
+                // Validate and clamp the value
+                if (value < 0) {
+                    value = 0;
+                    e.target.value = 0;
+                } else if (value > 2000) {
+                    value = 2000;
+                    e.target.value = 2000;
+                    alert('Maximum particles per species is 2000 for performance reasons');
+                }
+                
                 if (this.particleSystem.species[speciesIndex]) {
                     this.particleSystem.species[speciesIndex].particleCount = value;
                     this.particleSystem.initializeParticles();
                     this.updateTotalParticles();
+                    this.triggerAutoSave();
                 }
             });
         });
@@ -939,7 +1189,20 @@ export class MainUI {
         
         // Particle controls
         document.getElementById('particles-per-species').addEventListener('input', (e) => {
-            const value = parseInt(e.target.value);
+            let value = parseInt(e.target.value);
+            
+            // Validate and clamp the value
+            if (isNaN(value) || value < 0) {
+                value = 0;
+                e.target.value = 0;
+                console.warn('Particles per species cannot be negative, setting to 0');
+            } else if (value > 2000) {
+                value = 2000;
+                e.target.value = 2000;
+                console.warn('Particles per species cannot exceed 2000, setting to 2000');
+                alert('Maximum particles per species is 2000 for performance reasons');
+            }
+            
             this.particleSystem.particlesPerSpecies = value;
             // Update species particle counts
             for (let i = 0; i < this.particleSystem.numSpecies; i++) {
@@ -957,10 +1220,33 @@ export class MainUI {
                 }
             });
             this.updateTotalParticles();
+            
+            // Performance warning for high particle counts
+            const totalParticles = this.particleSystem.numSpecies * value;
+            if (totalParticles > 5000) {
+                console.warn(`High particle count detected: ${totalParticles} total particles`);
+                if (totalParticles > 10000) {
+                    alert(`Warning: ${totalParticles} total particles may cause performance issues. Consider reducing particle count or species count.`);
+                }
+            }
+            
+            this.triggerAutoSave();
         });
         
         safeAddEventListener('species-count', 'input', (e) => {
-            const value = parseInt(e.target.value);
+            let value = parseInt(e.target.value);
+            
+            // Validate and clamp the value
+            if (isNaN(value) || value < 1) {
+                value = 1;
+                e.target.value = 1;
+                console.warn('Species count cannot be less than 1, setting to 1');
+            } else if (value > 20) {
+                value = 20;
+                e.target.value = 20;
+                console.warn('Species count cannot exceed 20, setting to 20');
+                alert('Maximum species count is 20 for performance reasons');
+            }
             
             // Use the proper API method for species count changes
             if (this.particleSystem.setSpeciesCount) {
@@ -986,28 +1272,71 @@ export class MainUI {
                     this.updateGraph();
                     this.updateTotalParticles();
                     
+                    // Resize distribution canvas to match current simulation dimensions
+                    if (this.distributionDrawer) {
+                        const distributionCanvas = document.getElementById('distribution-canvas');
+                        this.setupDistributionCanvasSize(distributionCanvas);
+                        this.distributionDrawer.resize();
+                    }
+                    
+                    this.triggerAutoSave();
+                    
                     console.log(`Particle count after: ${this.particleSystem.particles.length}`);
                     console.log(`Species array length: ${this.particleSystem.species.length}`);
                 } else {
                     console.error(`Failed to set species count to ${value}`);
+                    // Reset to a safe value
+                    e.target.value = this.particleSystem.numSpecies;
                 }
             }
         });
         
-        document.getElementById('start-pattern').addEventListener('change', (e) => {
-            const pattern = e.target.value;
-            // Update all species with new pattern
-            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
-                if (this.particleSystem.species[i]) {
-                    this.particleSystem.species[i].startPosition = {
-                        type: pattern,
-                        center: { x: 0.5, y: 0.5 },
-                        radius: 0.2
-                    };
+        // Distribution drawer controls
+        document.getElementById('distribution-species').addEventListener('change', (e) => {
+            const speciesId = parseInt(e.target.value);
+            this.distributionDrawer.setSpecies(speciesId);
+            // Update color display (like test page)
+            this.updateDistributionSpeciesColor(speciesId);
+        });
+        
+        document.getElementById('distribution-brush-slider').addEventListener('input', (e) => {
+            const size = parseInt(e.target.value);
+            this.distributionDrawer.setBrushSize(size);
+            document.getElementById('distribution-brush').value = size;
+            document.getElementById('distribution-brush-value').textContent = size;
+        });
+        
+        document.getElementById('distribution-brush').addEventListener('input', (e) => {
+            const size = parseInt(e.target.value);
+            this.distributionDrawer.setBrushSize(size);
+            document.getElementById('distribution-brush-slider').value = size;
+            document.getElementById('distribution-brush-value').textContent = size;
+        });
+        
+        document.getElementById('distribution-clear').addEventListener('click', () => {
+            this.distributionDrawer.clear();
+        });
+        
+        // Pattern button handlers
+        this.container.querySelectorAll('.pattern-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Skip clear button
+                if (e.target.id === 'distribution-clear') return;
+                
+                // Update button states
+                this.container.querySelectorAll('.pattern-btn').forEach(b => {
+                    if (b.id !== 'distribution-clear') {
+                        b.classList.remove('active');
+                    }
+                });
+                e.target.classList.add('active');
+                
+                // Set pattern
+                const pattern = e.target.dataset.pattern;
+                if (pattern) {
+                    this.distributionDrawer.setPattern(pattern);
                 }
-            }
-            // Reinitialize particles with new positions
-            this.particleSystem.initializeParticlesWithPositions();
+            });
         });
         
         // Physics controls
@@ -1015,18 +1344,21 @@ export class MainUI {
             const value = parseFloat(e.target.value);
             this.particleSystem.forceFactor = value;
             document.getElementById('force-strength-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
         });
         
         document.getElementById('friction').addEventListener('input', (e) => {
             const uiFriction = parseFloat(e.target.value);
             this.particleSystem.friction = 1.0 - uiFriction;
             document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
+            this.triggerAutoSave();
         });
         
         document.getElementById('wall-bounce').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.wallDamping = value;
             document.getElementById('wall-bounce-value').textContent = value.toFixed(2);
+            this.triggerAutoSave();
         });
         
         document.getElementById('collision-radius').addEventListener('input', (e) => {
@@ -1070,12 +1402,14 @@ export class MainUI {
         document.getElementById('trails-enabled').addEventListener('change', (e) => {
             this.particleSystem.trailEnabled = e.target.checked;
             document.getElementById('trail-controls').style.display = e.target.checked ? '' : 'none';
+            this.triggerAutoSave();
         });
         
         document.getElementById('trail-length').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.blur = value;
             document.getElementById('trail-length-value').textContent = value.toFixed(2);
+            this.triggerAutoSave();
         });
         
         document.getElementById('halo-enabled').addEventListener('change', (e) => {
@@ -1087,6 +1421,7 @@ export class MainUI {
                 this.particleSystem.glowRadius = parseFloat(document.getElementById('halo-radius').value);
             }
             this.particleSystem.clearCaches();
+            this.triggerAutoSave();
         });
         
         document.getElementById('halo-intensity').addEventListener('input', (e) => {
@@ -1094,6 +1429,7 @@ export class MainUI {
             this.particleSystem.glowIntensity = value;
             document.getElementById('halo-intensity-value').textContent = value.toFixed(2);
             this.particleSystem.clearCaches();
+            this.triggerAutoSave();
         });
         
         document.getElementById('halo-radius').addEventListener('input', (e) => {
@@ -1101,6 +1437,7 @@ export class MainUI {
             this.particleSystem.glowRadius = value;
             document.getElementById('halo-radius-value').textContent = value.toFixed(1);
             this.particleSystem.clearCaches();
+            this.triggerAutoSave();
         });
         
         document.getElementById('species-glow-enabled').addEventListener('change', (e) => {
@@ -1154,6 +1491,7 @@ export class MainUI {
         // Visual controls
         safeAddEventListener('background-color', 'change', (e) => {
             this.particleSystem.backgroundColor = e.target.value;
+            this.triggerAutoSave();
         });
         
         safeAddEventListener('particle-size', 'input', (e) => {
@@ -1170,6 +1508,7 @@ export class MainUI {
             }
             
             document.getElementById('particle-size-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
         });
         
         // Action buttons
@@ -1212,7 +1551,7 @@ export class MainUI {
         const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
                        'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
-        const selectors = ['from-species', 'to-species', 'glow-species-selector'];
+        const selectors = ['from-species', 'to-species', 'glow-species-selector', 'distribution-species'];
         
         selectors.forEach(selectorId => {
             const select = document.getElementById(selectorId);
@@ -1268,9 +1607,9 @@ export class MainUI {
         document.getElementById('species-count').value = ps.numSpecies;
         document.getElementById('species-count-value').textContent = ps.numSpecies;
         
-        // Update start pattern if available
-        if (ps.species[0]?.startPosition?.type) {
-            document.getElementById('start-pattern').value = ps.species[0].startPosition.type;
+        // Update distribution drawer
+        if (this.distributionDrawer) {
+            this.distributionDrawer.updateFromParticleSystem();
         }
         
         // PHYSICS Section
@@ -1318,6 +1657,9 @@ export class MainUI {
         this.updateSpeciesSelectors(ps.numSpecies);
         this.updateTotalParticles();
         
+        // Update distribution species selector after all species data is loaded
+        this.updateDistributionSpeciesSelector(ps.numSpecies);
+        
         // Update force relationship graph
         this.updateGraph();
     }
@@ -1327,7 +1669,7 @@ export class MainUI {
         if (!selector) return;
         
         // Clear existing options except built-in ones
-        const builtInOptions = ['', 'predatorPrey', 'crystallization', 'vortex', 'symbiosis', 'dreamtime', 'random'];
+        const builtInOptions = ['', 'random'];
         const optionsToRemove = [];
         
         for (let i = 0; i < selector.options.length; i++) {
@@ -1358,6 +1700,89 @@ export class MainUI {
                 separator.textContent = '─────────────';
                 selector.insertBefore(separator, randomOption);
             }
+        }
+    }
+    
+    applyDistributionToParticleSystem() {
+        if (this.distributionDrawer) {
+            this.distributionDrawer.applyToParticleSystem();
+        }
+    }
+    
+    updateDistributionSpeciesColor(speciesId) {
+        // Add a color indicator next to the species selector (like test page)
+        const species = this.particleSystem.species[speciesId];
+        if (!species || !species.color) return;
+        
+        const color = species.color;
+        // Create or update a color indicator
+        let colorIndicator = document.getElementById('distribution-color-indicator');
+        if (!colorIndicator) {
+            colorIndicator = document.createElement('div');
+            colorIndicator.id = 'distribution-color-indicator';
+            colorIndicator.style.cssText = `
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                border: 1px solid var(--border-default);
+                margin-left: 8px;
+            `;
+            const speciesSelector = document.getElementById('distribution-species');
+            speciesSelector.parentNode.appendChild(colorIndicator);
+        }
+        
+        colorIndicator.style.background = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    }
+    
+    addDemoDistributionIfEmpty() {
+        if (!this.distributionDrawer) return;
+        
+        const currentDistribution = this.distributionDrawer.exportDistribution();
+        const hasAnyDistribution = Object.keys(currentDistribution).length > 0;
+        
+        if (!hasAnyDistribution && this.particleSystem.numSpecies >= 3) {
+            // Add minimal demo distributions for first 3 species
+            const demoDistributions = {
+                0: [{ x: 0.25, y: 0.3, size: 0.08, opacity: 0.8 }], // Red - top left
+                1: [{ x: 0.75, y: 0.3, size: 0.08, opacity: 0.8 }], // Green - top right  
+                2: [{ x: 0.5, y: 0.7, size: 0.08, opacity: 0.8 }]   // Blue - bottom center
+            };
+            
+            this.distributionDrawer.importDistribution(demoDistributions);
+        }
+    }
+    
+    updateDistributionSpeciesSelector(numSpecies) {
+        const selector = document.getElementById('distribution-species');
+        if (!selector) return;
+        
+        const currentValue = selector.value;
+        selector.innerHTML = '';
+        
+        for (let i = 0; i < numSpecies; i++) {
+            const species = this.particleSystem.species[i];
+            const option = document.createElement('option');
+            option.value = i;
+            
+            if (species && species.color) {
+                const color = species.color;
+                const colorHex = this.rgbToHex(color);
+                option.textContent = `● ${species.name || `Species ${i + 1}`}`;
+                option.style.color = colorHex;
+            } else {
+                option.textContent = `Species ${i + 1}`;
+            }
+            
+            selector.appendChild(option);
+        }
+        
+        // Restore previous value if valid
+        if (currentValue && parseInt(currentValue) < numSpecies) {
+            selector.value = currentValue;
+            this.updateDistributionSpeciesColor(parseInt(currentValue));
+        } else {
+            selector.value = '0';
+            this.updateDistributionSpeciesColor(0);
         }
     }
     

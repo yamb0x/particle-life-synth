@@ -1155,6 +1155,35 @@ export class SimpleParticleSystem {
                         x = centerX + gridX * (radius * 2 / gridSize);
                         y = centerY + gridY * (radius * 2 / gridSize);
                         break;
+                    
+                    case 'custom':
+                        if (startPos.customPoints && startPos.customPoints.length > 0) {
+                            // Use weighted random selection based on opacity
+                            const totalWeight = startPos.customPoints.reduce((sum, point) => sum + point.opacity, 0);
+                            let randomWeight = Math.random() * totalWeight;
+                            
+                            let selectedPoint = startPos.customPoints[0];
+                            for (const point of startPos.customPoints) {
+                                randomWeight -= point.opacity;
+                                if (randomWeight <= 0) {
+                                    selectedPoint = point;
+                                    break;
+                                }
+                            }
+                            
+                            // Add some random variation around the selected point
+                            const variation = selectedPoint.size * 0.5;
+                            const vAngle = Math.random() * Math.PI * 2;
+                            const vRadius = Math.random() * variation * Math.min(this.width, this.height);
+                            
+                            x = selectedPoint.x * this.width + Math.cos(vAngle) * vRadius;
+                            y = selectedPoint.y * this.height + Math.sin(vAngle) * vRadius;
+                        } else {
+                            // Fallback to center if no custom points
+                            x = centerX;
+                            y = centerY;
+                        }
+                        break;
                         
                     case 'random':
                     default:
