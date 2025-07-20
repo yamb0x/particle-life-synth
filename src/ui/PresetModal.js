@@ -56,7 +56,7 @@ export class PresetModal {
                 Number of Species
                 <span class="value-display" id="species-count-value">5</span>
               </label>
-              <input type="range" class="range-slider" id="species-count" min="2" max="10" value="5">
+              <input type="range" class="range-slider" id="species-count" min="1" max="20" value="5">
             </div>
             <div id="species-list"></div>
           </div>
@@ -650,17 +650,20 @@ export class PresetModal {
       
       const colorPicker = new ColorPicker((color) => {
         this.currentPreset.species.definitions[index].color = color;
-        // Update particle system species color in real-time
-        if (this.particleSystem.species[index]) {
-          this.particleSystem.species[index].color = color;
+        // Only update particle system if not loading preset
+        if (!this.isLoadingPreset) {
+          // Update particle system species color in real-time
+          if (this.particleSystem.species[index]) {
+            this.particleSystem.species[index].color = color;
+          }
+          if (this.activeTab === 'layout') {
+            this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
+          }
+          this.markChanged();
         }
-        if (this.activeTab === 'layout') {
-          this.startPositionEditor.setSpecies(this.currentPreset.species.definitions);
-        }
-        this.markChanged();
       });
       
-      colorPicker.setColor(species.color);
+      colorPicker.setColor(species.color, true); // Silent mode - don't trigger onChange
       
       speciesDiv.innerHTML = `
         <div class="species-header">
@@ -709,14 +712,27 @@ export class PresetModal {
 
   open(presetKey = null) {
     this.currentPresetKey = presetKey;
+    
+    // Set loading flag to prevent color updates during initialization
+    this.isLoadingPreset = true;
+    
+    // Always start with the current state to preserve colors and other settings
+    this.currentPreset = this.particleSystem.exportPreset();
+    
     if (presetKey && this.presetManager.getPreset(presetKey)) {
-      this.currentPreset = JSON.parse(JSON.stringify(this.presetManager.getPreset(presetKey)));
+      // If opening a specific preset, merge its data with current state
+      const savedPreset = this.presetManager.getPreset(presetKey);
+      this.currentPreset.name = savedPreset.name;
+      // Only load non-visual properties from saved preset to preserve current colors
+      if (savedPreset.physics) {
+        this.currentPreset.physics = JSON.parse(JSON.stringify(savedPreset.physics));
+      }
+      if (savedPreset.forces) {
+        this.currentPreset.forces = JSON.parse(JSON.stringify(savedPreset.forces));
+      }
     } else if (presetKey === '' || presetKey === null) {
-      // Empty string or null means "Custom" - export current state
-      this.currentPreset = this.particleSystem.exportPreset();
+      // Empty string or null means "Custom" - keep current state
       this.currentPresetKey = null;
-    } else {
-      this.currentPreset = this.presetManager.createDefaultPreset();
     }
     
     this.loadPresetToUI();
@@ -726,6 +742,9 @@ export class PresetModal {
     this.hasChanges = false;
     this.switchTab('species');
     this.updateSaveStatus('');
+    
+    // Clear loading flag after UI is loaded
+    this.isLoadingPreset = false;
     
     // Enable paste button if there are copied settings
     if (window.mainUI && window.mainUI.copiedSettings) {
@@ -1185,6 +1204,9 @@ export class PresetModal {
     try {
       // Apply the complete preset to the particle system
       this.particleSystem.loadFullPreset(settings);
+      
+      // Update the current preset object with the pasted settings
+      this.currentPreset = settings;
       
       // Update modal UI to reflect the new settings
       this.syncAllModalElements(settings);

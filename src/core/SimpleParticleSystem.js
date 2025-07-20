@@ -74,8 +74,27 @@ export class SimpleParticleSystem {
     }
     
     initSpatialGrid() {
+        // Validate grid dimensions before creating spatial grid
+        if (!this.width || !this.height || this.width <= 0 || this.height <= 0) {
+            console.error(`Invalid canvas dimensions: ${this.width}x${this.height}, cannot create spatial grid`);
+            return;
+        }
+        
+        // Recalculate grid dimensions to ensure they're current
+        this.gridWidth = Math.ceil(this.width / this.gridSize);
+        this.gridHeight = Math.ceil(this.height / this.gridSize);
+        
+        // Validate calculated grid dimensions
+        if (this.gridWidth <= 0 || this.gridHeight <= 0) {
+            console.error(`Invalid grid dimensions: ${this.gridWidth}x${this.gridHeight}`);
+            return;
+        }
+        
+        const totalCells = this.gridWidth * this.gridHeight;
+        console.log(`Initializing spatial grid: ${this.gridWidth}x${this.gridHeight} = ${totalCells} cells`);
+        
         this.spatialGrid = [];
-        for (let i = 0; i < this.gridWidth * this.gridHeight; i++) {
+        for (let i = 0; i < totalCells; i++) {
             this.spatialGrid[i] = [];
         }
     }
@@ -87,16 +106,63 @@ export class SimpleParticleSystem {
     }
     
     updateSpatialGrid() {
-        // Clear grid
-        for (let i = 0; i < this.spatialGrid.length; i++) {
-            this.spatialGrid[i].length = 0;
+        // Critical safety check: ensure spatial grid is properly initialized
+        if (!this.spatialGrid || this.spatialGrid.length === 0) {
+            console.warn('Spatial grid not initialized, reinitializing...');
+            this.initSpatialGrid();
+            // If initialization failed, skip update
+            if (!this.spatialGrid || this.spatialGrid.length === 0) {
+                console.error('Failed to initialize spatial grid, skipping update');
+                return;
+            }
         }
         
-        // Add particles to grid cells
+        // Validate grid size matches calculated dimensions
+        const expectedSize = this.gridWidth * this.gridHeight;
+        if (this.spatialGrid.length !== expectedSize) {
+            console.warn(`Spatial grid size mismatch: expected ${expectedSize}, got ${this.spatialGrid.length}, reinitializing...`);
+            this.initSpatialGrid();
+            if (!this.spatialGrid || this.spatialGrid.length === 0) {
+                console.error('Failed to reinitialize spatial grid');
+                return;
+            }
+        }
+        
+        // Clear grid cells
+        for (let i = 0; i < this.spatialGrid.length; i++) {
+            if (Array.isArray(this.spatialGrid[i])) {
+                this.spatialGrid[i].length = 0;
+            } else {
+                // Re-initialize this grid cell if it's corrupted
+                this.spatialGrid[i] = [];
+            }
+        }
+        
+        // Add particles to grid cells with detailed error reporting
         for (let i = 0; i < this.particles.length; i++) {
             const p = this.particles[i];
+            
+            // Validate particle position
+            if (isNaN(p.x) || isNaN(p.y)) {
+                console.warn(`Particle ${i} has NaN position (${p.x}, ${p.y}), skipping spatial grid assignment`);
+                continue;
+            }
+            
             const gridIndex = this.getGridIndex(p.x, p.y);
-            this.spatialGrid[gridIndex].push(i);
+            
+            // Comprehensive safety check for grid cell access
+            if (gridIndex >= 0 && gridIndex < this.spatialGrid.length) {
+                if (Array.isArray(this.spatialGrid[gridIndex])) {
+                    this.spatialGrid[gridIndex].push(i);
+                } else {
+                    console.error(`Grid cell ${gridIndex} is not an array: ${typeof this.spatialGrid[gridIndex]}, reinitializing cell`);
+                    this.spatialGrid[gridIndex] = [i];
+                }
+            } else {
+                console.error(`Invalid grid index ${gridIndex} for particle ${i} at (${p.x}, ${p.y})`);
+                console.error(`Grid dimensions: ${this.gridWidth}x${this.gridHeight}, canvas: ${this.width}x${this.height}`);
+                console.error(`Grid size: ${this.gridSize}, calculated gx: ${Math.floor(p.x / this.gridSize)}, gy: ${Math.floor(p.y / this.gridSize)}`);
+            }
         }
     }
     
@@ -145,10 +211,8 @@ export class SimpleParticleSystem {
     }
     
     applyTrailDecay() {
-        // Smart trail decay using image data manipulation
-        // This prevents the gray residue accumulation issue
-        const imageData = this.ctx.getImageData(0, 0, this.width, this.height);
-        const data = imageData.data;
+        // Use fillRect with globalCompositeOperation for clean trails
+        // This prevents the gray residue accumulation issue completely
         
         // Parse background color to get RGB values
         let bgR = 0, bgG = 0, bgB = 0;
@@ -159,29 +223,17 @@ export class SimpleParticleSystem {
             bgB = parseInt(hex.substr(4, 2), 16) || 0;
         }
         
-        // Apply decay to each pixel
+        // Calculate alpha for trail effect
         // this.blur represents trail length (0.5-0.99, higher = shorter trails)
-        // Convert to decay factor (higher blur = more decay toward background)
-        const decayFactor = this.blur;
+        // Convert to alpha overlay (higher blur = more overlay toward background)
+        const trailAlpha = 1 - this.blur;
         
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const a = data[i + 3];
-            
-            // Only process non-transparent pixels
-            if (a > 0) {
-                // Decay towards background color
-                data[i] = Math.floor(r * decayFactor + bgR * (1 - decayFactor));
-                data[i + 1] = Math.floor(g * decayFactor + bgG * (1 - decayFactor));
-                data[i + 2] = Math.floor(b * decayFactor + bgB * (1 - decayFactor));
-                // Keep alpha intact for proper compositing
-                data[i + 3] = a;
-            }
-        }
-        
-        this.ctx.putImageData(imageData, 0, 0);
+        // Apply trail decay using alpha blending
+        this.ctx.save();
+        this.ctx.globalAlpha = trailAlpha;
+        this.ctx.fillStyle = this.backgroundColor;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        this.ctx.restore();
     }
     
     // Species glow management API
@@ -243,11 +295,24 @@ export class SimpleParticleSystem {
     }
     
     // Species count management API
+    // Alias for compatibility
+    setNumSpecies(newCount) {
+        return this.setSpeciesCount(newCount);
+    }
+    
     setSpeciesCount(newCount) {
         if (newCount < 1 || newCount > 20) {
             console.warn(`Invalid species count: ${newCount}, must be 1-20`);
             return false;
         }
+        
+        // Critical validation: Ensure canvas dimensions are set
+        if (!this.width || !this.height || this.width <= 0 || this.height <= 0) {
+            console.error(`Cannot change species count: invalid canvas dimensions ${this.width}x${this.height}`);
+            return false;
+        }
+        
+        console.log(`Changing species count from ${this.numSpecies} to ${newCount}, canvas: ${this.width}x${this.height}`);
         
         const oldCount = this.numSpecies;
         this.numSpecies = newCount;
@@ -261,10 +326,60 @@ export class SimpleParticleSystem {
         // Resize species array
         this.resizeSpeciesArray(oldCount, newCount);
         
+        // CRITICAL FIX: Reinitialize spatial grid BEFORE reinitializing particles
+        // This ensures the grid is properly sized for the new particle configuration
+        console.log('Initializing spatial grid...');
+        this.initSpatialGrid();
+        
+        // Validate spatial grid was created successfully
+        if (!this.spatialGrid || this.spatialGrid.length === 0) {
+            console.error('Failed to initialize spatial grid, aborting species count change');
+            this.numSpecies = oldCount; // Revert
+            return false;
+        }
+        
+        console.log(`Spatial grid initialized: ${this.spatialGrid.length} cells`);
+        
         // Reinitialize particles with new species count
+        console.log('Reinitializing particles...');
         this.initializeParticlesWithPositions();
         
+        console.log(`Particles initialized: ${this.particles.length} particles`);
+        
+        // Update spatial grid with new particles to prevent undefined grid cell access
+        console.log('Updating spatial grid with new particles...');
+        this.updateSpatialGrid();
+        
+        console.log('Species count change completed successfully');
+        
+        // Update main UI elements to stay in sync
+        this.updateMainUISpeciesCount(newCount);
+        
         return true;
+    }
+    
+    updateMainUISpeciesCount(newCount) {
+        // Update main UI elements (not modal elements)
+        const allSliders = document.querySelectorAll('#species-count');
+        const allDisplays = document.querySelectorAll('#species-count-value');
+        
+        // Update main UI slider (not in modal)
+        for (const slider of allSliders) {
+            if (!slider.closest('.preset-modal')) {
+                slider.value = newCount;
+                break;
+            }
+        }
+        
+        // Update main UI display (not in modal)
+        for (const display of allDisplays) {
+            if (!display.closest('.preset-modal')) {
+                display.textContent = newCount;
+                break;
+            }
+        }
+        
+        console.log(`Updated main UI elements to species count: ${newCount}`);
     }
     
     preserveAndResizeForceMatrices(oldCount, newCount) {
@@ -313,6 +428,9 @@ export class SimpleParticleSystem {
                 // Create new species with default configuration
                 this.species[i] = {
                     color: this.generateSpeciesColor(i),
+                    size: this.particleSize,
+                    opacity: 0.9,
+                    particleCount: this.particlesPerSpecies,
                     startPosition: {
                         type: 'random',
                         center: { x: 0.5, y: 0.5 },
@@ -406,7 +524,7 @@ export class SimpleParticleSystem {
         for (let i = 0; i < this.numSpecies; i++) {
             this.species[i] = {
                 color: baseColors[i % baseColors.length],
-                size: 2 + Math.random() * 2, // Vary particle sizes
+                size: this.particleSize, // Use global particle size
                 opacity: 0.8 + Math.random() * 0.2, // Vary particle opacity
                 particleCount: this.particlesPerSpecies,
                 startPosition: {
@@ -500,6 +618,15 @@ export class SimpleParticleSystem {
         const startTime = performance.now();
         this.time += dt;
         
+        // Safety check for empty particle array
+        if (this.particles.length === 0) {
+            console.warn('No particles to update');
+            // Clear canvas when no particles
+            this.ctx.fillStyle = this.backgroundColor;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+            return;
+        }
+        
         // Update spatial grid for optimized neighbor search
         this.updateSpatialGrid();
         
@@ -535,7 +662,9 @@ export class SimpleParticleSystem {
                 const dy = p2.y - p1.y;
                 const dist2 = dx * dx + dy * dy;
                 
-                if (dist2 === 0) continue;
+                // Critical fix: Prevent division by zero and very small distances
+                const minDist2 = 0.01; // Minimum distance squared to prevent Infinity/NaN
+                if (dist2 < minDist2) continue;
                 
                 const s1 = p1.species;
                 const s2 = p2.species;
@@ -552,9 +681,9 @@ export class SimpleParticleSystem {
                 // Early exit if particle is too far for any interaction
                 if (dist2 > socialR2) continue;
                 
-                // Only calculate sqrt when needed
+                // Safe distance calculation with minimum threshold
                 const dist = Math.sqrt(dist2);
-                const invDist = 1.0 / dist;
+                const invDist = 1.0 / Math.max(dist, 0.1); // Prevent division by very small numbers
                 
                 // Collision force (always repulsive at close range)
                 if (dist2 < collisionR2) {
@@ -577,17 +706,38 @@ export class SimpleParticleSystem {
                 }
             }
             
-            // Apply forces
-            p1.vx += fx * this.forceFactor;
-            p1.vy += fy * this.forceFactor;
+            // Apply forces with NaN protection
+            const forceX = fx * this.forceFactor;
+            const forceY = fy * this.forceFactor;
+            
+            if (!isNaN(forceX) && !isNaN(forceY)) {
+                p1.vx += forceX;
+                p1.vy += forceY;
+            }
             
             // Apply friction
             p1.vx *= this.friction;
             p1.vy *= this.friction;
             
-            // Update position
+            // Velocity sanity check
+            if (isNaN(p1.vx) || isNaN(p1.vy)) {
+                console.warn(`Particle ${i} velocity became NaN, resetting`);
+                p1.vx = (Math.random() - 0.5) * 2;
+                p1.vy = (Math.random() - 0.5) * 2;
+            }
+            
+            // Update position with NaN validation
             p1.x += p1.vx;
             p1.y += p1.vy;
+            
+            // Critical safety check: Prevent NaN positions
+            if (isNaN(p1.x) || isNaN(p1.y)) {
+                console.warn(`Particle ${i} position became NaN, resetting to center`);
+                p1.x = this.width * 0.5;
+                p1.y = this.height * 0.5;
+                p1.vx = (Math.random() - 0.5) * 2;
+                p1.vy = (Math.random() - 0.5) * 2;
+            }
             
             // Wall collisions with damping
             if (p1.x < this.particleSize || p1.x > this.width - this.particleSize) {
@@ -639,6 +789,12 @@ export class SimpleParticleSystem {
     }
     
     render() {
+        // Safety check for context
+        if (!this.ctx) {
+            console.error('Canvas context not set');
+            return;
+        }
+        
         // Reset temp array pool for this frame
         this.resetTempArrays();
         
@@ -940,8 +1096,19 @@ export class SimpleParticleSystem {
     initializeParticlesWithPositions() {
         this.particles = [];
         
+        // Ensure canvas dimensions are valid
+        if (!this.width || !this.height) {
+            console.error('Canvas dimensions not set, cannot initialize particles');
+            return;
+        }
+        
         for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
             const species = this.species[speciesId];
+            if (!species) {
+                console.error(`Species ${speciesId} not found`);
+                continue;
+            }
+            
             const count = species.particleCount || this.particlesPerSpecies;
             const startPos = species.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 };
             
@@ -956,9 +1123,16 @@ export class SimpleParticleSystem {
             for (let i = 0; i < count; i++) {
                 let x, y;
                 
-                const centerX = startPos.center.x * this.width;
-                const centerY = startPos.center.y * this.height;
-                const radius = startPos.radius * Math.min(this.width, this.height);
+                // Validate center coordinates and provide safe defaults
+                let centerX = startPos.center && typeof startPos.center.x === 'number' && !isNaN(startPos.center.x) 
+                    ? startPos.center.x * this.width 
+                    : this.width * 0.5;
+                let centerY = startPos.center && typeof startPos.center.y === 'number' && !isNaN(startPos.center.y) 
+                    ? startPos.center.y * this.height 
+                    : this.height * 0.5;
+                let radius = typeof startPos.radius === 'number' && !isNaN(startPos.radius) 
+                    ? startPos.radius * Math.min(this.width, this.height) 
+                    : 50; // Safe default radius
                 
                 switch (startPos.type) {
                     case 'cluster':
@@ -989,9 +1163,13 @@ export class SimpleParticleSystem {
                         break;
                 }
                 
+                // Final validation to prevent NaN particles
+                const finalX = isNaN(x) ? this.width * 0.5 : Math.max(this.particleSize, Math.min(this.width - this.particleSize, x));
+                const finalY = isNaN(y) ? this.height * 0.5 : Math.max(this.particleSize, Math.min(this.height - this.particleSize, y));
+                
                 this.particles.push({
-                    x: Math.max(this.particleSize, Math.min(this.width - this.particleSize, x)),
-                    y: Math.max(this.particleSize, Math.min(this.height - this.particleSize, y)),
+                    x: finalX,
+                    y: finalY,
                     vx: (Math.random() - 0.5) * 2,
                     vy: (Math.random() - 0.5) * 2,
                     species: speciesId,

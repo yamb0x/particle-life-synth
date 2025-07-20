@@ -105,9 +105,10 @@ When working on this project:
 - Always read files before editing
 - Use multi-file edits when making related changes
 - Test value conversions carefully
-- Maintain the ASCII art aesthetic in docs
-- Keep the vanilla JS approach
+- Maintain the vanilla JS approach
 - Don't add unnecessary comments to code
+- Use helper functions for error handling (safeAddEventListener, safeUpdateElement)
+- Test changes using test-all-parameters.html
 
 ## AI Collaboration Guidelines
 - Never decide that an issue is resolved before the user has tested it
@@ -117,8 +118,11 @@ When working on this project:
 - Visual engine: 100% complete ✓
 - Performance optimization: 100% complete ✓
 - Preset system: 100% complete ✓
+- UI parameter system: 100% complete ✓ (all parameters working)
+- Testing suite: 100% complete ✓ (consolidated and comprehensive)
+- Bug resolution: 12/14 issues resolved ✓ (only 2 low-priority issues remain)
 - Audio engine: 20% complete (next phase)
-- Documentation: In progress
+- Documentation: Condensed to essentials ✓
 
 ## Performance Characteristics
 
@@ -150,11 +154,32 @@ The `/issues` folder contains all documented bugs and improvements:
   - "open issues"
   - "known bugs"
 
+## Testing
+
+The project has a consolidated testing system as per the MASTER_DEVELOPMENT_PLAN:
+
+- **Comprehensive Test Suite**: `http://localhost:8000/test-suite.html`
+  - Automated parameter testing
+  - Trail rendering validation
+  - UI state manager tests
+  - Species count validation
+
+- **Developer Debug Tools**: `http://localhost:8000/debug-tools.html`
+  - System diagnostics
+  - Species debugging (including glow performance testing)
+  - UI state debugging
+  - Performance monitoring with real-time metrics
+  - Storage and memory analysis
+  - Comprehensive fix validation for all resolved issues
+
+- **Performance Testing**: `http://localhost:8000/performance-test.html`
+  - High particle count testing
+  - FPS monitoring and optimization analysis
+
 ## Next Steps
 
-1. Fix open issues in `/issues` folder
-2. Implement Web Audio API integration
-3. Create synthesis engines (Analog, FM, Wavetable, Granular, Physical)
-4. Map particle behaviors to synthesis parameters
-5. Build VST/AU plugin wrapper
-6. Add MPE support
+1. Implement Web Audio API integration
+2. Create synthesis engines (Analog, FM, Wavetable, Granular, Physical)
+3. Map particle behaviors to synthesis parameters
+4. Build VST/AU plugin wrapper
+5. Add MPE support

@@ -2,6 +2,8 @@ import { SimpleParticleSystem } from './core/SimpleParticleSystem.js';
 import { PresetManager } from './utils/PresetManager.js';
 import { PresetModal } from './ui/PresetModal.js';
 import { MainUI } from './ui/MainUI.js';
+import { UIStateManager } from './utils/UIStateManager.js';
+import { DOMHelpers } from './utils/DOMHelpers.js';
 
 // Initialize the simple particle life system
 async function init() {
@@ -20,9 +22,21 @@ async function init() {
     // Wait for async initialization
     await new Promise(resolve => setTimeout(resolve, 100));
     
+    // Create UI state manager
+    const uiStateManager = new UIStateManager();
+    window.UIStateManager = UIStateManager; // Make class available globally
+    window.uiStateManager = uiStateManager; // Make instance available globally
+    
+    // Make DOMHelpers available globally
+    window.DOMHelpers = DOMHelpers;
+    
     // Create particle system
     const particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
     particleSystem.setCanvas(canvas);
+    window.particleSystem = particleSystem; // Make it globally accessible for testing
+    
+    // Sync initial state
+    uiStateManager.syncFromParticleSystem(particleSystem);
     
     // Create preset modal
     const presetModal = new PresetModal(particleSystem, presetManager);
@@ -97,7 +111,7 @@ async function init() {
             fpsTime = currentTime;
             
             // Update performance overlay
-            const totalParticles = particleSystem.species.reduce((sum, s) => sum + (s.particleCount || 0), 0);
+            const totalParticles = particleSystem.particles.length;
             perfOverlay.innerHTML = `FPS: ${currentFPS}<br>Particles: ${totalParticles}`;
         }
         

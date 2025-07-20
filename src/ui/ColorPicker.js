@@ -140,12 +140,12 @@ export class ColorPicker {
     });
   }
 
-  setColor(color) {
+  setColor(color, silent = false) {
     this.color = { ...color };
     this.updateDisplay();
     this.updateSliders();
     this.updateHexInput();
-    if (this.onChange) this.onChange(this.color);
+    if (!silent && this.onChange) this.onChange(this.color);
   }
 
   updateDisplay() {

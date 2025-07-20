@@ -14,6 +14,74 @@ export class MainUI {
         
         this.init();
         this.setupKeyboardShortcuts();
+        
+        // Load synth assignments after initialization
+        this.loadSynthAssignments(this.synthAssignments);
+    }
+    
+    // Helper function to safely add event listeners
+    safeAddEventListener(elementId, event, handler) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`Element '${elementId}' not found for event listener`);
+        }
+    }
+    
+    // Helper function to safely update UI elements
+    safeUpdateElement(id, property, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            if (property === 'textContent' || property === 'value' || property === 'checked') {
+                element[property] = value;
+            }
+        } else {
+            console.warn(`Cannot update element '${id}' - not found`);
+        }
+    }
+    
+    validateUIElements() {
+        // List of all expected UI element IDs
+        const expectedIds = [
+            // Preset controls
+            'minimize-btn', 'preset-selector', 'load-preset-btn', 'configure-preset-btn',
+            // Particle controls
+            'particles-per-species', 'particles-per-species-value', 'species-count', 'species-count-value',
+            'start-pattern', 'total-particles',
+            // Physics controls
+            'force-strength', 'force-strength-value', 'friction', 'friction-value',
+            'wall-bounce', 'wall-bounce-value', 'collision-radius', 'collision-radius-value',
+            'social-radius', 'social-radius-value',
+            // Force controls
+            'from-species', 'to-species', 'force-graph-container', 'clear-forces-btn',
+            // Effects controls
+            'trails-enabled', 'trail-controls', 'trail-length', 'trail-length-value',
+            'halo-enabled', 'halo-controls', 'halo-radius-control', 'halo-intensity', 'halo-intensity-value',
+            'halo-radius', 'halo-radius-value',
+            'species-glow-enabled', 'species-glow-controls', 'species-glow-size-control', 
+            'species-glow-intensity-control', 'glow-species-selector', 'species-glow-size',
+            'species-glow-size-value', 'species-glow-intensity', 'species-glow-intensity-value',
+            // Visual controls
+            'background-color', 'particle-size', 'particle-size-value', 'species-colors-container',
+            // Action buttons
+            'copy-settings-btn', 'randomize-forces-btn', 'reset-defaults-btn'
+        ];
+        
+        const missingIds = [];
+        expectedIds.forEach(id => {
+            if (!document.getElementById(id)) {
+                missingIds.push(id);
+            }
+        });
+        
+        if (missingIds.length > 0) {
+            console.error('Missing UI elements:', missingIds);
+        } else {
+            console.log('All UI elements validated successfully');
+        }
+        
+        return missingIds.length === 0;
     }
     
     init() {
@@ -292,7 +360,7 @@ export class MainUI {
                             <input type="range" class="range-slider" id="species-glow-size" 
                                    min="0.5" max="3.0" step="0.1" value="1.0">
                             <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="glow-size-synth" 
+                                <input type="text" class="synth-field" id="species-glow-size-synth" 
                                        placeholder="e.g. Lead Width, Voice Size" 
                                        data-parameter="effects_species_glow_size">
                             </div>
@@ -305,7 +373,7 @@ export class MainUI {
                             <input type="range" class="range-slider" id="species-glow-intensity" 
                                    min="0.0" max="1.0" step="0.05" value="0.0">
                             <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="glow-intensity-synth" 
+                                <input type="text" class="synth-field" id="species-glow-intensity-synth" 
                                        placeholder="e.g. Lead Level, Solo Mix" 
                                        data-parameter="effects_species_glow_intensity">
                             </div>
@@ -613,6 +681,8 @@ export class MainUI {
         this.updateSpeciesColors(this.particleSystem.numSpecies);
         this.updateGraph();
         
+        // Validate all UI elements are properly created
+        this.validateUIElements();
     }
     
     setupKeyboardShortcuts() {
@@ -696,19 +766,31 @@ export class MainUI {
         document.querySelectorAll('.synth-field').forEach(field => {
             const parameter = field.dataset.parameter;
             const assignment = field.value.trim();
-            if (assignment) {
+            if (parameter && assignment) {
                 assignments[parameter] = assignment;
             }
         });
+        // Log assignments for debugging
+        if (Object.keys(assignments).length > 0) {
+            console.log('Saved synth assignments:', assignments);
+        }
         return assignments;
     }
     
     loadSynthAssignments(assignments) {
-        Object.entries(assignments || {}).forEach(([parameter, assignment]) => {
+        if (!assignments || typeof assignments !== 'object') {
+            console.warn('No valid synth assignments to load');
+            return;
+        }
+        
+        Object.entries(assignments).forEach(([parameter, assignment]) => {
             const field = document.querySelector(`[data-parameter="${parameter}"]`);
             if (field) {
                 field.value = assignment;
+                // Trigger input event to ensure any handlers are called
+                field.dispatchEvent(new Event('input', { bubbles: true }));
             }
+            // Don't warn for missing fields as some parameters don't have synth assignments
         });
     }
     
@@ -797,8 +879,29 @@ export class MainUI {
     }
     
     setupEventListeners() {
+        // Find elements in main UI only (not in modal)
+        const findMainUIElement = (id) => {
+            const elements = document.querySelectorAll(`#${id}`);
+            for (const el of elements) {
+                if (!el.closest('.preset-modal')) {
+                    return el;
+                }
+            }
+            return null;
+        };
+        
+        // Helper to add event listener to main UI element only
+        const safeAddEventListener = (id, event, handler) => {
+            const element = findMainUIElement(id);
+            if (element) {
+                element.addEventListener(event, handler);
+            } else {
+                console.warn(`Main UI element '${id}' not found`);
+            }
+        };
+        
         // Minimize button
-        document.getElementById('minimize-btn').addEventListener('click', () => {
+        safeAddEventListener('minimize-btn', 'click', () => {
             this.toggleVisibility();
         });
         
@@ -847,20 +950,47 @@ export class MainUI {
             // Reinitialize with positions
             this.particleSystem.initializeParticlesWithPositions();
             document.getElementById('particles-per-species-value').textContent = value;
+            // Update the individual species amount inputs
+            document.querySelectorAll('.species-amount').forEach((input, i) => {
+                if (i < this.particleSystem.numSpecies) {
+                    input.value = value;
+                }
+            });
             this.updateTotalParticles();
         });
         
-        document.getElementById('species-count').addEventListener('input', (e) => {
+        safeAddEventListener('species-count', 'input', (e) => {
             const value = parseInt(e.target.value);
             
             // Use the proper API method for species count changes
-            if (this.particleSystem.setSpeciesCount(value)) {
-                // Update UI elements only if the change was successful
-                document.getElementById('species-count-value').textContent = value;
-                this.updateSpeciesSelectors(value);
-                this.updateSpeciesColors(value);
-                this.updateGraph();
-                this.updateTotalParticles();
+            if (this.particleSystem.setSpeciesCount) {
+                // Debug log
+                console.log(`Setting species count to ${value}`);
+                console.log(`Canvas dimensions: ${this.particleSystem.width}x${this.particleSystem.height}`);
+                console.log(`Particle count before: ${this.particleSystem.particles.length}`);
+                
+                const result = this.particleSystem.setSpeciesCount(value);
+                
+                if (result) {
+                    // Update UI elements only if the change was successful
+                    const countDisplay = document.getElementById('species-count-value');
+                    if (countDisplay) {
+                        countDisplay.textContent = value;
+                    }
+                    
+                    // Also update the slider value to stay in sync
+                    e.target.value = value;
+                    
+                    this.updateSpeciesSelectors(value);
+                    this.updateSpeciesColors(value);
+                    this.updateGraph();
+                    this.updateTotalParticles();
+                    
+                    console.log(`Particle count after: ${this.particleSystem.particles.length}`);
+                    console.log(`Species array length: ${this.particleSystem.species.length}`);
+                } else {
+                    console.error(`Failed to set species count to ${value}`);
+                }
             }
         });
         
@@ -1022,17 +1152,23 @@ export class MainUI {
         });
         
         // Visual controls
-        document.getElementById('background-color').addEventListener('change', (e) => {
+        safeAddEventListener('background-color', 'change', (e) => {
             this.particleSystem.backgroundColor = e.target.value;
         });
         
-        document.getElementById('particle-size').addEventListener('input', (e) => {
+        safeAddEventListener('particle-size', 'input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.particleSize = value;
-            for (let i = 0; i < this.particleSystem.species.length; i++) {
-                const variation = (Math.random() - 0.5) * 0.5;
-                this.particleSystem.species[i].size = Math.max(0.5, value + variation);
+            
+            // Update all species sizes
+            if (this.particleSystem.species && this.particleSystem.species.length > 0) {
+                for (let i = 0; i < this.particleSystem.species.length; i++) {
+                    if (this.particleSystem.species[i]) {
+                        this.particleSystem.species[i].size = value;
+                    }
+                }
             }
+            
             document.getElementById('particle-size-value').textContent = value.toFixed(1);
         });
         
@@ -1052,9 +1188,21 @@ export class MainUI {
             this.updateGraph();
         });
         
-        // Synth assignment fields - save on change
+        // Synth assignment fields - save on change and provide immediate feedback
         document.querySelectorAll('.synth-field').forEach(field => {
-            field.addEventListener('change', () => {
+            field.addEventListener('input', (e) => {
+                // Save assignments
+                this.synthAssignments = this.saveSynthAssignments();
+                
+                // Visual feedback that the field is active
+                e.target.style.borderColor = '#4a9eff';
+                setTimeout(() => {
+                    e.target.style.borderColor = '';
+                }, 500);
+            });
+            
+            field.addEventListener('blur', () => {
+                // Save on blur as well to ensure changes are captured
                 this.synthAssignments = this.saveSynthAssignments();
             });
         });
@@ -1115,8 +1263,8 @@ export class MainUI {
         const ps = this.particleSystem;
         
         // PARTICLES Section
-        document.getElementById('particles-per-species').value = ps.particlesPerSpecies;
-        document.getElementById('particles-per-species-value').textContent = ps.particlesPerSpecies;
+        this.safeUpdateElement('particles-per-species', 'value', ps.particlesPerSpecies);
+        this.safeUpdateElement('particles-per-species-value', 'textContent', ps.particlesPerSpecies);
         document.getElementById('species-count').value = ps.numSpecies;
         document.getElementById('species-count-value').textContent = ps.numSpecies;
         

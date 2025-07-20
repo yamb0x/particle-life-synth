@@ -2,165 +2,824 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performance Test - Particle Life Synth</title>
+    <title>Particle Life Synth - Performance Test</title>
     <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --text-primary: #fff;
+            --text-secondary: #aaa;
+            --accent-success: #4CAF50;
+            --accent-error: #ff4444;
+            --accent-warning: #ff9800;
+            --accent-info: #2196F3;
+        }
+        
+        * { box-sizing: border-box; }
+        
         body {
             margin: 0;
-            padding: 20px;
-            background: #1a1a1a;
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
         }
         
-        canvas {
-            border: 1px solid #333;
-            display: block;
-            margin: 20px auto;
-        }
-        
-        .controls {
+        .header {
+            background: var(--bg-tertiary);
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
             text-align: center;
-            margin: 20px;
         }
         
-        .metrics {
-            display: flex;
-            justify-content: center;
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--accent-info);
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
             gap: 20px;
-            margin: 20px;
+            height: calc(100vh - 70px);
+            padding: 20px;
         }
         
-        .metric {
-            background: #333;
-            padding: 10px 20px;
-            border-radius: 5px;
+        .control-panel {
+            background: var(--bg-secondary);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
         }
         
-        .metric h4 {
-            margin: 0 0 5px 0;
-            color: #66cc66;
+        .app-panel {
+            background: var(--bg-secondary);
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
         }
         
-        .metric span {
-            font-size: 1.5em;
-            font-weight: bold;
+        .section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        .section h3 {
+            margin: 0 0 15px 0;
+            color: var(--accent-success);
+            font-size: 16px;
         }
         
         button {
-            background: #66cc66;
-            color: #000;
+            background: var(--accent-success);
+            color: black;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin: 5px;
+            padding: 8px 12px;
+            margin: 3px;
             cursor: pointer;
             font-weight: bold;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 100%;
         }
         
         button:hover {
-            background: #55bb55;
+            background: #5cbf60;
+        }
+        
+        button.warning {
+            background: var(--accent-warning);
+        }
+        
+        button.error {
+            background: var(--accent-error);
+            color: white;
+        }
+        
+        button:disabled {
+            background: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+        
+        iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            background: var(--bg-primary);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .metric-item {
+            background: var(--bg-tertiary);
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-info);
+        }
+        
+        .metric-good { color: var(--accent-success); }
+        .metric-warning { color: var(--accent-warning); }
+        .metric-bad { color: var(--accent-error); }
+        
+        .test-result {
+            background: var(--bg-tertiary);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .chart-container {
+            background: var(--bg-tertiary);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            height: 120px;
+            position: relative;
+        }
+        
+        .chart {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: var(--bg-tertiary);
+            height: 6px;
+            border-radius: 3px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: var(--accent-info);
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+        
+        .control-group {
+            margin: 10px 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .range-slider {
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .value-display {
+            color: var(--accent-info);
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">Performance Test - Particle Life Synth</h1>
-    
-    <div class="controls">
-        <button onclick="testPerformance(500)">Test 500 particles</button>
-        <button onclick="testPerformance(1000)">Test 1000 particles</button>
-        <button onclick="testPerformance(2000)">Test 2000 particles</button>
-        <button onclick="testPerformance(5000)">Test 5000 particles</button>
-        <button onclick="toggleDreamtime()">Toggle Dreamtime</button>
+    <div class="header">
+        <h1>⚡ Particle Life Synth - Performance Test</h1>
     </div>
     
-    <div class="metrics">
-        <div class="metric">
-            <h4>FPS</h4>
-            <span id="fps">--</span>
+    <div class="container">
+        <div class="control-panel">
+            <!-- Real-time Metrics -->
+            <div class="section">
+                <h3>📊 Real-time Metrics</h3>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <div class="metric-label">FPS</div>
+                        <div class="metric-value" id="fps-display">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Frame Time</div>
+                        <div class="metric-value" id="frame-time">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Particles</div>
+                        <div class="metric-value" id="particle-count">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Memory</div>
+                        <div class="metric-value" id="memory-usage">--</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="fps-chart" class="chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Performance Tests -->
+            <div class="section">
+                <h3>🧪 Performance Tests</h3>
+                <button onclick="runScalabilityTest()" id="scalability-btn">Run Scalability Test</button>
+                <button onclick="runMemoryTest()" id="memory-btn">Run Memory Test</button>
+                <button onclick="runStressTest()" id="stress-btn">Run Stress Test</button>
+                <button onclick="runGlowPerformanceTest()" id="glow-btn">Test Glow Performance</button>
+                <button onclick="runTrailPerformanceTest()" id="trail-btn">Test Trail Performance</button>
+                
+                <div class="progress-bar" style="display: none;" id="test-progress">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                
+                <div id="test-results"></div>
+            </div>
+            
+            <!-- Particle Count Control -->
+            <div class="section">
+                <h3>🔧 Test Controls</h3>
+                <div class="control-group">
+                    <label for="particle-slider">Particle Count</label>
+                    <input type="range" id="particle-slider" class="range-slider" 
+                           min="50" max="2000" step="50" value="500">
+                    <span class="value-display" id="particle-value">500</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="species-slider">Species Count</label>
+                    <input type="range" id="species-slider" class="range-slider" 
+                           min="1" max="20" step="1" value="5">
+                    <span class="value-display" id="species-value">5</span>
+                </div>
+                
+                <button onclick="applySettings()">Apply Settings</button>
+                <button onclick="resetToOptimal()" class="warning">Reset to Optimal</button>
+            </div>
+            
+            <!-- Benchmarks -->
+            <div class="section">
+                <h3>🏆 Benchmarks</h3>
+                <div class="test-result" id="benchmark-results">
+                    <div>Target: 60 FPS @ 500 particles</div>
+                    <div>Minimum: 30 FPS @ 1000 particles</div>
+                    <div>Stress: 15 FPS @ 2000 particles</div>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="section">
+                <h3>⚙️ Monitoring Controls</h3>
+                <button onclick="startMonitoring()" id="start-btn">Start Monitoring</button>
+                <button onclick="stopMonitoring()" id="stop-btn">Stop Monitoring</button>
+                <button onclick="clearResults()">Clear Results</button>
+                <button onclick="exportResults()">Export Results</button>
+            </div>
         </div>
-        <div class="metric">
-            <h4>Frame Time</h4>
-            <span id="frameTime">--</span> ms
-        </div>
-        <div class="metric">
-            <h4>Particles</h4>
-            <span id="particleCount">--</span>
-        </div>
-        <div class="metric">
-            <h4>Mode</h4>
-            <span id="renderMode">Normal</span>
+        
+        <div class="app-panel">
+            <iframe id="app" src="index.html"></iframe>
         </div>
     </div>
-    
-    <canvas id="canvas" width="800" height="600"></canvas>
-    
-    <div style="text-align: center; margin-top: 20px;">
-        <p>This test measures the performance improvements from:</p>
-        <ul style="text-align: left; display: inline-block;">
-            <li><strong>Spatial Partitioning:</strong> O(n²) → O(n) collision detection</li>
-            <li><strong>Distance Squared Optimization:</strong> Avoid unnecessary sqrt() calls</li>
-            <li><strong>Batch Rendering:</strong> Group particles by species for fewer draw calls</li>
-            <li><strong>Gradient Caching:</strong> Reuse gradients in dreamtime mode</li>
-            <li><strong>Memory Pooling:</strong> Reduce garbage collection overhead</li>
-        </ul>
-    </div>
 
-    <script type="module">
-        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
-
-        const canvas = document.getElementById('canvas');
-        const particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
-        particleSystem.setCanvas(canvas);
-
-        // Performance tracking
-        let frameCount = 0;
-        let lastTime = 0;
-        let fps = 0;
-        let frameTime = 0;
-
-        function updateMetrics() {
-            document.getElementById('fps').textContent = fps.toFixed(1);
-            document.getElementById('frameTime').textContent = frameTime.toFixed(2);
-            document.getElementById('particleCount').textContent = particleSystem.particles.length;
-            document.getElementById('renderMode').textContent = particleSystem.renderMode === 'dreamtime' ? 'Dreamtime' : 'Normal';
+    <script>
+        const frame = document.getElementById('app');
+        let monitoringInterval = null;
+        let isMonitoring = false;
+        let performanceData = [];
+        let fpsChart = null;
+        
+        // Initialize FPS Chart
+        function initFPSChart() {
+            const canvas = document.getElementById('fps-chart');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            fpsChart = {
+                canvas,
+                ctx,
+                data: [],
+                maxPoints: 60
+            };
         }
-
-        function animate(currentTime) {
-            const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
-            lastTime = currentTime;
-
-            const startFrame = performance.now();
-            particleSystem.update(deltaTime);
-            const endFrame = performance.now();
-
-            frameTime = endFrame - startFrame;
-            frameCount++;
-
-            if (frameCount % 30 === 0) {
-                fps = 1000 / frameTime;
-                updateMetrics();
+        
+        function drawFPSChart() {
+            if (!fpsChart || fpsChart.data.length < 2) return;
+            
+            const { ctx, canvas, data } = fpsChart;
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = (i / 4) * height;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
             }
-
-            requestAnimationFrame(animate);
+            
+            // Draw FPS line
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const maxFPS = 60;
+            data.forEach((fps, index) => {
+                const x = (index / (data.length - 1)) * width;
+                const y = height - (fps / maxFPS) * height;
+                
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.stroke();
         }
-
-        window.testPerformance = function(particleCount) {
-            const particlesPerSpecies = Math.floor(particleCount / particleSystem.numSpecies);
-            particleSystem.particlesPerSpecies = particlesPerSpecies;
-            particleSystem.initializeParticles();
-            console.log(`Testing with ${particleCount} particles (${particlesPerSpecies} per species)`);
-        };
-
-        window.toggleDreamtime = function() {
-            particleSystem.renderMode = particleSystem.renderMode === 'dreamtime' ? 'normal' : 'dreamtime';
-            particleSystem.clearCaches(); // Clear cached gradients when switching modes
-        };
-
-        // Initialize with default particles
-        particleSystem.initializeParticles();
-        requestAnimationFrame(animate);
-        updateMetrics();
+        
+        async function getApp() {
+            const win = frame.contentWindow;
+            const doc = frame.contentDocument;
+            
+            if (!win || !doc) {
+                throw new Error('App frame not accessible');
+            }
+            
+            if (!win.particleSystem) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            return { win, doc, particleSystem: win.particleSystem };
+        }
+        
+        function updateMetrics() {
+            getApp().then(({ particleSystem }) => {
+                // FPS
+                const fps = particleSystem.avgFrameTime ? 
+                    Math.round(1000 / particleSystem.avgFrameTime) : 0;
+                
+                const fpsElement = document.getElementById('fps-display');
+                fpsElement.textContent = fps;
+                fpsElement.className = `metric-value ${fps >= 45 ? 'metric-good' : fps >= 25 ? 'metric-warning' : 'metric-bad'}`;
+                
+                // Frame time
+                const frameTime = particleSystem.avgFrameTime ? 
+                    `${particleSystem.avgFrameTime.toFixed(1)}ms` : '--';
+                document.getElementById('frame-time').textContent = frameTime;
+                
+                // Particle count
+                document.getElementById('particle-count').textContent = particleSystem.particles.length;
+                
+                // Memory
+                if (performance.memory) {
+                    const memory = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                    document.getElementById('memory-usage').textContent = `${memory}MB`;
+                }
+                
+                // Update chart data
+                if (fps > 0) {
+                    fpsChart.data.push(fps);
+                    if (fpsChart.data.length > fpsChart.maxPoints) {
+                        fpsChart.data.shift();
+                    }
+                    drawFPSChart();
+                }
+                
+                // Store performance data
+                performanceData.push({
+                    timestamp: Date.now(),
+                    fps,
+                    frameTime: particleSystem.avgFrameTime || 0,
+                    particles: particleSystem.particles.length,
+                    memory: performance.memory ? performance.memory.usedJSHeapSize : 0
+                });
+                
+                // Keep only last 1000 data points
+                if (performanceData.length > 1000) {
+                    performanceData.shift();
+                }
+                
+            }).catch(console.error);
+        }
+        
+        function startMonitoring() {
+            if (isMonitoring) return;
+            
+            isMonitoring = true;
+            monitoringInterval = setInterval(updateMetrics, 1000);
+            
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+        }
+        
+        function stopMonitoring() {
+            if (!isMonitoring) return;
+            
+            isMonitoring = false;
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+            }
+            
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+        }
+        
+        function showProgress(show, progress = 0) {
+            const progressBar = document.getElementById('test-progress');
+            const progressFill = document.getElementById('progress-fill');
+            
+            if (show) {
+                progressBar.style.display = 'block';
+                progressFill.style.width = `${progress}%`;
+            } else {
+                progressBar.style.display = 'none';
+            }
+        }
+        
+        function addTestResult(title, result, status = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const resultElement = document.createElement('div');
+            resultElement.className = 'test-result';
+            resultElement.innerHTML = `
+                <strong>${title}:</strong><br>
+                <span style="color: var(--accent-${status})">${result}</span>
+            `;
+            resultsDiv.appendChild(resultElement);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+        
+        async function runScalabilityTest() {
+            const btn = document.getElementById('scalability-btn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            try {
+                const { particleSystem } = await getApp();
+                const originalCount = particleSystem.numParticles;
+                
+                addTestResult('Scalability Test', 'Starting test...', 'info');
+                showProgress(true, 0);
+                
+                const testCounts = [100, 250, 500, 750, 1000, 1500, 2000];
+                const results = [];
+                
+                for (let i = 0; i < testCounts.length; i++) {
+                    const count = testCounts[i];
+                    showProgress(true, (i / testCounts.length) * 100);
+                    
+                    // Set particle count
+                    particleSystem.setNumParticles(count);
+                    
+                    // Wait for stabilization
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Measure FPS for 3 seconds
+                    let fpsSum = 0;
+                    let samples = 0;
+                    
+                    for (let j = 0; j < 6; j++) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        if (particleSystem.avgFrameTime) {
+                            fpsSum += 1000 / particleSystem.avgFrameTime;
+                            samples++;
+                        }
+                    }
+                    
+                    const avgFPS = samples > 0 ? Math.round(fpsSum / samples) : 0;
+                    results.push({ count, fps: avgFPS });
+                    
+                    addTestResult(`${count} particles`, `${avgFPS} FPS`, 
+                        avgFPS >= 45 ? 'success' : avgFPS >= 25 ? 'warning' : 'error');
+                }
+                
+                // Restore original count
+                particleSystem.setNumParticles(originalCount);
+                
+                // Summary
+                const good = results.filter(r => r.fps >= 45).length;
+                const ok = results.filter(r => r.fps >= 25 && r.fps < 45).length;
+                const poor = results.filter(r => r.fps < 25).length;
+                
+                addTestResult('Scalability Summary', 
+                    `Good: ${good}, OK: ${ok}, Poor: ${poor} configurations`, 'info');
+                
+            } catch (error) {
+                addTestResult('Scalability Test', `Error: ${error.message}`, 'error');
+            } finally {
+                showProgress(false);
+                btn.disabled = false;
+                btn.textContent = 'Run Scalability Test';
+            }
+        }
+        
+        async function runMemoryTest() {
+            if (!performance.memory) {
+                addTestResult('Memory Test', 'Performance.memory not available', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('memory-btn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            try {
+                const { particleSystem } = await getApp();
+                const originalCount = particleSystem.numParticles;
+                
+                addTestResult('Memory Test', 'Starting memory test...', 'info');
+                showProgress(true, 0);
+                
+                const startMemory = performance.memory.usedJSHeapSize;
+                
+                // Test with increasing particle counts
+                const testCounts = [500, 1000, 1500, 2000];
+                
+                for (let i = 0; i < testCounts.length; i++) {
+                    const count = testCounts[i];
+                    showProgress(true, (i / testCounts.length) * 100);
+                    
+                    particleSystem.setNumParticles(count);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const currentMemory = performance.memory.usedJSHeapSize;
+                    const memoryDiff = Math.round((currentMemory - startMemory) / 1024 / 1024);
+                    
+                    addTestResult(`${count} particles`, `+${memoryDiff}MB memory`, 
+                        memoryDiff < 50 ? 'success' : memoryDiff < 100 ? 'warning' : 'error');
+                }
+                
+                // Restore and check for leaks
+                particleSystem.setNumParticles(originalCount);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const endMemory = performance.memory.usedJSHeapSize;
+                const totalIncrease = Math.round((endMemory - startMemory) / 1024 / 1024);
+                
+                addTestResult('Memory Leak Check', 
+                    totalIncrease <= 5 ? 'No significant leaks detected' : `Potential leak: +${totalIncrease}MB`,
+                    totalIncrease <= 5 ? 'success' : 'warning');
+                
+            } catch (error) {
+                addTestResult('Memory Test', `Error: ${error.message}`, 'error');
+            } finally {
+                showProgress(false);
+                btn.disabled = false;
+                btn.textContent = 'Run Memory Test';
+            }
+        }
+        
+        async function runStressTest() {
+            const btn = document.getElementById('stress-btn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            try {
+                const { particleSystem } = await getApp();
+                const originalCount = particleSystem.numParticles;
+                
+                addTestResult('Stress Test', 'Starting stress test...', 'info');
+                showProgress(true, 0);
+                
+                // Push to maximum particle count
+                particleSystem.setNumParticles(2000);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                showProgress(true, 50);
+                
+                // Run for 10 seconds and monitor stability
+                let minFPS = Infinity;
+                let maxFPS = 0;
+                let fpsSum = 0;
+                let samples = 0;
+                
+                for (let i = 0; i < 20; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    if (particleSystem.avgFrameTime) {
+                        const fps = 1000 / particleSystem.avgFrameTime;
+                        minFPS = Math.min(minFPS, fps);
+                        maxFPS = Math.max(maxFPS, fps);
+                        fpsSum += fps;
+                        samples++;
+                    }
+                    
+                    showProgress(true, 50 + (i / 20) * 50);
+                }
+                
+                const avgFPS = samples > 0 ? Math.round(fpsSum / samples) : 0;
+                const stability = maxFPS - minFPS;
+                
+                addTestResult('Stress Results', 
+                    `Avg: ${avgFPS} FPS, Range: ${Math.round(minFPS)}-${Math.round(maxFPS)} FPS`, 
+                    avgFPS >= 15 ? 'success' : 'warning');
+                
+                addTestResult('Performance Stability', 
+                    stability < 20 ? 'Stable' : 'Unstable', 
+                    stability < 20 ? 'success' : 'warning');
+                
+                // Restore
+                particleSystem.setNumParticles(originalCount);
+                
+            } catch (error) {
+                addTestResult('Stress Test', `Error: ${error.message}`, 'error');
+            } finally {
+                showProgress(false);
+                btn.disabled = false;
+                btn.textContent = 'Run Stress Test';
+            }
+        }
+        
+        // Additional test functions
+        async function runGlowPerformanceTest() {
+            const btn = document.getElementById('glow-btn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            try {
+                const { particleSystem } = await getApp();
+                
+                addTestResult('Glow Performance', 'Testing glow effects...', 'info');
+                
+                // Enable glow for all species
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    particleSystem.setSpeciesGlow(i, { intensity: 0.8, size: 2.0 });
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const glowFPS = particleSystem.avgFrameTime ? 
+                    Math.round(1000 / particleSystem.avgFrameTime) : 0;
+                
+                // Disable glow
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    particleSystem.setSpeciesGlow(i, { intensity: 0, size: 1.0 });
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const noGlowFPS = particleSystem.avgFrameTime ? 
+                    Math.round(1000 / particleSystem.avgFrameTime) : 0;
+                
+                const impact = noGlowFPS - glowFPS;
+                
+                addTestResult('Glow Impact', 
+                    `${impact} FPS drop (${glowFPS} vs ${noGlowFPS})`, 
+                    impact < 10 ? 'success' : impact < 20 ? 'warning' : 'error');
+                
+            } catch (error) {
+                addTestResult('Glow Test', `Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Glow Performance';
+            }
+        }
+        
+        async function runTrailPerformanceTest() {
+            const btn = document.getElementById('trail-btn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            try {
+                const { particleSystem } = await getApp();
+                
+                addTestResult('Trail Performance', 'Testing trail effects...', 'info');
+                
+                // Test with trails
+                particleSystem.trailEnabled = true;
+                particleSystem.blur = 0.95;
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const trailFPS = particleSystem.avgFrameTime ? 
+                    Math.round(1000 / particleSystem.avgFrameTime) : 0;
+                
+                // Test without trails
+                particleSystem.trailEnabled = false;
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const noTrailFPS = particleSystem.avgFrameTime ? 
+                    Math.round(1000 / particleSystem.avgFrameTime) : 0;
+                
+                const impact = noTrailFPS - trailFPS;
+                
+                addTestResult('Trail Impact', 
+                    `${impact} FPS drop (${trailFPS} vs ${noTrailFPS})`, 
+                    impact < 5 ? 'success' : impact < 15 ? 'warning' : 'error');
+                
+                // Restore trails
+                particleSystem.trailEnabled = true;
+                
+            } catch (error) {
+                addTestResult('Trail Test', `Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Trail Performance';
+            }
+        }
+        
+        // Control functions
+        function applySettings() {
+            const particleCount = parseInt(document.getElementById('particle-slider').value);
+            const speciesCount = parseInt(document.getElementById('species-slider').value);
+            
+            getApp().then(({ particleSystem, doc }) => {
+                particleSystem.setNumParticles(particleCount);
+                particleSystem.setNumSpecies(speciesCount);
+                
+                addTestResult('Settings Applied', 
+                    `${particleCount} particles, ${speciesCount} species`, 'info');
+            }).catch(console.error);
+        }
+        
+        function resetToOptimal() {
+            document.getElementById('particle-slider').value = 500;
+            document.getElementById('particle-value').textContent = '500';
+            document.getElementById('species-slider').value = 5;
+            document.getElementById('species-value').textContent = '5';
+            
+            applySettings();
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            performanceData = [];
+        }
+        
+        function exportResults() {
+            const results = document.getElementById('test-results').textContent;
+            const data = {
+                timestamp: new Date().toISOString(),
+                results: results,
+                performanceData: performanceData
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `performance-results-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            initFPSChart();
+            
+            // Setup sliders
+            const particleSlider = document.getElementById('particle-slider');
+            const particleValue = document.getElementById('particle-value');
+            particleSlider.addEventListener('input', () => {
+                particleValue.textContent = particleSlider.value;
+            });
+            
+            const speciesSlider = document.getElementById('species-slider');
+            const speciesValue = document.getElementById('species-value');
+            speciesSlider.addEventListener('input', () => {
+                speciesValue.textContent = speciesSlider.value;
+            });
+            
+            // Auto-start monitoring
+            setTimeout(() => {
+                startMonitoring();
+                addTestResult('Performance Monitor', 'Monitoring started', 'success');
+            }, 2000);
+        });
     </script>
 </body>
 </html>

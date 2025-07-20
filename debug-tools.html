@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Particle Life Synth - Debug Tools</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --text-primary: #fff;
+            --text-secondary: #aaa;
+            --accent-success: #4CAF50;
+            --accent-error: #ff4444;
+            --accent-warning: #ff9800;
+            --accent-info: #0ff;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .header {
+            background: var(--bg-tertiary);
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--accent-info);
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            height: calc(100vh - 70px);
+            padding: 20px;
+        }
+        
+        .debug-panel {
+            background: var(--bg-secondary);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .app-panel {
+            background: var(--bg-secondary);
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        .section h3 {
+            margin: 0 0 15px 0;
+            color: var(--accent-success);
+            font-size: 16px;
+        }
+        
+        button {
+            background: var(--accent-success);
+            color: black;
+            border: none;
+            padding: 8px 12px;
+            margin: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 4px;
+            font-size: 12px;
+            min-width: 150px;
+        }
+        
+        button:hover {
+            background: #5cbf60;
+        }
+        
+        button.warning {
+            background: var(--accent-warning);
+        }
+        
+        button.error {
+            background: var(--accent-error);
+            color: white;
+        }
+        
+        .log-container {
+            background: #000;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        .log-error { background: #3a1a1a; color: #ff6b6b; }
+        .log-warning { background: #3a2a1a; color: #ff9800; }
+        .log-success { background: #1a3a1a; color: #4CAF50; }
+        .log-info { background: #1a2a3a; color: #2196F3; }
+        
+        iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            background: var(--bg-primary);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .status-item {
+            background: var(--bg-tertiary);
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .status-value {
+            color: var(--accent-info);
+            font-weight: bold;
+        }
+        
+        pre {
+            background: #000;
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 10px;
+            margin: 5px 0;
+        }
+        
+        .test-results {
+            background: var(--bg-tertiary);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .test-passed { color: var(--accent-success); }
+        .test-failed { color: var(--accent-error); }
+        .test-warning { color: var(--accent-warning); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Particle Life Synth - Debug Tools</h1>
+    </div>
+    
+    <div class="container">
+        <div class="debug-panel">
+            <!-- System Diagnostics -->
+            <div class="section">
+                <h3>🔍 System Diagnostics</h3>
+                <button onclick="checkBasics()">Check Basic Setup</button>
+                <button onclick="checkElements()">Check UI Elements</button>
+                <button onclick="checkEventHandlers()">Check Event Handlers</button>
+                <button onclick="checkDuplicates()">Check Duplicates</button>
+                <button onclick="testSimpleChange()">Test Simple Change</button>
+            </div>
+            
+            <!-- Species Debugging -->
+            <div class="section">
+                <h3>🧬 Species Debugging</h3>
+                <button onclick="debugSpeciesCount()">Debug Species Count</button>
+                <button onclick="debugSpeciesColors()">Debug Species Colors</button>
+                <button onclick="debugSpeciesGlow()">Debug Species Glow</button>
+                <button onclick="testSpeciesSync()">Test Species Sync</button>
+                <button onclick="testGlowPerformance()">Test Glow Performance</button>
+                
+                <div class="status-grid" id="species-status">
+                    <!-- Dynamic species status -->
+                </div>
+            </div>
+            
+            <!-- UI State Debugging -->
+            <div class="section">
+                <h3>🎛️ UI State Debugging</h3>
+                <button onclick="checkSliderStates()">Check Slider States</button>
+                <button onclick="testSliderUpdates()">Test Slider Updates</button>
+                <button onclick="debugModalSync()">Debug Modal Sync</button>
+                <button onclick="checkCanvasZIndex()">Check Canvas Z-Index</button>
+            </div>
+            
+            <!-- Performance Monitoring -->
+            <div class="section">
+                <h3>⚡ Performance Monitor</h3>
+                <button onclick="startPerformanceMonitor()">Start Monitor</button>
+                <button onclick="stopPerformanceMonitor()">Stop Monitor</button>
+                <button onclick="testHighParticleCount()">Test High Particle Count</button>
+                <button onclick="testGlowScaling()">Test Glow Scaling</button>
+                <button onclick="profileGlowImpact()">Profile Glow Impact</button>
+                
+                <div class="status-grid" id="performance-status">
+                    <div class="status-item">FPS: <span class="status-value" id="fps-display">--</span></div>
+                    <div class="status-item">Particles: <span class="status-value" id="particle-count">--</span></div>
+                    <div class="status-item">Memory: <span class="status-value" id="memory-usage">--</span></div>
+                    <div class="status-item">Render Time: <span class="status-value" id="render-time">--</span></div>
+                </div>
+            </div>
+            
+            <!-- Memory & Storage -->
+            <div class="section">
+                <h3>💾 Storage & Memory</h3>
+                <button onclick="checkStorage()">Check Storage</button>
+                <button onclick="testPresetSave()">Test Preset Save</button>
+                <button onclick="clearStorage()" class="warning">Clear Storage</button>
+                <button onclick="checkMemoryLeaks()">Check Memory Leaks</button>
+            </div>
+            
+            <!-- Fix Validation -->
+            <div class="section">
+                <h3>✅ Fix Validation</h3>
+                <button onclick="runAllValidations()">Run All Validations</button>
+                <button onclick="validateTrailRendering()">Test Issue #14 Fix</button>
+                <button onclick="validateColorPickerModal()">Test Issue #15 Fix</button>
+                <button onclick="validateSpeciesCountFix()">Test Issue #16 Fix</button>
+                <button onclick="validateUIStateManager()">Test UIStateManager</button>
+                <button onclick="validateDOMHelpers()">Test DOMHelpers</button>
+            </div>
+            
+            <!-- Console & Logs -->
+            <div class="section">
+                <h3>📝 Console & Logs</h3>
+                <button onclick="clearLogs()">Clear Logs</button>
+                <button onclick="exportLogs()">Export Logs</button>
+                <button onclick="toggleVerboseLogging()">Toggle Verbose</button>
+                
+                <div class="log-container" id="logs">
+                    <!-- Debug logs will appear here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="app-panel">
+            <iframe id="app" src="index.html"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const logs = document.getElementById('logs');
+        const frame = document.getElementById('app');
+        let performanceMonitor = null;
+        let verboseLogging = false;
+        
+        // Logging system
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+            
+            // Keep only last 100 entries
+            while (logs.children.length > 100) {
+                logs.removeChild(logs.firstChild);
+            }
+        }
+        
+        function clearLogs() {
+            logs.innerHTML = '';
+            log('Logs cleared', 'info');
+        }
+        
+        async function getApp() {
+            const win = frame.contentWindow;
+            const doc = frame.contentDocument;
+            
+            if (!win || !doc) {
+                throw new Error('App frame not accessible');
+            }
+            
+            // Wait a bit for app to load if needed
+            if (!win.particleSystem) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            return { win, doc, particleSystem: win.particleSystem };
+        }
+        
+        // System Diagnostics
+        async function checkBasics() {
+            log('Starting basic system check...', 'info');
+            
+            try {
+                const { win, doc, particleSystem } = await getApp();
+                
+                // Check if main components exist
+                const checks = [
+                    { name: 'Window object', obj: win },
+                    { name: 'Document object', obj: doc },
+                    { name: 'Particle system', obj: particleSystem },
+                    { name: 'Canvas element', obj: doc.getElementById('canvas') },
+                    { name: 'Main UI', obj: win.mainUI }
+                ];
+                
+                let passed = 0;
+                checks.forEach(check => {
+                    if (check.obj) {
+                        log(`✓ ${check.name}: Found`, 'success');
+                        passed++;
+                    } else {
+                        log(`✗ ${check.name}: Missing`, 'error');
+                    }
+                });
+                
+                log(`Basic check completed: ${passed}/${checks.length} passed`, 
+                    passed === checks.length ? 'success' : 'warning');
+                    
+            } catch (error) {
+                log(`Basic check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkElements() {
+            log('Checking UI elements...', 'info');
+            
+            try {
+                const { doc } = await getApp();
+                
+                const elements = [
+                    'species-count', 'species-count-value',
+                    'friction', 'friction-value', 
+                    'force-strength', 'force-strength-value',
+                    'trail-length', 'blur-value',
+                    'particle-size', 'particle-size-value'
+                ];
+                
+                let found = 0;
+                elements.forEach(id => {
+                    const element = doc.getElementById(id);
+                    if (element) {
+                        log(`✓ Element '${id}': Found (${element.tagName})`, 'success');
+                        found++;
+                    } else {
+                        log(`✗ Element '${id}': Missing`, 'error');
+                    }
+                });
+                
+                log(`Element check: ${found}/${elements.length} found`, 
+                    found === elements.length ? 'success' : 'warning');
+                    
+            } catch (error) {
+                log(`Element check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkEventHandlers() {
+            log('Checking event handlers...', 'info');
+            
+            try {
+                const { doc } = await getApp();
+                
+                const sliders = doc.querySelectorAll('input[type="range"]');
+                let hasHandlers = 0;
+                
+                sliders.forEach(slider => {
+                    const hasInputHandler = slider.oninput || 
+                        slider.addEventListener.toString().includes('input');
+                    
+                    if (hasInputHandler) {
+                        log(`✓ Slider '${slider.id}': Has event handler`, 'success');
+                        hasHandlers++;
+                    } else {
+                        log(`✗ Slider '${slider.id}': No event handler`, 'warning');
+                    }
+                });
+                
+                log(`Event handler check: ${hasHandlers}/${sliders.length} sliders have handlers`, 
+                    hasHandlers > 0 ? 'success' : 'error');
+                    
+            } catch (error) {
+                log(`Event handler check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkDuplicates() {
+            log('Checking for duplicate elements...', 'info');
+            
+            try {
+                const { doc } = await getApp();
+                
+                const allElements = doc.querySelectorAll('[id]');
+                const ids = {};
+                let duplicates = 0;
+                
+                allElements.forEach(element => {
+                    const id = element.id;
+                    if (ids[id]) {
+                        log(`✗ Duplicate ID found: '${id}'`, 'error');
+                        duplicates++;
+                    } else {
+                        ids[id] = true;
+                    }
+                });
+                
+                if (duplicates === 0) {
+                    log('✓ No duplicate IDs found', 'success');
+                } else {
+                    log(`Found ${duplicates} duplicate IDs`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Duplicate check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSimpleChange() {
+            log('Testing simple parameter change...', 'info');
+            
+            try {
+                const { doc, particleSystem } = await getApp();
+                
+                const slider = doc.getElementById('force-strength');
+                if (!slider) {
+                    log('✗ Force strength slider not found', 'error');
+                    return;
+                }
+                
+                const originalValue = slider.value;
+                const newValue = originalValue == 1 ? 2 : 1;
+                
+                log(`Changing force strength from ${originalValue} to ${newValue}`, 'info');
+                
+                slider.value = newValue;
+                slider.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                setTimeout(() => {
+                    const currentSystemValue = particleSystem.forceFactor;
+                    log(`System force factor is now: ${currentSystemValue}`, 'info');
+                    
+                    if (Math.abs(currentSystemValue - newValue) < 0.01) {
+                        log('✓ Parameter change successful', 'success');
+                    } else {
+                        log(`✗ Parameter change failed. Expected ${newValue}, got ${currentSystemValue}`, 'error');
+                    }
+                    
+                    // Restore original value
+                    slider.value = originalValue;
+                    slider.dispatchEvent(new Event('input', { bubbles: true }));
+                }, 100);
+                
+            } catch (error) {
+                log(`Simple change test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Species Debugging
+        async function debugSpeciesCount() {
+            log('Debugging species count...', 'info');
+            
+            try {
+                const { doc, particleSystem } = await getApp();
+                
+                // Look for main UI elements (not modal) 
+                const allSliders = doc.querySelectorAll('#species-count');
+                const allDisplays = doc.querySelectorAll('#species-count-value');
+                
+                let mainSlider = null;
+                let mainDisplay = null;
+                
+                // Find main UI elements (not in modal)
+                for (const slider of allSliders) {
+                    if (!slider.closest('.preset-modal')) {
+                        mainSlider = slider;
+                        break;
+                    }
+                }
+                
+                for (const display of allDisplays) {
+                    if (!display.closest('.preset-modal')) {
+                        mainDisplay = display;
+                        break;
+                    }
+                }
+                
+                log(`Main UI Slider: ${mainSlider ? `Found (value: ${mainSlider.value})` : 'NOT FOUND'}`, 
+                    mainSlider ? 'success' : 'error');
+                log(`Main UI Display: ${mainDisplay ? `Found (text: ${mainDisplay.textContent})` : 'NOT FOUND'}`, 
+                    mainDisplay ? 'success' : 'error');
+                log(`System species count: ${particleSystem.numSpecies}`, 'info');
+                log(`Actual particles array length: ${particleSystem.particles.length}`, 'info');
+                log(`Species array length: ${particleSystem.species ? particleSystem.species.length : 'NO SPECIES ARRAY'}`, 'info');
+                log(`Total duplicate IDs found: ${allSliders.length} sliders, ${allDisplays.length} displays`, 'warning');
+                
+                updateSpeciesStatus();
+                
+            } catch (error) {
+                log(`Species count debug failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function debugSpeciesColors() {
+            log('Debugging species colors...', 'info');
+            
+            try {
+                const { particleSystem } = await getApp();
+                
+                if (!particleSystem.species) {
+                    log('✗ No species array found', 'error');
+                    return;
+                }
+                
+                particleSystem.species.forEach((species, index) => {
+                    log(`Species ${index}: color = ${JSON.stringify(species.color)}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`Species color debug failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function debugSpeciesGlow() {
+            log('Debugging species glow...', 'info');
+            
+            try {
+                const { particleSystem } = await getApp();
+                
+                log(`Glow intensity array: ${JSON.stringify(particleSystem.speciesGlowIntensity)}`, 'info');
+                log(`Glow size array: ${JSON.stringify(particleSystem.speciesGlowSize)}`, 'info');
+                
+            } catch (error) {
+                log(`Species glow debug failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateSpeciesStatus() {
+            // Update species status display
+            const statusDiv = document.getElementById('species-status');
+            if (statusDiv) {
+                getApp().then(({ particleSystem }) => {
+                    statusDiv.innerHTML = `
+                        <div class="status-item">Count: <span class="status-value">${particleSystem.numSpecies}</span></div>
+                        <div class="status-item">Particles: <span class="status-value">${particleSystem.particles.length}</span></div>
+                        <div class="status-item">Species Array: <span class="status-value">${particleSystem.species ? particleSystem.species.length : 'None'}</span></div>
+                        <div class="status-item">Glow Arrays: <span class="status-value">${particleSystem.speciesGlowIntensity ? particleSystem.speciesGlowIntensity.length : 'None'}</span></div>
+                    `;
+                }).catch(() => {
+                    statusDiv.innerHTML = '<div class="status-item">Status: <span class="status-value">Error</span></div>';
+                });
+            }
+        }
+        
+        // Performance Monitoring
+        function startPerformanceMonitor() {
+            if (performanceMonitor) {
+                log('Performance monitor already running', 'warning');
+                return;
+            }
+            
+            log('Starting performance monitor...', 'info');
+            
+            performanceMonitor = setInterval(async () => {
+                try {
+                    const { particleSystem } = await getApp();
+                    
+                    // Update FPS
+                    const fps = particleSystem.avgFrameTime ? 
+                        Math.round(1000 / particleSystem.avgFrameTime) : '--';
+                    document.getElementById('fps-display').textContent = fps;
+                    
+                    // Update particle count
+                    document.getElementById('particle-count').textContent = particleSystem.particles.length;
+                    
+                    // Update memory usage (approximate)
+                    if (performance.memory) {
+                        const memory = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                        document.getElementById('memory-usage').textContent = `${memory}MB`;
+                    }
+                    
+                    // Update render time
+                    const renderTime = particleSystem.avgFrameTime ? 
+                        `${particleSystem.avgFrameTime.toFixed(1)}ms` : '--';
+                    document.getElementById('render-time').textContent = renderTime;
+                    
+                } catch (error) {
+                    if (verboseLogging) {
+                        log(`Performance monitor error: ${error.message}`, 'error');
+                    }
+                }
+            }, 1000);
+        }
+        
+        function stopPerformanceMonitor() {
+            if (performanceMonitor) {
+                clearInterval(performanceMonitor);
+                performanceMonitor = null;
+                log('Performance monitor stopped', 'info');
+            }
+        }
+        
+        async function testHighParticleCount() {
+            log('Testing high particle count performance...', 'info');
+            
+            try {
+                const { doc, particleSystem } = await getApp();
+                
+                const originalCount = particleSystem.numParticles;
+                log(`Original particle count: ${originalCount}`, 'info');
+                
+                // Test with 1000 particles
+                const testCount = 1000;
+                particleSystem.setNumParticles(testCount);
+                
+                log(`Set particle count to ${testCount}`, 'info');
+                
+                // Monitor for 5 seconds
+                let samples = 0;
+                let totalFPS = 0;
+                
+                const testInterval = setInterval(() => {
+                    if (particleSystem.avgFrameTime) {
+                        const fps = 1000 / particleSystem.avgFrameTime;
+                        totalFPS += fps;
+                        samples++;
+                    }
+                }, 500);
+                
+                setTimeout(() => {
+                    clearInterval(testInterval);
+                    
+                    if (samples > 0) {
+                        const avgFPS = Math.round(totalFPS / samples);
+                        log(`Average FPS with ${testCount} particles: ${avgFPS}`, 
+                            avgFPS > 30 ? 'success' : avgFPS > 15 ? 'warning' : 'error');
+                    }
+                    
+                    // Restore original count
+                    particleSystem.setNumParticles(originalCount);
+                    log(`Restored particle count to ${originalCount}`, 'info');
+                }, 5000);
+                
+            } catch (error) {
+                log(`High particle count test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Storage & Memory
+        async function checkStorage() {
+            log('Checking storage systems...', 'info');
+            
+            try {
+                // Check localStorage
+                const localStorageWorks = typeof localStorage !== 'undefined';
+                log(`localStorage: ${localStorageWorks ? 'Available' : 'Not available'}`, 
+                    localStorageWorks ? 'success' : 'error');
+                
+                // Check IndexedDB
+                const indexedDBWorks = typeof indexedDB !== 'undefined';
+                log(`IndexedDB: ${indexedDBWorks ? 'Available' : 'Not available'}`, 
+                    indexedDBWorks ? 'success' : 'error');
+                
+                // Check preset manager
+                const { win } = await getApp();
+                if (win.presetManager) {
+                    log('✓ Preset manager: Available', 'success');
+                    
+                    const presets = await win.presetManager.getAllPresets();
+                    log(`Stored presets: ${Object.keys(presets).length}`, 'info');
+                } else {
+                    log('✗ Preset manager: Not available', 'error');
+                }
+                
+            } catch (error) {
+                log(`Storage check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            log('Debug tools loaded', 'success');
+            
+            // Auto-start some basic checks
+            setTimeout(() => {
+                checkBasics();
+                updateSpeciesStatus();
+            }, 2000);
+        });
+        
+        // Export logs function
+        function exportLogs() {
+            const logText = Array.from(logs.children)
+                .map(entry => entry.textContent)
+                .join('\\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `debug-logs-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            log('Logs exported', 'success');
+        }
+        
+        function toggleVerboseLogging() {
+            verboseLogging = !verboseLogging;
+            log(`Verbose logging: ${verboseLogging ? 'ON' : 'OFF'}`, 'info');
+        }
+        
+        // === CONSOLIDATED VALIDATION FUNCTIONS ===
+        // Merged from test-dashboard.html and validate-fixes.html as per MASTER_DEVELOPMENT_PLAN.md
+        
+        async function validateTrailRendering() {
+            log('🧪 Validating trail rendering fix (Issue #14)...', 'info');
+            
+            try {
+                const { particleSystem } = await getApp();
+                
+                if (typeof particleSystem.applyTrailDecay === 'function') {
+                    log('✓ applyTrailDecay method exists', 'success');
+                    
+                    // Test trail toggle
+                    const originalTrail = particleSystem.trailEnabled;
+                    particleSystem.trailEnabled = true;
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    particleSystem.trailEnabled = false;
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Restore original state
+                    particleSystem.trailEnabled = originalTrail;
+                    
+                    log('✓ Trail rendering validation passed', 'success');
+                } else {
+                    log('✗ applyTrailDecay method not found', 'error');
+                }
+            } catch (error) {
+                log(`✗ Trail rendering validation failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function validateColorPickerModal() {
+            log('🎨 Validating color picker modal fix (Issue #15)...', 'info');
+            
+            try {
+                const { win, doc } = await getApp();
+                
+                // Check for preset modal
+                const configBtn = doc.getElementById('config-button');
+                if (!configBtn) {
+                    log('✗ Configuration button not found', 'error');
+                    return;
+                }
+                
+                log('✓ Configuration button found', 'success');
+                
+                // Simulate opening modal
+                configBtn.click();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const modal = doc.querySelector('.preset-modal');
+                if (modal && modal.style.display !== 'none') {
+                    log('✓ Preset modal opens correctly', 'success');
+                    
+                    // Close modal
+                    const closeBtn = modal.querySelector('.close');
+                    if (closeBtn) {
+                        closeBtn.click();
+                        log('✓ Color picker modal validation passed', 'success');
+                    }
+                } else {
+                    log('✗ Preset modal not visible or not found', 'warning');
+                }
+            } catch (error) {
+                log(`✗ Color picker modal validation failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function validateUIStateManager() {
+            log('⚙️ Validating UI State Manager...', 'info');
+            
+            try {
+                const { win } = await getApp();
+                
+                if (win.UIStateManager) {
+                    log('✓ UIStateManager class found', 'success');
+                } else if (win.uiStateManager) {
+                    log('✓ UIStateManager instance found', 'success');
+                } else {
+                    log('✗ UIStateManager not found', 'error');
+                    return;
+                }
+                
+                log('✓ UI State Manager validation passed', 'success');
+            } catch (error) {
+                log(`✗ UI State Manager validation failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function validateDOMHelpers() {
+            log('🔧 Validating DOM Helpers...', 'info');
+            
+            try {
+                const { win } = await getApp();
+                
+                if (win.DOMHelpers && typeof win.DOMHelpers.safeAddEventListener === 'function') {
+                    log('✓ DOMHelpers loaded and functional', 'success');
+                } else {
+                    log('✗ DOMHelpers not found or incomplete', 'error');
+                    return;
+                }
+                
+                log('✓ DOM Helpers validation passed', 'success');
+            } catch (error) {
+                log(`✗ DOM Helpers validation failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function validateSpeciesCountFix() {
+            log('🧬 Validating species count fix (Issue #16)...', 'info');
+            
+            try {
+                const { particleSystem, doc } = await getApp();
+                
+                if (!particleSystem.setSpeciesCount) {
+                    log('✗ setSpeciesCount method not found', 'error');
+                    return;
+                }
+                
+                const originalCount = particleSystem.numSpecies;
+                const testCount = originalCount === 5 ? 8 : 5;
+                
+                log(`Canvas dimensions: ${particleSystem.width} x ${particleSystem.height}`, 'info');
+                log(`Spatial grid: ${particleSystem.gridWidth} x ${particleSystem.gridHeight} = ${particleSystem.spatialGrid?.length || 'undefined'} cells`, 'info');
+                log(`Testing species count change: ${originalCount} → ${testCount}`, 'info');
+                
+                // Capture console errors
+                const originalConsoleError = console.error;
+                const errors = [];
+                console.error = (...args) => {
+                    errors.push(args.join(' '));
+                    originalConsoleError(...args);
+                };
+                
+                const result = particleSystem.setSpeciesCount(testCount);
+                
+                // Restore console.error
+                console.error = originalConsoleError;
+                
+                if (!result) {
+                    log('✗ setSpeciesCount returned false', 'error');
+                    return;
+                }
+                
+                if (errors.length > 0) {
+                    log(`⚠️ Console errors during change: ${errors.join('; ')}`, 'warning');
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                if (particleSystem.numSpecies === testCount) {
+                    log('✓ Species count updated correctly', 'success');
+                    
+                    // Check particles are moving
+                    const particle = particleSystem.particles[0];
+                    const initialPos = { x: particle.x, y: particle.y };
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const finalPos = { x: particle.x, y: particle.y };
+                    const moved = Math.abs(finalPos.x - initialPos.x) > 0.1 || Math.abs(finalPos.y - initialPos.y) > 0.1;
+                    
+                    if (moved) {
+                        log('✓ Particles moving correctly after species change', 'success');
+                    } else {
+                        log('✗ Particles appear frozen after species change', 'error');
+                    }
+                    
+                    // Check UI sync
+                    const mainSlider = doc.querySelector('#species-count:not(.preset-modal #species-count)');
+                    const mainDisplay = doc.querySelector('#species-count-value:not(.preset-modal #species-count-value)');
+                    
+                    if (mainSlider && parseInt(mainSlider.value) === testCount) {
+                        log('✓ Main UI slider synchronized', 'success');
+                    } else {
+                        log(`✗ Main UI slider not synchronized: slider=${mainSlider?.value}, expected=${testCount}`, 'error');
+                    }
+                    
+                    if (mainDisplay && parseInt(mainDisplay.textContent) === testCount) {
+                        log('✓ Main UI display synchronized', 'success');
+                    } else {
+                        log(`✗ Main UI display not synchronized: display=${mainDisplay?.textContent}, expected=${testCount}`, 'error');
+                    }
+                    
+                    // Restore original count
+                    particleSystem.setSpeciesCount(originalCount);
+                    log(`✓ Species count validation completed`, 'success');
+                } else {
+                    log(`✗ Species count not updated: expected ${testCount}, got ${particleSystem.numSpecies}`, 'error');
+                }
+            } catch (error) {
+                log(`✗ Species count validation failed: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+        
+        async function runAllValidations() {
+            log('🚀 Running all validation tests...', 'info');
+            
+            await validateTrailRendering();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await validateColorPickerModal(); 
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await validateUIStateManager();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await validateDOMHelpers();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await validateSpeciesCountFix();
+            
+            log('🎯 All validations completed', 'info');
+        }
+        
+        // === GLOW PERFORMANCE TESTING FUNCTIONS ===
+        // Enhanced testing for Issue #12: Glow Effect Performance Optimization
+        
+        async function testGlowPerformance() {
+            log('🌟 Testing glow performance (Issue #12)...', 'info');
+            
+            try {
+                const { particleSystem } = await getApp();
+                const originalGlowSettings = [];
+                
+                // Save original glow settings for all species
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    originalGlowSettings[i] = particleSystem.getSpeciesGlow(i);
+                }
+                
+                // Test scenarios: no glow, medium glow, high glow
+                const scenarios = [
+                    { name: 'No Glow', intensity: 0 },
+                    { name: 'Medium Glow (0.5)', intensity: 0.5 },
+                    { name: 'High Glow (1.0)', intensity: 1.0 }
+                ];
+                
+                const results = [];
+                
+                for (const scenario of scenarios) {
+                    log(`Testing scenario: ${scenario.name}`, 'info');
+                    
+                    // Set glow for all species
+                    for (let i = 0; i < particleSystem.numSpecies; i++) {
+                        particleSystem.setSpeciesGlow(i, { 
+                            intensity: scenario.intensity,
+                            size: 1.5 
+                        });
+                    }
+                    
+                    // Wait for system to stabilize
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Measure performance for 3 seconds
+                    let samples = 0;
+                    let totalFPS = 0;
+                    let minFPS = Infinity;
+                    let maxFPS = 0;
+                    
+                    const testInterval = setInterval(() => {
+                        if (particleSystem.avgFrameTime) {
+                            const fps = 1000 / particleSystem.avgFrameTime;
+                            totalFPS += fps;
+                            minFPS = Math.min(minFPS, fps);
+                            maxFPS = Math.max(maxFPS, fps);
+                            samples++;
+                        }
+                    }, 200);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    clearInterval(testInterval);
+                    
+                    if (samples > 0) {
+                        const avgFPS = Math.round(totalFPS / samples);
+                        results.push({
+                            scenario: scenario.name,
+                            avgFPS,
+                            minFPS: Math.round(minFPS),
+                            maxFPS: Math.round(maxFPS)
+                        });
+                        
+                        log(`${scenario.name}: Avg FPS ${avgFPS} (${Math.round(minFPS)}-${Math.round(maxFPS)})`, 
+                            avgFPS > 45 ? 'success' : avgFPS > 30 ? 'warning' : 'error');
+                    }
+                }
+                
+                // Restore original settings
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    particleSystem.setSpeciesGlow(i, originalGlowSettings[i]);
+                }
+                
+                // Calculate performance impact
+                if (results.length >= 2) {
+                    const noGlowFPS = results[0].avgFPS;
+                    const highGlowFPS = results[results.length - 1].avgFPS;
+                    const impact = Math.round(((noGlowFPS - highGlowFPS) / noGlowFPS) * 100);
+                    
+                    log(`📊 Glow Impact: ${impact}% FPS reduction with high glow`, 
+                        impact < 15 ? 'success' : impact < 30 ? 'warning' : 'error');
+                }
+                
+                log('✓ Glow performance test completed', 'success');
+                
+            } catch (error) {
+                log(`✗ Glow performance test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testGlowScaling() {
+            log('📈 Testing glow scaling performance...', 'info');
+            
+            try {
+                const { particleSystem } = await getApp();
+                const originalCount = particleSystem.numParticles;
+                const originalGlowSettings = [];
+                
+                // Save original settings
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    originalGlowSettings[i] = particleSystem.getSpeciesGlow(i);
+                }
+                
+                // Enable medium glow on all species
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    particleSystem.setSpeciesGlow(i, { intensity: 0.7, size: 1.5 });
+                }
+                
+                const particleCounts = [200, 500, 1000, 1500];
+                const results = [];
+                
+                for (const count of particleCounts) {
+                    log(`Testing ${count} particles with glow...`, 'info');
+                    
+                    particleSystem.setNumParticles(count);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Measure for 2 seconds
+                    let samples = 0;
+                    let totalFPS = 0;
+                    
+                    const testInterval = setInterval(() => {
+                        if (particleSystem.avgFrameTime) {
+                            const fps = 1000 / particleSystem.avgFrameTime;
+                            totalFPS += fps;
+                            samples++;
+                        }
+                    }, 200);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    clearInterval(testInterval);
+                    
+                    if (samples > 0) {
+                        const avgFPS = Math.round(totalFPS / samples);
+                        results.push({ particles: count, fps: avgFPS });
+                        
+                        log(`${count} particles: ${avgFPS} FPS`, 
+                            avgFPS > 30 ? 'success' : avgFPS > 15 ? 'warning' : 'error');
+                    }
+                }
+                
+                // Restore original settings
+                particleSystem.setNumParticles(originalCount);
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    particleSystem.setSpeciesGlow(i, originalGlowSettings[i]);
+                }
+                
+                // Calculate scaling efficiency
+                if (results.length >= 2) {
+                    const fps200 = results[0].fps;
+                    const fps1000 = results.find(r => r.particles === 1000)?.fps;
+                    
+                    if (fps1000) {
+                        const efficiency = (fps1000 / fps200) / (1000 / 200);
+                        log(`📊 Glow scaling efficiency: ${Math.round(efficiency * 100)}%`, 
+                            efficiency > 0.6 ? 'success' : efficiency > 0.4 ? 'warning' : 'error');
+                    }
+                }
+                
+                log('✓ Glow scaling test completed', 'success');
+                
+            } catch (error) {
+                log(`✗ Glow scaling test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function profileGlowImpact() {
+            log('🔍 Profiling glow rendering impact...', 'info');
+            
+            try {
+                const { particleSystem } = await getApp();
+                const originalSettings = [];
+                
+                // Save original settings
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    originalSettings[i] = particleSystem.getSpeciesGlow(i);
+                }
+                
+                // Test different numbers of glowing species
+                const glowTests = [
+                    { name: 'No species with glow', glowSpecies: 0 },
+                    { name: '1 species with glow', glowSpecies: 1 },
+                    { name: '3 species with glow', glowSpecies: 3 },
+                    { name: 'All species with glow', glowSpecies: particleSystem.numSpecies }
+                ];
+                
+                for (const test of glowTests) {
+                    log(`Testing: ${test.name}`, 'info');
+                    
+                    // Reset all glow
+                    particleSystem.clearAllSpeciesGlow();
+                    
+                    // Set glow for specified number of species
+                    for (let i = 0; i < test.glowSpecies; i++) {
+                        particleSystem.setSpeciesGlow(i, { intensity: 0.8, size: 2.0 });
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Measure performance
+                    let samples = 0;
+                    let totalFPS = 0;
+                    let renderTimeSum = 0;
+                    
+                    const testInterval = setInterval(() => {
+                        if (particleSystem.avgFrameTime) {
+                            const fps = 1000 / particleSystem.avgFrameTime;
+                            totalFPS += fps;
+                            renderTimeSum += particleSystem.avgFrameTime;
+                            samples++;
+                        }
+                    }, 200);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    clearInterval(testInterval);
+                    
+                    if (samples > 0) {
+                        const avgFPS = Math.round(totalFPS / samples);
+                        const avgRenderTime = Math.round(renderTimeSum / samples * 10) / 10;
+                        
+                        log(`${test.name}: ${avgFPS} FPS (${avgRenderTime}ms render)`, 
+                            avgFPS > 30 ? 'success' : 'warning');
+                    }
+                }
+                
+                // Test mixed glow intensities
+                log('Testing mixed glow intensities...', 'info');
+                particleSystem.clearAllSpeciesGlow();
+                
+                // Set different intensities for different species
+                for (let i = 0; i < Math.min(4, particleSystem.numSpecies); i++) {
+                    const intensity = [0.2, 0.5, 0.8, 1.0][i];
+                    particleSystem.setSpeciesGlow(i, { intensity, size: 1.5 });
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Final measurement
+                let samples = 0;
+                let totalFPS = 0;
+                
+                const finalInterval = setInterval(() => {
+                    if (particleSystem.avgFrameTime) {
+                        totalFPS += 1000 / particleSystem.avgFrameTime;
+                        samples++;
+                    }
+                }, 200);
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                clearInterval(finalInterval);
+                
+                if (samples > 0) {
+                    const avgFPS = Math.round(totalFPS / samples);
+                    log(`Mixed intensities: ${avgFPS} FPS`, avgFPS > 30 ? 'success' : 'warning');
+                }
+                
+                // Restore original settings
+                for (let i = 0; i < particleSystem.numSpecies; i++) {
+                    particleSystem.setSpeciesGlow(i, originalSettings[i]);
+                }
+                
+                log('✓ Glow impact profiling completed', 'success');
+                
+            } catch (error) {
+                log(`✗ Glow impact profiling failed: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

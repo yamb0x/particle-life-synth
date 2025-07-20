@@ -18,80 +18,85 @@ Each issue is documented as a numbered markdown file (01.md, 02.md, etc.) with t
 
 ### Open Issues
 
-1. **[01.md](01.md)** - Inconsistent text size across UI
-   - Priority: High
-   - Status: Open
-   
-2. **[02.md](02.md)** - Trails toggle not working properly
-   - Priority: Medium
-   - Status: Open
-   
-3. **[03.md](03.md)** - Species color updates don't reflect in real-time
-   - Priority: Medium
-   - Status: Open
-   
-4. **[04.md](04.md)** - Collision radius vs particle size relationship unclear
-   - Priority: Low
-   - Status: Open
-   
-5. **[06.md](06.md)** - Implement Dreamtime-style rendering effect
-   - Priority: Medium
-   - Status: Open
-
-6. **[09.md](09.md)** - Convert configuration panel to floating window
-   - Priority: High
-   - Status: Open
-   - Make configuration panel draggable with no background overlay
-   
-7. **[10.md](10.md)** - Add Copy/Paste Settings feature
-   - Priority: High
-   - Status: Open
-   - Copy settings from main UI, paste into configuration panel
-   
-8. **[11.md](11.md)** - Add preset selector to configuration panel
+1. **[11.md](11.md)** - Add preset selector to configuration panel
    - Priority: Medium
    - Status: Open
    - Allow switching presets without closing configuration
 
-9. **[12.md](12.md)** - Glow effect performance optimization
+2. **[12.md](12.md)** - Glow effect performance optimization
    - Priority: Low
    - Status: Open
    - Future optimization opportunities for glow rendering
 
-10. **[14.md](14.md)** - Post-Refactoring Bugs and Architecture Issues
-    - Priority: **CRITICAL**
-    - Status: Open
-    - Multiple core features broken after UI refactor
-    - Trail rendering leaves gray residue
-    - Species glow selector not working
-    - Species count changes don't reinitialize properly
-    - Missing paste functionality in configuration modal
-
-11. **[15.md](15.md)** - Color Picker Values Reset When Opening Configuration Modal
-    - Priority: **HIGH**
-    - Status: Open
-    - Colors get overwritten when modal opens, breaking copy-paste workflow
-    - User confusion as colors change unexpectedly
-    - Debugging infrastructure in place
 
 ### Resolved Issues
 
 Resolved issues have been moved to the `completed/` subfolder for better organization.
 
-1. **[completed/05.md](completed/05.md)** - Parameter inconsistency between configuration modal and floating UI
+1. **[completed/02.md](completed/02.md)** - Trails toggle not working properly
+   - Priority: Medium
+   - Status: ✅ **RESOLVED** (2025-07-20)
+   - Fixed trail rendering implementation with proper alpha blending
+
+2. **[completed/03.md](completed/03.md)** - Species color updates don't reflect in real-time
+   - Priority: Medium
+   - Status: ✅ **RESOLVED** (2025-07-20)
+   - Implemented real-time color synchronization between UI and particle system
+
+3. **[completed/04.md](completed/04.md)** - Collision radius vs particle size relationship unclear
+   - Priority: Low
+   - Status: ✅ **RESOLVED** (2025-07-20)
+   - Clarified particle size behavior and collision detection
+
+4. **[completed/05.md](completed/05.md)** - Parameter inconsistency between configuration modal and floating UI
    - Priority: High
    - Status: ✅ **RESOLVED** (2025-07-12)
    - Fixed bidirectional parameter synchronization between both UIs
 
-2. **[completed/07.md](completed/07.md)** - Slider display values not updating despite event listeners
+5. **[completed/06.md](completed/06.md)** - Implement Dreamtime-style rendering effect
+   - Priority: Medium
+   - Status: ✅ **RESOLVED** (2025-07-20)
+   - Implemented Dreamtime mode with optimized gradient caching
+
+6. **[completed/07.md](completed/07.md)** - Slider display values not updating despite event listeners
    - Priority: High
    - Status: ✅ **RESOLVED** (2025-07-13)
    - Fixed canvas z-index blocking UI interaction, duplicate element IDs, and modal interference
 
-3. **[completed/08.md](completed/08.md)** - Preset loading errors - missing startPosition properties
+7. **[completed/08.md](completed/08.md)** - Preset loading errors - missing startPosition properties
    - Priority: High
    - Status: ✅ **RESOLVED** (2025-07-13)
    - Fixed data validation and added defensive coding for incomplete preset data
+
+8. **[completed/09.md](completed/09.md)** - Convert configuration panel to floating window
+   - Priority: High
+   - Status: ✅ **RESOLVED** (2025-07-20)
+   - Made configuration panel draggable with clean overlay-free design
+
+9. **[completed/10.md](completed/10.md)** - Add Copy/Paste Settings feature
+   - Priority: High
+   - Status: ✅ **RESOLVED** (2025-07-20)
+   - Implemented copy settings from main UI and paste into configuration panel
+
+10. **[completed/14.md](completed/14.md)** - Post-Refactoring Bugs and Architecture Issues
+    - Priority: Critical
+    - Status: ✅ **RESOLVED** (2025-07-19)
+    - Fixed trail rendering gray residue with clean alpha blending
+    - Implemented UIStateManager and DOMHelpers for better architecture
+    - Resolved species glow and configuration issues
+
+11. **[completed/15.md](completed/15.md)** - Color Picker Values Reset When Opening Configuration Modal
+    - Priority: High
+    - Status: ✅ **RESOLVED** (2025-07-19)
+    - Added loading flag to prevent color overwriting during modal initialization
+    - Fixed copy-paste workflow preserving user colors correctly
+
+12. **[completed/16.md](completed/16.md)** - Species Count Change Causes Particle Freeze
+    - Priority: Critical
+    - Status: ✅ **RESOLVED** (2025-07-19)
+    - Fixed spatial grid corruption during species count changes
+    - Added safety checks to prevent undefined grid cell access
+    - Particles now continue moving correctly after species count changes
 
 ## How to Use
 
