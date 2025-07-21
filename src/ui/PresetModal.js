@@ -60,9 +60,9 @@ export class PresetModal {
             <div class="control-group">
               <label>
                 Number of Species
-                <span class="value-display" id="species-count-value">5</span>
+                <span class="value-display" id="modal-species-count-value">5</span>
               </label>
-              <input type="range" class="range-slider" id="species-count" min="1" max="20" value="5">
+              <input type="range" class="range-slider" id="modal-species-count" min="1" max="20" value="5">
             </div>
             <div id="species-list"></div>
           </div>
@@ -115,19 +115,19 @@ export class PresetModal {
             <div class="control-group">
               <label>
                 Particle Size
-                <span class="value-display" id="particle-size-value">2</span>
+                <span class="value-display" id="modal-particle-size-value">2</span>
               </label>
-              <input type="range" class="range-slider" id="particle-size" min="0.5" max="20" step="0.5" value="2">
+              <input type="range" class="range-slider" id="modal-particle-size" min="0.5" max="20" step="0.5" value="2">
             </div>
             <div class="control-group">
               <label>
-                <input type="checkbox" id="trail-enabled" checked>
+                <input type="checkbox" id="modal-trail-enabled" checked>
                 Enable Trails
               </label>
             </div>
             <div class="control-group">
               <label>Background Color:</label>
-              <input type="color" id="background-color" value="#000000">
+              <input type="color" id="modal-background-color" value="#000000">
             </div>
             <div id="modal-species-glow-container"></div>
           </div>
@@ -159,14 +159,14 @@ export class PresetModal {
             <div class="control-group">
               <label>
                 Collision Radius
-                <span class="value-display" id="collision-radius-value">15</span>
+                <span class="value-display" id="modal-collision-radius-value">15</span>
               </label>
               <input type="range" class="range-slider" id="modal-collision-radius" min="1" max="100" step="1" value="15">
             </div>
             <div class="control-group">
               <label>
                 Social Radius
-                <span class="value-display" id="social-radius-value">50</span>
+                <span class="value-display" id="modal-social-radius-value">50</span>
               </label>
               <input type="range" class="range-slider" id="modal-social-radius" min="1" max="500" step="5" value="50">
             </div>
@@ -412,8 +412,8 @@ export class PresetModal {
       });
     }
     
-    // Initialize Species Glow Control
-    this.speciesGlowControl = new SpeciesGlowControl(this.particleSystem);
+    // Initialize Species Glow Control with modal prefix
+    this.speciesGlowControl = new SpeciesGlowControl(this.particleSystem, 'modal-');
     const glowContainer = this.modal.querySelector('#modal-species-glow-container');
     if (glowContainer) {
       glowContainer.appendChild(this.speciesGlowControl.createElement());
@@ -442,7 +442,17 @@ export class PresetModal {
       
       // Load the selected preset
       if (newPresetKey) {
-        const preset = this.presetManager.getPreset(newPresetKey);
+        // Check if it's a built-in preset
+        const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+        let preset = this.presetManager.getPreset(newPresetKey);
+        
+        if (!preset && builtInPresets.includes(newPresetKey)) {
+          // Handle built-in presets by loading them from particle system
+          this.particleSystem.loadPreset(newPresetKey);
+          preset = this.particleSystem.exportPreset();
+          preset.name = this.getBuiltInPresetName(newPresetKey);
+        }
+        
         if (preset) {
           this.currentPresetKey = newPresetKey;
           this.currentPreset = JSON.parse(JSON.stringify(preset));
@@ -467,20 +477,20 @@ export class PresetModal {
       tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
     });
     
-    this.modal.querySelector('#species-count').addEventListener('input', (e) => {
-      this.modal.querySelector('#species-count-value').textContent = e.target.value;
+    this.modal.querySelector('#modal-species-count').addEventListener('input', (e) => {
+      this.modal.querySelector('#modal-species-count-value').textContent = e.target.value;
       this.updateSpeciesCount(parseInt(e.target.value));
       this.markChanged();
     });
     
     const sliders = [
       { id: 'modal-blur', valueId: 'blur-value', syncId: 'blur' },
-      { id: 'particle-size', valueId: 'particle-size-value', syncId: 'particle-size' },
+      { id: 'modal-particle-size', valueId: 'modal-particle-size-value', syncId: 'particle-size' },
       { id: 'modal-friction', valueId: 'modal-friction-value', syncId: 'friction' },
       { id: 'modal-wall-damping', valueId: 'wall-damping-value', syncId: 'wall-damping' },
       { id: 'force-factor', valueId: 'force-factor-value', syncId: 'force-factor' },
-      { id: 'modal-collision-radius', valueId: 'collision-radius-value', syncId: 'collision-radius' },
-      { id: 'modal-social-radius', valueId: 'social-radius-value', syncId: 'social-radius' }
+      { id: 'modal-collision-radius', valueId: 'modal-collision-radius-value', syncId: 'collision-radius' },
+      { id: 'modal-social-radius', valueId: 'modal-social-radius-value', syncId: 'social-radius' }
     ];
     sliders.forEach(config => {
       const slider = this.modal.querySelector(`#${config.id}`);
@@ -496,7 +506,7 @@ export class PresetModal {
     
     // Track changes on other inputs
     this.modal.querySelector('.preset-name-input').addEventListener('input', () => this.markChanged());
-    this.modal.querySelector('#trail-enabled').addEventListener('change', (e) => {
+    this.modal.querySelector('#modal-trail-enabled').addEventListener('change', (e) => {
       this.particleSystem.trailEnabled = e.target.checked;
       const mainTrailCheckbox = document.getElementById('trails');
       if (mainTrailCheckbox) {
@@ -504,7 +514,7 @@ export class PresetModal {
       }
       this.markChanged();
     });
-    this.modal.querySelector('#background-color').addEventListener('change', (e) => {
+    this.modal.querySelector('#modal-background-color').addEventListener('change', (e) => {
       this.particleSystem.backgroundColor = e.target.value;
       const mainBgColor = document.getElementById('background-color-main');
       if (mainBgColor) {
@@ -910,6 +920,16 @@ export class PresetModal {
     this.updateModalDistributionSpeciesSelector();
   }
 
+  getBuiltInPresetName(key) {
+    const nameMap = {
+      'predatorPrey': 'Predator-Prey',
+      'crystallization': 'Crystallization',
+      'vortex': 'Vortex',
+      'symbiosis': 'Symbiosis'
+    };
+    return nameMap[key] || key;
+  }
+
   populatePresetDropdown() {
     const selector = this.modal.querySelector('#modal-preset-selector');
     if (!selector) return;
@@ -917,7 +937,20 @@ export class PresetModal {
     // Clear existing options
     selector.innerHTML = '<option value="">New Preset</option>';
     
-    // No built-in presets anymore
+    // Add built-in presets (always available, regardless of presetManager state)
+    const builtInPresets = [
+      { key: 'predatorPrey', name: 'Predator-Prey' },
+      { key: 'crystallization', name: 'Crystallization' },
+      { key: 'vortex', name: 'Vortex' },
+      { key: 'symbiosis', name: 'Symbiosis' }
+    ];
+    
+    builtInPresets.forEach(({ key, name }) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = name;
+      selector.appendChild(option);
+    });
     
     // Add separator if there are user presets
     const userPresets = this.presetManager.getUserPresets();
@@ -955,16 +988,27 @@ export class PresetModal {
     // Always start with the current state to preserve colors and other settings
     this.currentPreset = this.particleSystem.exportPreset();
     
-    if (presetKey && this.presetManager.getPreset(presetKey)) {
-      // If opening a specific preset, merge its data with current state
-      const savedPreset = this.presetManager.getPreset(presetKey);
-      this.currentPreset.name = savedPreset.name;
-      // Only load non-visual properties from saved preset to preserve current colors
-      if (savedPreset.physics) {
-        this.currentPreset.physics = JSON.parse(JSON.stringify(savedPreset.physics));
+    if (presetKey) {
+      const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+      let savedPreset = this.presetManager.getPreset(presetKey);
+      
+      // Handle built-in presets
+      if (!savedPreset && builtInPresets.includes(presetKey)) {
+        this.particleSystem.loadPreset(presetKey);
+        savedPreset = this.particleSystem.exportPreset();
+        savedPreset.name = this.getBuiltInPresetName(presetKey);
       }
-      if (savedPreset.forces) {
-        this.currentPreset.forces = JSON.parse(JSON.stringify(savedPreset.forces));
+      
+      if (savedPreset) {
+        // If opening a specific preset, merge its data with current state
+        this.currentPreset.name = savedPreset.name;
+        // Only load non-visual properties from saved preset to preserve current colors
+        if (savedPreset.physics) {
+          this.currentPreset.physics = JSON.parse(JSON.stringify(savedPreset.physics));
+        }
+        if (savedPreset.forces) {
+          this.currentPreset.forces = JSON.parse(JSON.stringify(savedPreset.forces));
+        }
       }
     } else if (presetKey === '' || presetKey === null) {
       // Empty string or null means "Custom" - keep current state
@@ -1093,15 +1137,15 @@ export class PresetModal {
   loadPresetToUI() {
     this.modal.querySelector('.preset-name-input').value = this.currentPreset.name;
     
-    this.modal.querySelector('#species-count').value = this.currentPreset.species.count;
-    this.modal.querySelector('#species-count-value').textContent = this.currentPreset.species.count;
+    this.modal.querySelector('#modal-species-count').value = this.currentPreset.species.count;
+    this.modal.querySelector('#modal-species-count-value').textContent = this.currentPreset.species.count;
     
     this.modal.querySelector('#modal-blur').value = this.currentPreset.visual.blur;
     this.modal.querySelector('#blur-value').textContent = this.currentPreset.visual.blur;
-    this.modal.querySelector('#particle-size').value = this.currentPreset.visual.particleSize;
-    this.modal.querySelector('#particle-size-value').textContent = this.currentPreset.visual.particleSize;
-    this.modal.querySelector('#trail-enabled').checked = this.currentPreset.visual.trailEnabled;
-    this.modal.querySelector('#background-color').value = this.currentPreset.visual.backgroundColor || '#000000';
+    this.modal.querySelector('#modal-particle-size').value = this.currentPreset.visual.particleSize;
+    this.modal.querySelector('#modal-particle-size-value').textContent = this.currentPreset.visual.particleSize;
+    this.modal.querySelector('#modal-trail-enabled').checked = this.currentPreset.visual.trailEnabled;
+    this.modal.querySelector('#modal-background-color').value = this.currentPreset.visual.backgroundColor || '#000000';
     
     this.modal.querySelector('#modal-friction').value = this.currentPreset.physics.friction;
     this.modal.querySelector('#modal-friction-value').textContent = this.currentPreset.physics.friction;
@@ -1110,9 +1154,9 @@ export class PresetModal {
     this.modal.querySelector('#force-factor').value = this.currentPreset.physics.forceFactor;
     this.modal.querySelector('#force-factor-value').textContent = this.currentPreset.physics.forceFactor;
     this.modal.querySelector('#modal-collision-radius').value = this.currentPreset.physics.collisionRadius;
-    this.modal.querySelector('#collision-radius-value').textContent = this.currentPreset.physics.collisionRadius;
+    this.modal.querySelector('#modal-collision-radius-value').textContent = this.currentPreset.physics.collisionRadius;
     this.modal.querySelector('#modal-social-radius').value = this.currentPreset.physics.socialRadius;
-    this.modal.querySelector('#social-radius-value').textContent = this.currentPreset.physics.socialRadius;
+    this.modal.querySelector('#modal-social-radius-value').textContent = this.currentPreset.physics.socialRadius;
     
     this.updateSpeciesList();
     if (this.distributionDrawer) {
@@ -1139,7 +1183,7 @@ export class PresetModal {
     preset.name = this.modal.querySelector('.preset-name-input').value;
     
     // Update specific values that might have been modified in the modal
-    const speciesCountInput = this.modal.querySelector('#species-count');
+    const speciesCountInput = this.modal.querySelector('#modal-species-count');
     if (speciesCountInput) {
       preset.species.count = parseInt(speciesCountInput.value);
     }
@@ -1153,17 +1197,17 @@ export class PresetModal {
       preset.visual.blur = parseFloat(modalBlur.value);
     }
     
-    const particleSize = this.modal.querySelector('#particle-size');
+    const particleSize = this.modal.querySelector('#modal-particle-size');
     if (particleSize) {
       preset.visual.particleSize = parseFloat(particleSize.value);
     }
     
-    const trailEnabled = this.modal.querySelector('#trail-enabled');
+    const trailEnabled = this.modal.querySelector('#modal-trail-enabled');
     if (trailEnabled) {
       preset.visual.trailEnabled = trailEnabled.checked;
     }
     
-    const backgroundColor = this.modal.querySelector('#background-color');
+    const backgroundColor = this.modal.querySelector('#modal-background-color');
     if (backgroundColor) {
       preset.visual.backgroundColor = backgroundColor.value;
     }
@@ -1319,7 +1363,7 @@ export class PresetModal {
     }
     
     // Update trail effects
-    const trailEnabled = this.modal.querySelector('#trail-enabled');
+    const trailEnabled = this.modal.querySelector('#modal-trail-enabled');
     if (trailEnabled) {
       preset.effects.trailEnabled = trailEnabled.checked;
     }
@@ -1520,8 +1564,8 @@ export class PresetModal {
     
     // Species count
     if (settings.particles && settings.particles.numSpecies !== this.particleSystem.numSpecies) {
-      const speciesCountInput = this.modal.querySelector('#species-count');
-      const speciesCountValue = this.modal.querySelector('#species-count-value');
+      const speciesCountInput = this.modal.querySelector('#modal-species-count');
+      const speciesCountValue = this.modal.querySelector('#modal-species-count-value');
       if (speciesCountInput) {
         speciesCountInput.value = settings.particles.numSpecies;
         if (speciesCountValue) {
@@ -1542,10 +1586,10 @@ export class PresetModal {
     
     // Visual settings
     if (settings.visual) {
-      this.syncToModal('background-color', settings.visual.backgroundColor);
-      this.syncToModal('particle-size', settings.visual.particleSize);
+      this.syncToModal('modal-background-color', settings.visual.backgroundColor);
+      this.syncToModal('modal-particle-size', settings.visual.particleSize);
       this.syncToModal('modal-blur', settings.visual.blur);
-      this.syncToModal('trail-enabled', settings.visual.trailEnabled);
+      this.syncToModal('modal-trail-enabled', settings.visual.trailEnabled);
     }
     
     // Effects settings

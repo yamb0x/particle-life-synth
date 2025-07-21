@@ -1,7 +1,8 @@
 export class SpeciesGlowControl {
-    constructor(particleSystem) {
+    constructor(particleSystem, idPrefix = '') {
         this.particleSystem = particleSystem;
         this.selectedSpecies = 0;
+        this.idPrefix = idPrefix;
         this.container = null;
         this.sizeSlider = null;
         this.intensitySlider = null;
@@ -18,7 +19,7 @@ export class SpeciesGlowControl {
                 Species Glow Effect
             </label>
             <div class="species-glow-selector-group">
-                <select class="select select-sm" id="glow-species-selector">
+                <select class="select select-sm" id="${this.idPrefix}glow-species-selector">
                     ${this.getSpeciesOptions()}
                 </select>
             </div>
@@ -26,28 +27,28 @@ export class SpeciesGlowControl {
                 <div class="control-group">
                     <label>
                         Glow Size
-                        <span class="value-display" id="species-glow-size-value">1.0</span>
+                        <span class="value-display" id="${this.idPrefix}species-glow-size-value">1.0</span>
                     </label>
-                    <input type="range" class="range-slider" id="species-glow-size-slider" 
+                    <input type="range" class="range-slider" id="${this.idPrefix}species-glow-size-slider" 
                            min="0.5" max="3" step="0.1" value="1.0">
                 </div>
                 <div class="control-group">
                     <label>
                         Glow Intensity
-                        <span class="value-display" id="species-glow-intensity-value">0.0</span>
+                        <span class="value-display" id="${this.idPrefix}species-glow-intensity-value">0.0</span>
                     </label>
-                    <input type="range" class="range-slider" id="species-glow-intensity-slider" 
+                    <input type="range" class="range-slider" id="${this.idPrefix}species-glow-intensity-slider" 
                            min="0" max="1" step="0.05" value="0">
                 </div>
             </div>
             <div class="info-text">Apply enhanced glow effect to individual particle groups</div>
         `;
         
-        this.speciesSelector = this.container.querySelector('#glow-species-selector');
-        this.sizeSlider = this.container.querySelector('#species-glow-size-slider');
-        this.intensitySlider = this.container.querySelector('#species-glow-intensity-slider');
-        this.sizeValueDisplay = this.container.querySelector('#species-glow-size-value');
-        this.intensityValueDisplay = this.container.querySelector('#species-glow-intensity-value');
+        this.speciesSelector = this.container.querySelector(`#${this.idPrefix}glow-species-selector`);
+        this.sizeSlider = this.container.querySelector(`#${this.idPrefix}species-glow-size-slider`);
+        this.intensitySlider = this.container.querySelector(`#${this.idPrefix}species-glow-intensity-slider`);
+        this.sizeValueDisplay = this.container.querySelector(`#${this.idPrefix}species-glow-size-value`);
+        this.intensityValueDisplay = this.container.querySelector(`#${this.idPrefix}species-glow-intensity-value`);
         
         this.attachEventListeners();
         this.updateUI();
