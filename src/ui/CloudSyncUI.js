@@ -7,9 +7,6 @@ export class CloudSyncUI {
   }
 
   initialize(container) {
-    // Create cloud sync status indicator
-    this.createStatusIndicator(container);
-    
     // Create share modal
     this.createShareModal();
     
@@ -17,30 +14,18 @@ export class CloudSyncUI {
     this.checkForSharedPreset();
   }
 
-  createStatusIndicator(container) {
-    const statusDiv = document.createElement('div');
-    statusDiv.className = 'cloud-status';
-    statusDiv.innerHTML = `
-      <div class="cloud-status-indicator">
-        <span class="cloud-icon">☁️</span>
-        <span class="cloud-text">Connecting...</span>
-      </div>
-      <div class="cloud-info" style="display: none;">
-        <span class="sync-status"></span>
-        <span class="preset-count"></span>
-      </div>
-    `;
-    
-    container.appendChild(statusDiv);
-    
-    this.statusIndicator = statusDiv.querySelector('.cloud-status-indicator');
-    this.statusElement = statusDiv.querySelector('.cloud-info');
-    
-    // Initial status update
-    setTimeout(() => this.updateConnectionStatus(), 100);
-    
-    // Update status periodically
-    setInterval(() => this.updateConnectionStatus(), 5000);
+  getCloudStatus() {
+    if (this.presetManager.isCloudEnabled()) {
+      const status = this.presetManager.getCloudStatus();
+      
+      if (status.syncing) {
+        return 'Syncing...';
+      } else {
+        return 'Cloud: Connected';
+      }
+    } else {
+      return 'Cloud: Offline';
+    }
   }
 
   createShareModal() {
@@ -95,39 +80,6 @@ export class CloudSyncUI {
     });
   }
 
-  updateConnectionStatus() {
-    const text = this.statusIndicator.querySelector('.cloud-text');
-    const icon = this.statusIndicator.querySelector('.cloud-icon');
-    
-    if (this.presetManager.isCloudEnabled()) {
-      const status = this.presetManager.getCloudStatus();
-      
-      if (status.syncing) {
-        text.textContent = 'Syncing...';
-        icon.textContent = '🔄';
-      } else {
-        text.textContent = 'Connected';
-        icon.textContent = '☁️';
-        this.statusElement.style.display = 'block';
-        this.updateStatus();
-      }
-    } else {
-      text.textContent = 'Offline';
-      icon.textContent = '🔌';
-      this.statusElement.style.display = 'none';
-    }
-  }
-
-  updateStatus() {
-    if (!this.presetManager.isCloudEnabled()) return;
-    
-    const status = this.presetManager.getCloudStatus();
-    const syncStatus = this.statusElement.querySelector('.sync-status');
-    const presetCount = this.statusElement.querySelector('.preset-count');
-    
-    syncStatus.textContent = status.syncing ? '🔄 Syncing...' : '✓ Synced';
-    presetCount.textContent = `${status.presetCount} cloud presets`;
-  }
 
   async showShareModal(presetKey) {
     if (!this.presetManager.isCloudEnabled()) {
@@ -201,38 +153,6 @@ export class CloudSyncUI {
 // Add styles
 const style = document.createElement('style');
 style.textContent = `
-.cloud-status {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-}
-
-.cloud-status-indicator {
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  border: 1px solid #444;
-  padding: 6px 12px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.cloud-icon {
-  font-size: 18px;
-}
-
-.cloud-info {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #999;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
 
 .share-modal {
   position: fixed;

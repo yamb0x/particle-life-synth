@@ -209,7 +209,8 @@ async function init() {
             // Update performance overlay
             const totalParticles = particleSystem.particles.length;
             const organisms = particleSystem.numSpecies;
-            perfOverlay.innerHTML = `FPS: ${currentFPS}<br>Particles: ${totalParticles}<br>Organisms: ${organisms}`;
+            const cloudStatus = cloudSyncUI ? cloudSyncUI.getCloudStatus() : 'Cloud: Initializing...';
+            perfOverlay.innerHTML = `FPS: ${currentFPS}<br>Particles: ${totalParticles}<br>Organisms: ${organisms}<br>${cloudStatus}`;
         }
         
         particleSystem.update(deltaTime);
