@@ -1,6 +1,16 @@
 # Particle Life Synth
 
-A visual particle simulation system that creates emergent behaviors, designed to control synthesizer parameters through living particle ecosystems.
+A visual particle simulation system that creates emergent behaviors, designed to control synthesizer parameters through living particle ecosystems. Now with **cloud collaboration** for sharing presets with your team!
+
+## 🚀 New: Cloud Collaboration
+
+Share presets with your team in real-time:
+- **No signup required** - Anonymous authentication
+- **Real-time sync** - See new presets instantly
+- **Share links** - Send presets via URL (7-day expiry)
+- **Deploy to Vercel** - Go live in minutes
+
+[See deployment guide →](VERCEL_DEPLOYMENT.md)
 
 ## Quick Start
 
@@ -36,6 +46,8 @@ pkill -f "python3 serve.py"
 ### Features
 - **25+ configurable parameters** for physics and visuals
 - **Preset system** with save/load functionality
+- **Cloud sync** for collaborative preset sharing (NEW!)
+- **Share presets** via temporary links
 - **Force relationship editor** with visual graph
 - **Per-species customization** of colors and particle counts
 - **Visual effects** including trails, halos, and species glow
