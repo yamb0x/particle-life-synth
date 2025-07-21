@@ -6,7 +6,7 @@
   "scripts": {
     "start": "python3 serve.py",
     "dev": "python3 serve.py",
-    "build": "echo 'No build step required'",
+    "build": "echo 'No build required - static site'",
     "deploy": "vercel --prod"
   },
   "keywords": ["particle", "simulation", "synthesizer", "canvas", "web-audio"],
