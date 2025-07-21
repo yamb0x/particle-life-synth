@@ -1,8 +1,8 @@
-# 🎨 Particle Life Synth
+# Particle Life Synth
 
 A visual particle simulation system that creates emergent behaviors, designed to control synthesizer parameters through living particle ecosystems.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Starting the Server
 ```bash
@@ -24,12 +24,13 @@ pkill -f "python3 serve.py"
 # Or use Ctrl+C in the terminal
 ```
 
-## 🎮 Controls
+## Controls
 
 ### Keyboard Shortcuts
 - **C** - Toggle UI visibility
 - **X** - Copy current settings
-- **R** - Randomize force relationships
+- **V** - Randomize values
+- **R** - Randomize force relationships  
 - **Space** - Pause/Resume simulation
 
 ### Features
@@ -40,7 +41,7 @@ pkill -f "python3 serve.py"
 - **Visual effects** including trails, halos, and species glow
 - **Copy/paste workflow** for quick configuration sharing
 
-## 🔧 Development
+## Development
 
 ### Structure
 ```
@@ -57,34 +58,28 @@ src/
 - IndexedDB + localStorage for persistence
 - No build tools required
 
-## 📈 Status
+## Status
 
-- ✅ **Visual Engine** - Complete
-- ✅ **Preset System** - Complete  
-- ✅ **Performance** - 60+ FPS with 500 particles
-- 🚧 **Audio Engine** - In development (20%)
-- 📅 **VST/AU Plugin** - Planned
+- **Visual Engine** - Complete
+- **Preset System** - Complete  
+- **Performance** - 60+ FPS with 500 particles
+- **Audio Engine** - In development (20%)
+- **VST/AU Plugin** - Planned
 
-## 🧪 Testing & Self-Debugging
+## Testing & Debugging
 
-### Master Test Dashboard
-- **Main Dashboard**: `http://localhost:8000/test-dashboard.html` - Comprehensive testing interface
-
-### Specialized Test Suites
-- **Parameter Testing**: `http://localhost:8000/test-suite.html` - Automated parameter validation
+### Test Suites
+- **Main Test Suite**: `http://localhost:8000/test-suite.html` - Comprehensive automated testing
 - **Debug Tools**: `http://localhost:8000/debug-tools.html` - Interactive debugging utilities
 - **Performance Tests**: `http://localhost:8000/performance-test.html` - Performance profiling
-- **Auto Test Framework**: `http://localhost:8000/auto-test.html` - Continuous testing
-- **Fix Validation**: `http://localhost:8000/validate-fixes.html` - Validate recent fixes
-- **Species Count Diagnosis**: `http://localhost:8000/species-count-test.html` - Species count issue testing
 
 ### Testing Capabilities
-- ✅ **Automated Issue Detection**: Self-scanning for problems
-- ✅ **Performance Monitoring**: Real-time FPS, memory tracking
-- ✅ **Regression Testing**: Prevent introduction of bugs
-- ✅ **Fix Validation**: Verify Issue #14 & #15 fixes
-- ✅ **Architecture Testing**: UIStateManager, DOMHelpers validation
+- **Automated Issue Detection**: Self-scanning for problems
+- **Performance Monitoring**: Real-time FPS, memory tracking
+- **Regression Testing**: Prevent introduction of bugs
+- **Fix Validation**: Verify recent bug fixes
+- **Architecture Testing**: Component validation
 
-## 📄 License
+## License
 
 MIT License - See LICENSE file for details
