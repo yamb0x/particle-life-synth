@@ -118,11 +118,41 @@ When working on this project:
 - Visual engine: 100% complete ✓
 - Performance optimization: 100% complete ✓
 - Preset system: 100% complete ✓
+- Cloud collaboration: 100% complete ✓ (Firebase + Vercel deployment)
 - UI parameter system: 100% complete ✓ (all parameters working)
 - Testing suite: 100% complete ✓ (consolidated and comprehensive)
 - Bug resolution: 12/14 issues resolved ✓ (only 2 low-priority issues remain)
 - Audio engine: 20% complete (next phase)
-- Documentation: Condensed to essentials ✓
+- Documentation: Updated with cloud deployment ✓
+
+## Cloud Deployment Architecture
+
+The project now runs on:
+- **Vercel**: Static site hosting with automatic GitHub deployments
+- **Firebase**: Cloud storage for presets with real-time sync
+- **Anonymous Auth**: No signup required for collaboration
+
+### Key Changes from Local to Cloud
+
+1. **Preset Storage**: 
+   - Was: Local IndexedDB + localStorage only
+   - Now: Hybrid system with automatic cloud sync
+   
+2. **Sharing**: 
+   - Was: Manual JSON export/import
+   - Now: Share links + real-time sync
+   
+3. **UI Updates**:
+   - Automatic cloud connection on page load
+   - Cloud status integrated into info panel
+   - Share button in preset modal
+
+### Firebase Integration Points
+
+- `src/config/firebase.config.js` - Firebase configuration
+- `src/utils/CloudStorage.js` - Firestore integration with nested array handling
+- `src/utils/HybridPresetManager.js` - Local + cloud preset management
+- `src/ui/CloudSyncUI.js` - Share modal and URL import handling
 
 ## Performance Characteristics
 

@@ -1,38 +1,43 @@
 # Particle Life Synth
 
-A visual particle simulation system that creates emergent behaviors, designed to control synthesizer parameters through living particle ecosystems. Now with **cloud collaboration** for sharing presets with your team!
+A visual particle simulation system that creates emergent behaviors, designed to control synthesizer parameters through living particle ecosystems. **Now deployed on Vercel with real-time cloud collaboration!**
 
-## 🚀 New: Cloud Collaboration
+## 🌐 Live Demo & Deployment
 
-Share presets with your team in real-time:
-- **No signup required** - Anonymous authentication
-- **Real-time sync** - See new presets instantly
-- **Share links** - Send presets via URL (7-day expiry)
-- **Deploy to Vercel** - Go live in minutes
+### Access the Live App
+Your Particle Life Synth is deployed at your Vercel URL. All presets are automatically synced to the cloud!
 
-[See deployment guide →](VERCEL_DEPLOYMENT.md)
+### Key Features
+- **Automatic Cloud Sync** - No manual steps, just works
+- **Real-time Collaboration** - See team presets instantly
+- **Share via Links** - Click 🔗 to share any preset
+- **No Signup Required** - Anonymous authentication
+- **Works Offline** - Falls back to local storage
 
-## Quick Start
+## Quick Start (Local Development)
 
-### Starting the Server
+### Running Locally
 ```bash
-# Method 1: Python (Recommended)
+# Start local server
 python3 serve.py
 
-# Method 2: npm 
-npm run dev
-
-# Access the app
-open http://localhost:8000
+# Access at
+http://localhost:8000
 ```
 
-### Stopping the Server
-```bash
-# Quick stop
-pkill -f "python3 serve.py"
+### Deployment Setup
 
-# Or use Ctrl+C in the terminal
-```
+1. **Firebase** (Already configured ✅)
+   - Firestore for preset storage
+   - Anonymous authentication
+   - Real-time synchronization
+
+2. **Vercel** (Already deployed ✅)
+   - Automatic deployments from GitHub
+   - Zero configuration needed
+   - Updates on every push
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed setup instructions.
 
 ## Controls
 
