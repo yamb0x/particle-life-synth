@@ -48,6 +48,8 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed setup instructions.
 - **R** - Randomize force relationships  
 - **Space** - Pause/Resume simulation
 
+*Note: Keyboard shortcuts are automatically disabled when the configuration modal is open to prevent conflicts with text input.*
+
 ### Features
 - **25+ configurable parameters** for physics and visuals
 - **Preset system** with save/load functionality

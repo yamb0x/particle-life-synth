@@ -743,13 +743,12 @@ export class MainUI {
     
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // Emergency reset: Ctrl/Cmd + Shift + R
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
-                this.emergencyReset();
-                e.preventDefault();
+            // Skip all shortcuts if modal is open to avoid conflicts with text input
+            if (window.presetModal && window.presetModal.isOpen) {
                 return;
             }
             
+            // Skip shortcuts if modifier keys are pressed
             if (e.ctrlKey || e.metaKey || e.altKey) return;
             
             switch(e.key.toLowerCase()) {
@@ -775,31 +774,6 @@ export class MainUI {
         });
     }
     
-    emergencyReset() {
-        const confirm = window.confirm('Emergency Reset: This will clear all saved data and reset to defaults. Continue?');
-        if (confirm) {
-            try {
-                // Clear all localStorage
-                localStorage.removeItem('lastScene');
-                localStorage.removeItem('lastSelectedPreset');
-                console.log('Cleared localStorage');
-                
-                // Reset to default preset
-                const defaultPreset = this.presetManager.getPreset('predatorPrey');
-                if (defaultPreset) {
-                    this.particleSystem.loadFullPreset(defaultPreset);
-                    this.updateUIFromParticleSystem();
-                    this.updateGraph();
-                    console.log('Reset to default preset');
-                }
-                
-                alert('Emergency reset complete! App reset to default state.');
-            } catch (error) {
-                console.error('Emergency reset failed:', error);
-                alert('Emergency reset failed. Please refresh the page.');
-            }
-        }
-    }
     
     toggleVisibility() {
         this.isVisible = !this.isVisible;
