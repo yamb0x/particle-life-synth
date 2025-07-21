@@ -22,33 +22,12 @@ export class MainUI {
         this.loadSynthAssignments(this.synthAssignments);
     }
     
-    // Helper function to safely add event listeners
-    safeAddEventListener(elementId, event, handler) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.addEventListener(event, handler);
-        } else {
-            console.warn(`Element '${elementId}' not found for event listener`);
-        }
-    }
-    
-    // Helper function to safely update UI elements
-    safeUpdateElement(id, property, value) {
-        const element = document.getElementById(id);
-        if (element) {
-            if (property === 'textContent' || property === 'value' || property === 'checked') {
-                element[property] = value;
-            }
-        } else {
-            console.warn(`Cannot update element '${id}' - not found`);
-        }
-    }
     
     validateUIElements() {
         // List of all expected UI element IDs
         const expectedIds = [
             // Preset controls
-            'minimize-btn', 'preset-selector', 'load-preset-btn', 'configure-preset-btn',
+            'minimize-btn', 'preset-selector', 'load-preset-btn', 'randomize-values-btn', 'configure-preset-btn',
             // Particle controls
             'particles-per-species', 'particles-per-species-value', 'species-count', 'species-count-value',
             'distribution-canvas', 'distribution-species', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear', 'total-particles',
@@ -94,9 +73,9 @@ export class MainUI {
         this.container.innerHTML = `
             <div class="panel-header">
                 <h3 class="panel-title">Particle Life Synth</h3>
-                <button class="btn btn-icon btn-ghost" id="minimize-btn" title="Hide panel (C)">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M4 6h8v1H4z"/>
+                <button class="btn btn-ghost btn-icon" id="minimize-btn" title="Hide panel (C)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M4 8h8v1H4z"/>
                     </svg>
                 </button>
             </div>
@@ -112,7 +91,12 @@ export class MainUI {
                         </select>
                     </div>
                     <div class="control-group">
-                        <button class="btn btn-primary btn-block" id="load-preset-btn">Load Preset</button>
+                        <button class="btn btn-primary" id="load-preset-btn" style="width: 100%;">Load Preset</button>
+                    </div>
+                    <div class="control-group">
+                        <button class="btn btn-secondary" id="randomize-values-btn" style="width: 100%;">
+                            🎲 Randomize Values (V)
+                        </button>
                     </div>
                 </div>
                 
@@ -165,13 +149,13 @@ export class MainUI {
                                     <input type="number" class="input input-sm" id="distribution-brush" value="20" min="5" max="50">
                                 </div>
                                 <div class="pattern-buttons">
-                                    <button class="btn btn-xs pattern-btn active" data-pattern="draw" title="Paint">✏️</button>
-                                    <button class="btn btn-xs pattern-btn" data-pattern="erase" title="Erase">🧽</button>
-                                    <button class="btn btn-xs pattern-btn" data-pattern="cluster" title="Cluster">○</button>
-                                    <button class="btn btn-xs pattern-btn" data-pattern="ring" title="Ring">⊙</button>
-                                    <button class="btn btn-xs pattern-btn" data-pattern="grid" title="Grid">⊞</button>
-                                    <button class="btn btn-xs pattern-btn" data-pattern="random" title="Random">∴</button>
-                                    <button class="btn btn-xs pattern-btn clear-btn" id="distribution-clear" title="Clear">🗑️</button>
+                                    <button class="pattern-btn active" data-pattern="draw" title="Paint">✏️</button>
+                                    <button class="pattern-btn" data-pattern="erase" title="Erase">🧽</button>
+                                    <button class="pattern-btn" data-pattern="cluster" title="Cluster">○</button>
+                                    <button class="pattern-btn" data-pattern="ring" title="Ring">⊙</button>
+                                    <button class="pattern-btn" data-pattern="grid" title="Grid">⊞</button>
+                                    <button class="pattern-btn" data-pattern="random" title="Random">∴</button>
+                                    <button class="pattern-btn clear-btn" id="distribution-clear" title="Clear">🗑️</button>
                                 </div>
                             </div>
                         </div>
@@ -282,7 +266,7 @@ export class MainUI {
                         </div>
                     </div>
                     <div id="force-graph-container"></div>
-                    <button class="btn btn-secondary btn-block btn-sm" id="clear-forces-btn">Clear All Forces</button>
+                    <button class="btn btn-secondary btn-sm" id="clear-forces-btn" style="width: 100%;">Clear All Forces</button>
                 </div>
                 
                 <!-- 5. EFFECTS Section -->
@@ -432,10 +416,10 @@ export class MainUI {
                 <!-- 7. ACTIONS Section -->
                 <div class="section">
                     <h4 class="section-title">Actions</h4>
-                    <button class="btn btn-primary btn-block" id="copy-settings-btn">
+                    <button class="btn btn-primary" id="copy-settings-btn" style="width: 100%; margin-bottom: var(--space-sm);">
                         Copy Settings (X)
                     </button>
-                    <button class="btn btn-secondary btn-block" id="configure-preset-btn">
+                    <button class="btn btn-secondary" id="configure-preset-btn" style="width: 100%;">
                         Configure Presets
                     </button>
                     <div class="quick-actions-row">
@@ -453,33 +437,6 @@ export class MainUI {
         // Add enhanced styles
         const style = document.createElement('style');
         style.textContent = `
-            :root {
-                /* Professional Color Palette */
-                --text-primary: #ffffff;
-                --text-secondary: #cccccc;
-                --text-tertiary: #999999;
-                --text-accent: #4a9eff;
-                
-                /* Typography Scale */
-                --font-size-xs: 11px;
-                --font-size-sm: 12px;
-                --font-size-md: 14px;
-                --font-size-lg: 16px;
-                --font-size-xl: 18px;
-                
-                /* Font Weights */
-                --font-weight-normal: 400;
-                --font-weight-medium: 500;
-                --font-weight-semibold: 600;
-                
-                /* Spacing System */
-                --space-xs: 4px;
-                --space-sm: 8px;
-                --space-md: 12px;
-                --space-lg: 16px;
-                --space-xl: 24px;
-            }
-            
             .main-ui {
                 position: fixed;
                 top: 10px;
@@ -499,44 +456,8 @@ export class MainUI {
             .panel-title {
                 margin: 0;
                 font-size: var(--font-size-lg);
-                font-weight: var(--font-weight-semibold);
-                color: var(--text-primary);
-            }
-            
-            .section {
-                margin-bottom: var(--space-xl);
-                padding: var(--space-md);
-                border-radius: 6px;
-                background: rgba(255, 255, 255, 0.02);
-            }
-            
-            .section-title {
-                font-size: var(--font-size-md);
-                font-weight: var(--font-weight-semibold);
-                color: var(--text-primary);
-                text-transform: none;
-                margin-bottom: var(--space-md);
-            }
-            
-            .value-display {
-                font-size: var(--font-size-sm);
                 font-weight: var(--font-weight-medium);
-                color: var(--text-accent);
-                margin-left: var(--space-sm);
-            }
-            
-            .control-group label {
-                font-size: var(--font-size-sm);
-                font-weight: var(--font-weight-normal);
-                color: var(--text-secondary);
-                text-transform: none;
-            }
-            
-            .info-text {
-                font-size: var(--font-size-xs);
-                color: var(--text-tertiary);
-                font-style: italic;
-                margin-top: var(--space-xs);
+                color: var(--text-primary);
             }
             
             .synth-assignment {
@@ -547,7 +468,7 @@ export class MainUI {
                 width: 100%;
                 padding: var(--space-xs) var(--space-sm);
                 font-size: var(--font-size-xs);
-                background: rgba(255, 255, 255, 0.05);
+                background: var(--bg-primary);
                 border: 1px solid var(--border-subtle);
                 border-radius: var(--radius-sm);
                 color: var(--text-secondary);
@@ -555,8 +476,8 @@ export class MainUI {
             
             .synth-field:focus {
                 outline: none;
-                border-color: var(--text-accent);
-                background: rgba(255, 255, 255, 0.08);
+                border-color: var(--accent-primary);
+                background: var(--bg-tertiary);
             }
             
             .synth-field::placeholder {
@@ -583,21 +504,6 @@ export class MainUI {
                 color: var(--text-secondary);
             }
             
-            .select-sm {
-                padding: var(--space-xs) var(--space-sm);
-                font-size: var(--font-size-sm);
-            }
-            
-            .btn-sm {
-                padding: var(--space-xs) var(--space-sm);
-                font-size: var(--font-size-xs);
-            }
-            
-            .btn-block {
-                width: 100%;
-                margin-top: var(--space-sm);
-            }
-            
             .quick-actions-row {
                 margin-top: var(--space-md);
                 display: flex;
@@ -610,21 +516,10 @@ export class MainUI {
                 max-width: 180px;
             }
             
-            input[type="checkbox"] {
-                margin-right: var(--space-sm);
-                width: 12px;
-                height: 12px;
-            }
-            
-            .control-group input[type="range"] {
-                flex: 1;
-                margin: 0 var(--space-sm);
-            }
-            
             .effect-group {
-                margin-bottom: var(--space-lg);
                 padding-bottom: var(--space-lg);
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                margin-bottom: var(--space-lg);
+                border-bottom: 1px solid var(--border-subtle);
             }
             
             .effect-group:last-child {
@@ -632,6 +527,7 @@ export class MainUI {
                 margin-bottom: 0;
                 padding-bottom: 0;
             }
+            
             
             .species-color-row {
                 display: flex;
@@ -647,11 +543,13 @@ export class MainUI {
             }
             
             .species-color {
-                width: 40px;
-                height: 24px;
-                border: 1px solid var(--border-subtle);
+                width: 32px;
+                height: 20px;
+                border: 1px solid var(--border-default);
                 border-radius: var(--radius-sm);
                 cursor: pointer;
+                background: none;
+                padding: 0;
             }
             
             .species-amount {
@@ -735,12 +633,6 @@ export class MainUI {
                 color: white;
             }
             
-            .btn-xs {
-                padding: 3px 5px;
-                font-size: 10px;
-                min-height: 22px;
-                line-height: 1;
-            }
             
             .input-sm {
                 padding: 3px 6px;
@@ -761,14 +653,14 @@ export class MainUI {
             }
             
             .clear-btn {
-                background: #cc6666 !important;
-                border-color: #cc6666 !important;
+                background: var(--accent-danger) !important;
+                border-color: var(--accent-danger) !important;
                 color: white !important;
             }
             
             .clear-btn:hover {
-                background: #aa5555 !important;
-                border-color: #aa5555 !important;
+                background: var(--accent-repel) !important;
+                border-color: var(--accent-repel) !important;
             }
             
             .range-slider {
@@ -874,6 +766,11 @@ export class MainUI {
                     this.triggerAutoSave();
                     e.preventDefault();
                     break;
+                case 'v':
+                    this.randomizeValues();
+                    this.triggerAutoSave();
+                    e.preventDefault();
+                    break;
             }
         });
     }
@@ -963,6 +860,742 @@ export class MainUI {
         setTimeout(() => {
             btn.innerHTML = originalText;
         }, 1500);
+    }
+    
+    randomizeValues() {
+        // Smart randomization algorithms for interesting visual results
+        const scenarios = [
+            'swarms',      // High particle count, low friction, medium forces
+            'crystals',    // Strong self-attraction, high friction, geometric patterns
+            'plasma',      // High energy, strong forces, glowing effects
+            'organic',     // Medium values, natural flow, trail effects
+            'chaos',       // Extreme values, unpredictable behavior
+            'minimal',     // Simple, clean, few particles
+            'dreamscape'   // Ethereal glow effects, soft movement
+        ];
+        
+        // Get unique scenario to avoid repetition
+        const scenario = this.getUniqueScenario(scenarios);
+        
+        // Apply scenario-specific ranges
+        let params = this.generateRandomParams(scenario);
+        
+        // Apply all parameters with visual feedback
+        this.applyRandomizedParams(params, scenario);
+        
+        // Update UI to reflect changes
+        this.updateUIFromParticleSystem();
+        this.updateGraph();
+        
+        // Visual feedback
+        const btn = document.getElementById('randomize-values-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `✓ ${scenario.charAt(0).toUpperCase() + scenario.slice(1)}!`;
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+        }, 2000);
+    }
+    
+    generateRandomParams(scenario) {
+        const random = (min, max) => min + Math.random() * (max - min);
+        const randomInt = (min, max) => Math.floor(random(min, max + 1));
+        const choice = (array) => array[Math.floor(Math.random() * array.length)];
+        
+        // Add variation factors to ensure uniqueness
+        const variationSeed = Math.random();
+        const complexityFactor = 0.7 + variationSeed * 0.6; // 0.7 to 1.3 multiplier
+        
+        let params = {};
+        
+        switch (scenario) {
+            case 'swarms':
+                params = {
+                    particlesPerSpecies: Math.round(randomInt(200, 500) * complexityFactor),
+                    numSpecies: randomInt(3, 8),
+                    forceFactor: random(1.5, 4.0) * complexityFactor,
+                    friction: random(0.02, 0.08), // UI value
+                    wallDamping: random(0.6, 1.2),
+                    collisionRadius: Math.round(randomInt(8, 20) * complexityFactor),
+                    socialRadius: Math.round(randomInt(80, 200) * complexityFactor),
+                    particleSize: random(1.5, 4.0),
+                    trailEnabled: choice([true, false]),
+                    blur: random(0.85, 0.95),
+                    glowIntensity: random(0.1, 0.4)
+                };
+                break;
+                
+            case 'crystals':
+                params = {
+                    particlesPerSpecies: randomInt(100, 300),
+                    numSpecies: randomInt(2, 4),
+                    forceFactor: random(0.8, 2.0),
+                    friction: random(0.15, 0.2), // High friction for stability
+                    wallDamping: random(0.8, 1.5),
+                    collisionRadius: randomInt(15, 35),
+                    socialRadius: randomInt(40, 120),
+                    particleSize: random(2.0, 6.0),
+                    trailEnabled: choice([true, true, false]), // Favor trails
+                    blur: random(0.92, 0.98),
+                    glowIntensity: random(0.3, 0.7)
+                };
+                break;
+                
+            case 'plasma':
+                params = {
+                    particlesPerSpecies: randomInt(150, 400),
+                    numSpecies: randomInt(4, 8),
+                    forceFactor: random(3.0, 8.0),
+                    friction: random(0.01, 0.05), // Low friction for energy
+                    wallDamping: random(0.4, 0.8),
+                    collisionRadius: randomInt(5, 15),
+                    socialRadius: randomInt(60, 250),
+                    particleSize: random(1.0, 3.5),
+                    trailEnabled: true, // Always trails for plasma
+                    blur: random(0.75, 0.88),
+                    renderMode: 'dreamtime',
+                    glowIntensity: random(0.6, 1.0),
+                    glowRadius: random(2.5, 4.5)
+                };
+                break;
+                
+            case 'organic':
+                params = {
+                    particlesPerSpecies: randomInt(120, 280),
+                    numSpecies: randomInt(3, 7),
+                    forceFactor: random(0.8, 2.5),
+                    friction: random(0.08, 0.15),
+                    wallDamping: random(0.7, 1.1),
+                    collisionRadius: randomInt(10, 25),
+                    socialRadius: randomInt(50, 150),
+                    particleSize: random(2.0, 5.0),
+                    trailEnabled: choice([true, true, true, false]), // Mostly trails
+                    blur: random(0.88, 0.95),
+                    glowIntensity: random(0.2, 0.5)
+                };
+                break;
+                
+            case 'chaos':
+                params = {
+                    particlesPerSpecies: Math.round(randomInt(50, 800) * complexityFactor),
+                    numSpecies: randomInt(2, 15),
+                    forceFactor: random(0.2, 10.0) * (0.5 + complexityFactor),
+                    friction: random(0.0, 0.2),
+                    wallDamping: random(0.2, 2.0),
+                    collisionRadius: Math.round(randomInt(1, 80) * complexityFactor),
+                    socialRadius: Math.round(randomInt(20, 400) * complexityFactor),
+                    particleSize: random(0.5, 15.0),
+                    trailEnabled: choice([true, false]),
+                    blur: random(0.5, 0.99),
+                    glowIntensity: random(0.0, 1.0)
+                };
+                break;
+                
+            case 'minimal':
+                params = {
+                    particlesPerSpecies: randomInt(30, 100),
+                    numSpecies: randomInt(2, 4),
+                    forceFactor: random(0.5, 1.5),
+                    friction: random(0.1, 0.18),
+                    wallDamping: random(0.8, 1.2),
+                    collisionRadius: randomInt(12, 30),
+                    socialRadius: randomInt(60, 120),
+                    particleSize: random(3.0, 8.0),
+                    trailEnabled: choice([true, false, false]), // Prefer no trails
+                    blur: random(0.9, 0.97),
+                    glowIntensity: random(0.0, 0.3)
+                };
+                break;
+                
+            case 'dreamscape':
+                params = {
+                    particlesPerSpecies: randomInt(80, 200),
+                    numSpecies: randomInt(3, 6),
+                    forceFactor: random(0.3, 1.2),
+                    friction: random(0.12, 0.18),
+                    wallDamping: random(0.6, 0.9),
+                    collisionRadius: randomInt(8, 20),
+                    socialRadius: randomInt(80, 180),
+                    particleSize: random(2.5, 6.0),
+                    trailEnabled: true,
+                    blur: random(0.92, 0.97),
+                    renderMode: 'dreamtime',
+                    glowIntensity: random(0.7, 0.9),
+                    glowRadius: random(3.0, 4.5),
+                    speciesGlowEnabled: true
+                };
+                break;
+        }
+        
+        return { ...params, scenario };
+    }
+    
+    getUniqueScenario(scenarios) {
+        // Initialize recent scenarios tracking if not exists
+        if (!this.recentScenarios) {
+            this.recentScenarios = [];
+        }
+        
+        console.log(`Current recent scenarios: [${this.recentScenarios.join(', ')}], Length: ${this.recentScenarios.length}`);
+        
+        // If we've used all scenarios recently, reset the history
+        if (this.recentScenarios.length >= scenarios.length - 1) {
+            console.log(`Resetting scenario history after ${this.recentScenarios.length} uses`);
+            this.recentScenarios = [];
+        }
+        
+        // Find scenarios not used recently
+        const availableScenarios = scenarios.filter(s => !this.recentScenarios.includes(s));
+        console.log(`Available scenarios: [${availableScenarios.join(', ')}]`);
+        
+        // Safety check - if no available scenarios, use all scenarios
+        const scenariosToChooseFrom = availableScenarios.length > 0 ? availableScenarios : scenarios;
+        
+        // Pick a random scenario from available ones
+        const selectedScenario = scenariosToChooseFrom[Math.floor(Math.random() * scenariosToChooseFrom.length)];
+        
+        // Add to recent history only if it's not already there
+        if (!this.recentScenarios.includes(selectedScenario)) {
+            this.recentScenarios.push(selectedScenario);
+        }
+        
+        console.log(`Selected scenario: ${selectedScenario}, Updated recent: [${this.recentScenarios.join(', ')}]`);
+        
+        return selectedScenario;
+    }
+    
+    applyRandomizedParams(params, scenario) {
+        // Apply particle system parameters
+        if (params.numSpecies) {
+            this.particleSystem.setSpeciesCount(params.numSpecies);
+        }
+        
+        if (params.particlesPerSpecies) {
+            this.particleSystem.particlesPerSpecies = params.particlesPerSpecies;
+            // Update species particle counts
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                if (this.particleSystem.species[i]) {
+                    this.particleSystem.species[i].particleCount = params.particlesPerSpecies;
+                }
+            }
+            this.particleSystem.initializeParticlesWithPositions();
+        }
+        
+        if (params.forceFactor) {
+            this.particleSystem.forceFactor = params.forceFactor;
+        }
+        
+        if (params.friction !== undefined) {
+            this.particleSystem.friction = 1.0 - params.friction; // Convert UI to physics
+        }
+        
+        if (params.wallDamping) {
+            this.particleSystem.wallDamping = params.wallDamping;
+        }
+        
+        if (params.collisionRadius) {
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                for (let j = 0; j < this.particleSystem.numSpecies; j++) {
+                    if (this.particleSystem.collisionRadius[i]) {
+                        this.particleSystem.collisionRadius[i][j] = params.collisionRadius;
+                    }
+                }
+            }
+        }
+        
+        if (params.socialRadius) {
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                for (let j = 0; j < this.particleSystem.numSpecies; j++) {
+                    if (this.particleSystem.socialRadius[i]) {
+                        this.particleSystem.socialRadius[i][j] = params.socialRadius;
+                    }
+                }
+            }
+        }
+        
+        if (params.particleSize) {
+            this.particleSystem.particleSize = params.particleSize;
+            // Update all species sizes
+            if (this.particleSystem.species && this.particleSystem.species.length > 0) {
+                for (let i = 0; i < this.particleSystem.species.length; i++) {
+                    if (this.particleSystem.species[i]) {
+                        this.particleSystem.species[i].size = params.particleSize;
+                    }
+                }
+            }
+        }
+        
+        if (params.trailEnabled !== undefined) {
+            this.particleSystem.trailEnabled = params.trailEnabled;
+        }
+        
+        if (params.blur) {
+            this.particleSystem.blur = params.blur;
+        }
+        
+        if (params.renderMode) {
+            this.particleSystem.renderMode = params.renderMode;
+        }
+        
+        if (params.glowIntensity !== undefined) {
+            this.particleSystem.glowIntensity = params.glowIntensity;
+        }
+        
+        if (params.glowRadius) {
+            this.particleSystem.glowRadius = params.glowRadius;
+        }
+        
+        // Randomize force matrix for interesting interactions
+        this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrix();
+        
+        // Apply special glow effects for certain scenarios
+        if (params.speciesGlowEnabled || scenario === 'plasma' || scenario === 'dreamscape') {
+            const numGlowing = Math.min(3, this.particleSystem.numSpecies);
+            for (let i = 0; i < numGlowing; i++) {
+                const intensity = 0.3 + Math.random() * 0.5;
+                const size = 1.2 + Math.random() * 1.3;
+                this.particleSystem.setSpeciesGlow(i, { intensity, size });
+            }
+        }
+        
+        // Randomize background color with complementary tones
+        this.randomizeBackgroundColor(scenario);
+        
+        // Generate sophisticated initial distribution patterns
+        this.generateComplexInitialDistribution(scenario);
+        
+        // Generate new random colors for variety
+        this.randomizeSpeciesColors();
+        
+        // Ensure mutual exclusion of halo and glow effects
+        // Wait a moment for all UI elements to be updated first
+        setTimeout(() => {
+            this.enforceEffectMutualExclusion();
+        }, 50);
+        
+        // Clear caches to ensure visual updates
+        this.particleSystem.clearCaches();
+    }
+    
+    randomizeSpeciesColors() {
+        // Professional color palettes inspired by design systems
+        const colorPalettes = [
+            // Nature inspired
+            () => this.getProfessionalPalette('nature'),
+            // Ocean/Water themes
+            () => this.getProfessionalPalette('ocean'),
+            // Sunset/Warm themes
+            () => this.getProfessionalPalette('sunset'),
+            // Neon/Electric themes
+            () => this.getProfessionalPalette('neon'),
+            // Pastel/Soft themes
+            () => this.getProfessionalPalette('pastel'),
+            // Monochrome with accent
+            () => this.getProfessionalPalette('monochrome'),
+            // Retro/Vintage themes
+            () => this.getProfessionalPalette('retro'),
+            // Deep space themes
+            () => this.getProfessionalPalette('space')
+        ];
+        
+        const palette = colorPalettes[Math.floor(Math.random() * colorPalettes.length)]();
+        
+        for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+            if (this.particleSystem.species[i]) {
+                this.particleSystem.species[i].color = palette[i % palette.length];
+            }
+        }
+    }
+    
+    getProfessionalPalette(theme) {
+        const palettes = {
+            nature: [
+                { r: 76, g: 175, b: 80 },   // Green
+                { r: 139, g: 195, b: 74 },  // Light Green
+                { r: 205, g: 220, b: 57 },  // Lime
+                { r: 255, g: 193, b: 7 },   // Amber
+                { r: 255, g: 152, b: 0 },   // Orange
+                { r: 121, g: 85, b: 72 },   // Brown
+                { r: 96, g: 125, b: 139 },  // Blue Grey
+                { r: 158, g: 158, b: 158 }  // Grey
+            ],
+            ocean: [
+                { r: 0, g: 188, b: 212 },   // Cyan
+                { r: 0, g: 172, b: 193 },   // Light Blue
+                { r: 3, g: 169, b: 244 },   // Blue
+                { r: 63, g: 81, b: 181 },   // Indigo
+                { r: 103, g: 58, b: 183 },  // Deep Purple
+                { r: 156, g: 39, b: 176 },  // Purple
+                { r: 233, g: 30, b: 99 },   // Pink
+                { r: 255, g: 87, b: 34 }    // Deep Orange
+            ],
+            sunset: [
+                { r: 255, g: 235, b: 59 },  // Yellow
+                { r: 255, g: 193, b: 7 },   // Amber
+                { r: 255, g: 152, b: 0 },   // Orange
+                { r: 255, g: 87, b: 34 },   // Deep Orange
+                { r: 244, g: 67, b: 54 },   // Red
+                { r: 233, g: 30, b: 99 },   // Pink
+                { r: 156, g: 39, b: 176 },  // Purple
+                { r: 103, g: 58, b: 183 }   // Deep Purple
+            ],
+            neon: [
+                { r: 0, g: 255, b: 255 },   // Cyan
+                { r: 0, g: 255, b: 127 },   // Spring Green
+                { r: 127, g: 255, b: 0 },   // Chartreuse
+                { r: 255, g: 255, b: 0 },   // Yellow
+                { r: 255, g: 127, b: 0 },   // Orange
+                { r: 255, g: 0, b: 127 },   // Deep Pink
+                { r: 127, g: 0, b: 255 },   // Blue Violet
+                { r: 255, g: 20, b: 147 }   // Deep Pink
+            ],
+            pastel: [
+                { r: 255, g: 205, b: 210 }, // Light Pink
+                { r: 225, g: 190, b: 231 }, // Light Purple
+                { r: 187, g: 222, b: 251 }, // Light Blue
+                { r: 178, g: 235, b: 242 }, // Light Cyan
+                { r: 165, g: 214, b: 167 }, // Light Green
+                { r: 255, g: 245, b: 157 }, // Light Yellow
+                { r: 255, g: 204, b: 128 }, // Light Orange
+                { r: 215, g: 204, b: 200 }  // Light Brown
+            ],
+            monochrome: [
+                { r: 245, g: 245, b: 245 }, // White Smoke
+                { r: 224, g: 224, b: 224 }, // Light Grey
+                { r: 189, g: 189, b: 189 }, // Silver
+                { r: 158, g: 158, b: 158 }, // Grey
+                { r: 117, g: 117, b: 117 }, // Dim Grey
+                { r: 97, g: 97, b: 97 },    // Dark Grey
+                { r: 66, g: 66, b: 66 },    // Darker Grey
+                { r: 33, g: 150, b: 243 }   // Blue accent
+            ],
+            retro: [
+                { r: 255, g: 87, b: 51 },   // Tomato
+                { r: 255, g: 193, b: 7 },   // Gold
+                { r: 139, g: 195, b: 74 },  // Yellow Green
+                { r: 0, g: 188, b: 212 },   // Dark Turquoise
+                { r: 121, g: 85, b: 72 },   // Saddle Brown
+                { r: 255, g: 138, b: 101 }, // Dark Salmon
+                { r: 240, g: 230, b: 140 }, // Khaki
+                { r: 205, g: 133, b: 63 }   // Peru
+            ],
+            space: [
+                { r: 25, g: 25, b: 112 },   // Midnight Blue
+                { r: 72, g: 61, b: 139 },   // Dark Slate Blue
+                { r: 123, g: 104, b: 238 }, // Medium Slate Blue
+                { r: 138, g: 43, b: 226 },  // Blue Violet
+                { r: 75, g: 0, b: 130 },    // Indigo
+                { r: 148, g: 0, b: 211 },   // Dark Violet
+                { r: 255, g: 20, b: 147 },  // Deep Pink
+                { r: 255, g: 105, b: 180 }  // Hot Pink
+            ]
+        };
+        
+        return palettes[theme] || palettes.nature;
+    }
+    
+    randomizeBackgroundColor(scenario) {
+        const backgroundColors = {
+            swarms: ['#0d1117', '#161b22', '#21262d', '#1c2128'],
+            crystals: ['#f6f8fa', '#ffffff', '#f0f6ff', '#dbeafe'],
+            plasma: ['#000000', '#0d1117', '#1a0033', '#330066'],
+            organic: ['#f6f8fa', '#fefefe', '#f0f9ff', '#ecfdf5'],
+            chaos: ['#1a1a1a', '#000000', '#220a0a', '#0a0a22'],
+            minimal: ['#ffffff', '#fafafa', '#f5f5f5', '#f0f0f0'],
+            dreamscape: ['#0f0f23', '#1a1a3a', '#2d1b69', '#1e1e3f']
+        };
+        
+        const colors = backgroundColors[scenario] || backgroundColors.swarms;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        
+        this.particleSystem.backgroundColor = color;
+        const bgColorInput = document.getElementById('background-color');
+        if (bgColorInput) {
+            bgColorInput.value = color;
+        }
+    }
+    
+    generateComplexInitialDistribution(scenario) {
+        if (!this.distributionDrawer) {
+            console.warn('DistributionDrawer not available for pattern generation');
+            return;
+        }
+        
+        const patterns = {
+            swarms: () => this.createSwarmPattern(),
+            crystals: () => this.createCrystalPattern(),
+            plasma: () => this.createPlasmaPattern(),
+            organic: () => this.createOrganicPattern(),
+            chaos: () => this.createChaoticPattern(),
+            minimal: () => this.createMinimalPattern(),
+            dreamscape: () => this.createDreamscapePattern()
+        };
+        
+        const pattern = patterns[scenario] || patterns.swarms;
+        const distributionData = pattern();
+        
+        // Import the generated distribution
+        if (distributionData && Object.keys(distributionData).length > 0) {
+            this.distributionDrawer.importDistribution(distributionData);
+            console.log(`Applied ${scenario} distribution pattern with ${Object.keys(distributionData).length} species`);
+        } else {
+            console.warn(`No distribution data generated for scenario: ${scenario}`);
+        }
+    }
+    
+    createSwarmPattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Ensure ALL species get distributions
+        // Create primary swarm clusters for main species
+        const primaryClusters = Math.min(numSpecies, 6);
+        
+        for (let i = 0; i < primaryClusters; i++) {
+            const angle = (i / primaryClusters) * 2 * Math.PI;
+            const radius = 0.3 + Math.random() * 0.2;
+            const centerX = 0.5 + Math.cos(angle) * radius;
+            const centerY = 0.5 + Math.sin(angle) * radius;
+            const size = 0.08 + Math.random() * 0.04;
+            
+            distribution[i] = this.createClusterPoints(centerX, centerY, size);
+        }
+        
+        // Create smaller satellite clusters for remaining species
+        for (let i = primaryClusters; i < numSpecies; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const radius = 0.15 + Math.random() * 0.3;
+            const centerX = 0.5 + Math.cos(angle) * radius;
+            const centerY = 0.5 + Math.sin(angle) * radius;
+            const size = 0.04 + Math.random() * 0.03; // Smaller satellites
+            
+            distribution[i] = this.createClusterPoints(centerX, centerY, size);
+        }
+        
+        return distribution;
+    }
+    
+    createCrystalPattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Create geometric grid pattern
+        const gridSize = Math.ceil(Math.sqrt(numSpecies));
+        for (let i = 0; i < numSpecies; i++) {
+            const row = Math.floor(i / gridSize);
+            const col = i % gridSize;
+            const x = (col + 0.5) / gridSize;
+            const y = (row + 0.5) / gridSize;
+            
+            distribution[i] = this.createClusterPoints(x, y, 0.06);
+        }
+        
+        return distribution;
+    }
+    
+    createPlasmaPattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Create turbulent, energy-like distribution
+        for (let i = 0; i < numSpecies; i++) {
+            const x = Math.random();
+            const y = Math.random();
+            const size = 0.12 + Math.random() * 0.08;
+            
+            distribution[i] = this.createClusterPoints(x, y, size);
+        }
+        
+        return distribution;
+    }
+    
+    createOrganicPattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Create flowing, natural patterns
+        for (let i = 0; i < numSpecies; i++) {
+            const t = i / (numSpecies - 1);
+            const x = 0.2 + 0.6 * t + 0.1 * Math.sin(t * Math.PI * 3);
+            const y = 0.5 + 0.3 * Math.sin(t * Math.PI * 2);
+            
+            distribution[i] = this.createClusterPoints(x, y, 0.07 + Math.random() * 0.03);
+        }
+        
+        return distribution;
+    }
+    
+    createChaoticPattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Ensure ALL species get at least one cluster
+        for (let i = 0; i < numSpecies; i++) {
+            const x = Math.random();
+            const y = Math.random();
+            const size = 0.06 + Math.random() * 0.08;
+            
+            distribution[i] = this.createClusterPoints(x, y, size);
+        }
+        
+        // Add additional random clusters for chaos
+        const extraClusters = Math.floor(Math.random() * numSpecies);
+        for (let i = 0; i < extraClusters; i++) {
+            const species = Math.floor(Math.random() * numSpecies);
+            const x = Math.random();
+            const y = Math.random();
+            const size = 0.02 + Math.random() * 0.10;
+            
+            // Add to existing species distribution
+            distribution[species] = distribution[species].concat(this.createClusterPoints(x, y, size));
+        }
+        
+        return distribution;
+    }
+    
+    createMinimalPattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Create simple, clean patterns that accommodate all species
+        const basePositions = [
+            { x: 0.3, y: 0.5 },
+            { x: 0.7, y: 0.5 },
+            { x: 0.5, y: 0.3 },
+            { x: 0.5, y: 0.7 },
+            { x: 0.2, y: 0.3 },
+            { x: 0.8, y: 0.3 },
+            { x: 0.2, y: 0.7 },
+            { x: 0.8, y: 0.7 }
+        ];
+        
+        for (let i = 0; i < numSpecies; i++) {
+            let pos;
+            if (i < basePositions.length) {
+                pos = basePositions[i];
+            } else {
+                // Generate additional positions in a circle pattern
+                const angle = ((i - basePositions.length) / (numSpecies - basePositions.length)) * 2 * Math.PI;
+                pos = {
+                    x: 0.5 + 0.25 * Math.cos(angle),
+                    y: 0.5 + 0.25 * Math.sin(angle)
+                };
+            }
+            
+            distribution[i] = this.createClusterPoints(pos.x, pos.y, 0.08);
+        }
+        
+        return distribution;
+    }
+    
+    createDreamscapePattern() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Create ethereal, flowing patterns in spiral formation
+        for (let i = 0; i < numSpecies; i++) {
+            // Create a golden ratio spiral for natural distribution
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // Golden angle
+            const angle = i * goldenAngle + Math.random() * 0.3;
+            const radius = 0.1 + (i / numSpecies) * 0.3 + Math.random() * 0.15;
+            const x = 0.5 + Math.cos(angle) * radius;
+            const y = 0.5 + Math.sin(angle) * radius;
+            
+            distribution[i] = this.createClusterPoints(x, y, 0.08 + Math.random() * 0.05);
+        }
+        
+        return distribution;
+    }
+    
+    createClusterPoints(centerX, centerY, size) {
+        // Clamp values to valid ranges
+        centerX = Math.max(0.1, Math.min(0.9, centerX));
+        centerY = Math.max(0.1, Math.min(0.9, centerY));
+        size = Math.max(0.02, Math.min(0.2, size));
+        
+        const points = [];
+        const numPoints = Math.floor(15 + Math.random() * 15); // 15-30 points per cluster
+        const radius = size;
+        
+        for (let i = 0; i < numPoints; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * radius * 0.8;
+            const x = Math.max(0, Math.min(1, centerX + Math.cos(angle) * r));
+            const y = Math.max(0, Math.min(1, centerY + Math.sin(angle) * r));
+            
+            points.push({
+                x,
+                y,
+                size: size * 0.2 * (0.8 + Math.random() * 0.4),
+                opacity: 0.7 + Math.random() * 0.3
+            });
+        }
+        
+        return points;
+    }
+    
+    
+    enforceEffectMutualExclusion() {
+        const haloEnabledEl = document.getElementById('halo-enabled');
+        const speciesGlowEnabledEl = document.getElementById('species-glow-enabled');
+        
+        if (!haloEnabledEl || !speciesGlowEnabledEl) {
+            console.warn('Effect elements not found during mutual exclusion check');
+            return;
+        }
+        
+        const haloEnabled = haloEnabledEl.checked;
+        const speciesGlowEnabled = speciesGlowEnabledEl.checked;
+        
+        console.log(`Effect mutual exclusion check: halo=${haloEnabled}, glow=${speciesGlowEnabled}`);
+        
+        // If both are enabled, disable species glow to prevent conflicts
+        if (haloEnabled && speciesGlowEnabled) {
+            console.log('Both effects enabled, disabling species glow for mutual exclusion');
+            speciesGlowEnabledEl.checked = false;
+            
+            // Hide species glow controls
+            const glowControls = document.getElementById('species-glow-controls');
+            const glowSizeControl = document.getElementById('species-glow-size-control');
+            const glowIntensityControl = document.getElementById('species-glow-intensity-control');
+            
+            if (glowControls) glowControls.style.display = 'none';
+            if (glowSizeControl) glowSizeControl.style.display = 'none';
+            if (glowIntensityControl) glowIntensityControl.style.display = 'none';
+            
+            // Clear all species glow
+            if (this.particleSystem && this.particleSystem.clearAllSpeciesGlow) {
+                this.particleSystem.clearAllSpeciesGlow();
+            }
+        }
+    }
+    
+    hslToRgb(h, s, l) {
+        s /= 100;
+        l /= 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l - c / 2;
+        let r, g, b;
+        
+        if (0 <= h && h < 60) {
+            r = c; g = x; b = 0;
+        } else if (60 <= h && h < 120) {
+            r = x; g = c; b = 0;
+        } else if (120 <= h && h < 180) {
+            r = 0; g = c; b = x;
+        } else if (180 <= h && h < 240) {
+            r = 0; g = x; b = c;
+        } else if (240 <= h && h < 300) {
+            r = x; g = 0; b = c;
+        } else if (300 <= h && h < 360) {
+            r = c; g = 0; b = x;
+        }
+        
+        return {
+            r: Math.round((r + m) * 255),
+            g: Math.round((g + m) * 255),
+            b: Math.round((b + m) * 255)
+        };
     }
     
     saveSynthAssignments() {
@@ -1150,6 +1783,9 @@ export class MainUI {
             }
         };
         
+        // Expose safeAddEventListener as a method for testing
+        this.safeAddEventListener = safeAddEventListener;
+        
         // Minimize button
         safeAddEventListener('minimize-btn', 'click', () => {
             this.toggleVisibility();
@@ -1180,6 +1816,10 @@ export class MainUI {
                     this.updateGraph();
                 }
             }
+        });
+        
+        document.getElementById('randomize-values-btn').addEventListener('click', () => {
+            this.randomizeValues();
         });
         
         document.getElementById('configure-preset-btn').addEventListener('click', () => {
@@ -1602,8 +2242,8 @@ export class MainUI {
         const ps = this.particleSystem;
         
         // PARTICLES Section
-        this.safeUpdateElement('particles-per-species', 'value', ps.particlesPerSpecies);
-        this.safeUpdateElement('particles-per-species-value', 'textContent', ps.particlesPerSpecies);
+        window.DOMHelpers.safeUpdateElement('particles-per-species', 'value', ps.particlesPerSpecies);
+        window.DOMHelpers.safeUpdateElement('particles-per-species-value', 'textContent', ps.particlesPerSpecies);
         document.getElementById('species-count').value = ps.numSpecies;
         document.getElementById('species-count-value').textContent = ps.numSpecies;
         
