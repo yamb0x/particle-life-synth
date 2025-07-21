@@ -5,6 +5,8 @@ node_modules/
 backup_*/
 .env
 .env.local
+.env.production.local
+.env.development.local
 dist/
 build/
 *.swp
@@ -13,3 +15,10 @@ build/
 .idea/
 .vscode/
 *.sublime-*
+
+# Firebase
+firebase-debug.log
+.firebase/
+
+# Vercel
+.vercel

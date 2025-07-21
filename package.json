@@ -1,22 +1,21 @@
 {
   "name": "particle-life-synth",
-  "version": "3.0.0",
-  "description": "Comprehensive Particle Life System with 100+ parameters",
-  "main": "src/main.js",
+  "version": "1.0.0",
+  "description": "Visual particle simulation system with audio synthesis capabilities",
+  "type": "module",
   "scripts": {
-    "start": "./start.sh",
-    "build": "tsc",
-    "dev": "python3 -m http.server 8080"
+    "start": "python3 serve.py",
+    "dev": "python3 serve.py",
+    "build": "echo 'No build step required'",
+    "deploy": "vercel --prod"
   },
-  "keywords": [
-    "particle-life",
-    "simulation",
-    "emergence",
-    "complex-systems"
-  ],
-  "author": "yamb0x",
+  "keywords": ["particle", "simulation", "synthesizer", "canvas", "web-audio"],
+  "author": "Yambo Studio",
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "vercel": "^32.0.0"
+  },
+  "dependencies": {
+    "firebase": "^10.7.1"
   }
 }

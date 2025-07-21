@@ -1,9 +1,10 @@
 import { SimpleParticleSystem } from './core/SimpleParticleSystem.js';
-import { PresetManager } from './utils/PresetManager.js';
+import { HybridPresetManager } from './utils/HybridPresetManager.js';
 import { PresetModal } from './ui/PresetModal.js';
 import { MainUI } from './ui/MainUI.js';
 import { UIStateManager } from './utils/UIStateManager.js';
 import { DOMHelpers } from './utils/DOMHelpers.js';
+import { CloudSyncUI } from './ui/CloudSyncUI.js';
 
 // Initialize the simple particle life system
 async function init() {
@@ -17,10 +18,14 @@ async function init() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    // Create preset manager
-    const presetManager = new PresetManager();
+    // Create hybrid preset manager (local + cloud)
+    const presetManager = new HybridPresetManager();
     // Wait for async initialization
     await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Create cloud sync UI
+    const cloudSyncUI = new CloudSyncUI(presetManager);
+    cloudSyncUI.initialize(document.body);
     
     // Create UI state manager
     const uiStateManager = new UIStateManager();
@@ -136,6 +141,12 @@ async function init() {
     window.updatePresetSelector = function() {
         mainUI.updatePresetSelector();
     };
+    
+    // Listen for cloud preset updates
+    window.addEventListener('presetsUpdated', (event) => {
+        console.log('Presets updated event:', event.detail);
+        mainUI.updatePresetSelector();
+    });
     
     // Handle resize
     window.addEventListener('resize', () => {
