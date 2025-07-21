@@ -26,6 +26,18 @@ async function init() {
     // Create cloud sync UI
     const cloudSyncUI = new CloudSyncUI(presetManager);
     cloudSyncUI.initialize(document.body);
+    window.cloudSyncUI = cloudSyncUI; // Make it globally accessible
+    
+    // Automatically enable cloud sync
+    setTimeout(async () => {
+        try {
+            await presetManager.enableCloudSync();
+            console.log('Cloud sync automatically enabled');
+        } catch (error) {
+            console.warn('Cloud sync failed to initialize:', error);
+            // Continue without cloud sync - app works offline
+        }
+    }, 1000); // Small delay to ensure UI is ready
     
     // Create UI state manager
     const uiStateManager = new UIStateManager();

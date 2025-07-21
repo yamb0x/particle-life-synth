@@ -227,6 +227,7 @@ export class PresetModal {
       
       <div class="preset-modal-footer">
         <div class="preset-save-status"></div>
+        <button class="btn btn-secondary btn-sm preset-btn-share">🔗 Share</button>
         <button class="btn btn-secondary btn-sm preset-btn-paste">Paste from Floating UI</button>
         <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
         <button class="btn btn-secondary btn-sm preset-btn-close">Close</button>
@@ -529,6 +530,7 @@ export class PresetModal {
     this.modal.querySelector('.preset-btn-save-new').addEventListener('click', () => this.saveAsNew());
     this.modal.querySelector('.preset-btn-delete').addEventListener('click', () => this.deletePreset());
     this.modal.querySelector('.preset-btn-paste').addEventListener('click', () => this.pasteSettings());
+    this.modal.querySelector('.preset-btn-share').addEventListener('click', () => this.sharePreset());
     
     // Force preset buttons
     this.modal.querySelectorAll('.force-preset-btn').forEach(btn => {
@@ -1455,6 +1457,23 @@ export class PresetModal {
   }
 
   
+  async sharePreset() {
+    if (!this.currentPresetKey) {
+      alert('Please save the preset first before sharing.');
+      return;
+    }
+    
+    // Get the cloud sync UI instance
+    const cloudSyncUI = window.cloudSyncUI;
+    if (!cloudSyncUI) {
+      alert('Cloud sync not available. Please refresh the page.');
+      return;
+    }
+    
+    // Show the share modal
+    await cloudSyncUI.showShareModal(this.currentPresetKey);
+  }
+
   async deletePreset() {
     if (!this.currentPresetKey) {
       alert('No preset selected to delete');

@@ -21,10 +21,10 @@ export class CloudSyncUI {
     const statusDiv = document.createElement('div');
     statusDiv.className = 'cloud-status';
     statusDiv.innerHTML = `
-      <button id="cloud-sync-toggle" class="cloud-sync-button">
+      <div class="cloud-status-indicator">
         <span class="cloud-icon">☁️</span>
-        <span class="cloud-text">Enable Cloud Sync</span>
-      </button>
+        <span class="cloud-text">Connecting...</span>
+      </div>
       <div class="cloud-info" style="display: none;">
         <span class="sync-status"></span>
         <span class="preset-count"></span>
@@ -33,10 +33,14 @@ export class CloudSyncUI {
     
     container.appendChild(statusDiv);
     
-    this.syncButton = statusDiv.querySelector('#cloud-sync-toggle');
+    this.statusIndicator = statusDiv.querySelector('.cloud-status-indicator');
     this.statusElement = statusDiv.querySelector('.cloud-info');
     
-    this.syncButton.addEventListener('click', () => this.toggleCloudSync());
+    // Initial status update
+    setTimeout(() => this.updateConnectionStatus(), 100);
+    
+    // Update status periodically
+    setInterval(() => this.updateConnectionStatus(), 5000);
   }
 
   createShareModal() {
@@ -91,33 +95,26 @@ export class CloudSyncUI {
     });
   }
 
-  async toggleCloudSync() {
-    const button = this.syncButton;
-    const text = button.querySelector('.cloud-text');
+  updateConnectionStatus() {
+    const text = this.statusIndicator.querySelector('.cloud-text');
+    const icon = this.statusIndicator.querySelector('.cloud-icon');
     
-    button.disabled = true;
-    text.textContent = 'Connecting...';
-    
-    try {
-      if (this.presetManager.isCloudEnabled()) {
-        this.presetManager.disableCloudSync();
-        text.textContent = 'Enable Cloud Sync';
-        this.statusElement.style.display = 'none';
+    if (this.presetManager.isCloudEnabled()) {
+      const status = this.presetManager.getCloudStatus();
+      
+      if (status.syncing) {
+        text.textContent = 'Syncing...';
+        icon.textContent = '🔄';
       } else {
-        await this.presetManager.enableCloudSync();
-        text.textContent = 'Cloud Sync Enabled';
+        text.textContent = 'Connected';
+        icon.textContent = '☁️';
         this.statusElement.style.display = 'block';
         this.updateStatus();
       }
-    } catch (error) {
-      console.error('Failed to toggle cloud sync:', error);
-      text.textContent = 'Connection Failed';
-      setTimeout(() => {
-        text.textContent = this.presetManager.isCloudEnabled() ? 
-          'Cloud Sync Enabled' : 'Enable Cloud Sync';
-      }, 3000);
-    } finally {
-      button.disabled = false;
+    } else {
+      text.textContent = 'Offline';
+      icon.textContent = '🔌';
+      this.statusElement.style.display = 'none';
     }
   }
 
@@ -155,17 +152,16 @@ export class CloudSyncUI {
     
     if (!presetId) return;
     
-    // Enable cloud sync if not already enabled
+    // Wait for cloud sync to be enabled (happens automatically)
+    let attempts = 0;
+    while (!this.presetManager.isCloudEnabled() && attempts < 20) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      attempts++;
+    }
+    
     if (!this.presetManager.isCloudEnabled()) {
-      try {
-        await this.presetManager.enableCloudSync();
-        this.syncButton.querySelector('.cloud-text').textContent = 'Cloud Sync Enabled';
-        this.statusElement.style.display = 'block';
-      } catch (error) {
-        console.error('Failed to enable cloud sync:', error);
-        alert('Failed to connect to cloud. Please try again.');
-        return;
-      }
+      alert('Cloud connection failed. Please refresh and try again.');
+      return;
     }
     
     // Import the shared preset
@@ -212,27 +208,17 @@ style.textContent = `
   z-index: 1000;
 }
 
-.cloud-sync-button {
+.cloud-status-indicator {
   background: rgba(0, 0, 0, 0.8);
   color: white;
   border: 1px solid #444;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 4px;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.cloud-sync-button:hover {
-  background: rgba(0, 0, 0, 0.9);
-  border-color: #666;
-}
-
-.cloud-sync-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 .cloud-icon {

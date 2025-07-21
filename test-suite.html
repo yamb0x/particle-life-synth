@@ -468,6 +468,48 @@
                     return { color: ctx.particleSystem.backgroundColor };
                 });
                 
+                this.addTest('ui', 'collision-radius-control', 'Collision Radius Control', async () => {
+                    const ctx = await this.getAppContext();
+                    const slider = await this.findMainUIElement('#collision-radius');
+                    
+                    if (!slider) throw new Error('Collision radius slider not found');
+                    
+                    // Test range
+                    this.assert(slider.min === '1', 'Min value is 1');
+                    this.assert(slider.max === '100', 'Max value is 100');
+                    
+                    const originalValue = ctx.particleSystem.collisionRadius[0][0];
+                    const testValue = 35;
+                    
+                    // Change value
+                    slider.value = testValue;
+                    slider.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Verify matrix updated
+                    const newValue = ctx.particleSystem.collisionRadius[0][0];
+                    this.assert(newValue === testValue, `Collision radius updated to ${testValue}`);
+                    
+                    // Verify all matrix elements updated
+                    let allUpdated = true;
+                    for (let i = 0; i < ctx.particleSystem.numSpecies; i++) {
+                        for (let j = 0; j < ctx.particleSystem.numSpecies; j++) {
+                            if (ctx.particleSystem.collisionRadius[i][j] !== testValue) {
+                                allUpdated = false;
+                                break;
+                            }
+                        }
+                    }
+                    this.assert(allUpdated, 'All matrix elements updated');
+                    
+                    // Verify display updated
+                    const display = ctx.document.getElementById('collision-radius-value');
+                    this.assert(display?.textContent === testValue.toString(), 'Display shows correct value');
+                    
+                    return { originalValue, newValue, matrixSize: ctx.particleSystem.numSpecies };
+                });
+                
                 this.addTest('ui', 'event-listener-attachment', 'Event Listener Attachment', async () => {
                     const ctx = await this.getAppContext();
                     
@@ -573,6 +615,56 @@
                         'Social force updated correctly');
                     
                     return { matrixSize: ps.numSpecies };
+                });
+                
+                this.addTest('system', 'collision-radius-matrix', 'Collision Radius Matrix Integrity', async () => {
+                    const ctx = await this.getAppContext();
+                    const ps = ctx.particleSystem;
+                    
+                    // Check collision radius matrix structure
+                    this.assert(Array.isArray(ps.collisionRadius), 'Collision radius is array');
+                    this.assert(ps.collisionRadius.length === ps.numSpecies, 
+                        'Collision radius matrix rows match species count');
+                    
+                    // Check each row
+                    for (let i = 0; i < ps.collisionRadius.length; i++) {
+                        this.assert(Array.isArray(ps.collisionRadius[i]), 
+                            `Row ${i} is array`);
+                        this.assert(ps.collisionRadius[i].length === ps.numSpecies, 
+                            `Row ${i} has correct column count`);
+                        
+                        // Check each value
+                        for (let j = 0; j < ps.collisionRadius[i].length; j++) {
+                            const value = ps.collisionRadius[i][j];
+                            this.assert(typeof value === 'number' && !isNaN(value), 
+                                `Value [${i}][${j}] is valid number`);
+                            this.assert(value >= 1 && value <= 100, 
+                                `Value [${i}][${j}] in range 1-100: ${value}`);
+                        }
+                    }
+                    
+                    // Test species count change preserves collision radius
+                    const originalValue = ps.collisionRadius[0][0];
+                    const originalCount = ps.numSpecies;
+                    
+                    if (originalCount < 10) {
+                        ps.setSpeciesCount(originalCount + 1);
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                        
+                        this.assert(ps.collisionRadius.length === originalCount + 1, 
+                            'Matrix resized after species count change');
+                        this.assert(ps.collisionRadius[0][0] === originalValue, 
+                            'Original values preserved after resize');
+                        
+                        // Restore original count
+                        ps.setSpeciesCount(originalCount);
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                    
+                    return { 
+                        matrixSize: `${ps.numSpecies}x${ps.numSpecies}`,
+                        sampleValue: ps.collisionRadius[0][0]
+                    };
                 });
                 
                 // Storage Tests
