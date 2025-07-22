@@ -227,13 +227,11 @@ export class PresetModal {
       
       <div class="preset-modal-footer">
         <div class="preset-save-status"></div>
-        <button class="btn btn-secondary btn-sm preset-btn-share">🔗 Share</button>
-        <button class="btn btn-secondary btn-sm preset-btn-fetch">📥 Fetch from Scene</button>
-        <button class="btn btn-secondary btn-sm preset-btn-paste">Paste Settings</button>
-        <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
-        <button class="btn btn-secondary btn-sm preset-btn-close">Close</button>
-        <button class="btn btn-primary btn-sm preset-btn-save">Save</button>
-        <button class="btn btn-primary btn-sm preset-btn-apply">Apply</button>
+        <div class="footer-actions">
+          <button class="btn btn-secondary btn-sm preset-btn-fetch">📥 Fetch Scene Data</button>
+          <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
+          <button class="btn btn-primary btn-sm preset-btn-save">Save As New</button>
+        </div>
       </div>
     `;
     
@@ -319,7 +317,15 @@ export class PresetModal {
           background: var(--bg-tertiary);
           border-top: 1px solid var(--border-default);
           padding: var(--space-md) var(--space-lg);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .footer-actions {
+          display: flex;
           gap: var(--space-sm);
+          align-items: center;
         }
         
         .species-item {
@@ -493,7 +499,10 @@ export class PresetModal {
     });
     
     // Track changes on other inputs
-    this.modal.querySelector('.preset-name-input').addEventListener('input', () => this.markChanged());
+    this.modal.querySelector('.preset-name-input').addEventListener('input', () => {
+      this.markChanged();
+      this.updateButtonStates(); // Update button text when name changes
+    });
     this.modal.querySelector('#modal-trail-enabled').addEventListener('change', (e) => {
       this.particleSystem.trailEnabled = e.target.checked;
       const mainTrailCheckbox = document.getElementById('trails');
@@ -511,13 +520,9 @@ export class PresetModal {
       this.markChanged();
     });
     
-    this.modal.querySelector('.preset-btn-close').addEventListener('click', () => this.close());
-    this.modal.querySelector('.preset-btn-apply').addEventListener('click', () => this.apply());
     this.modal.querySelector('.preset-btn-save').addEventListener('click', () => this.save());
     this.modal.querySelector('.preset-btn-delete').addEventListener('click', () => this.deletePreset());
     this.modal.querySelector('.preset-btn-fetch').addEventListener('click', () => this.fetchCurrentSceneSettings());
-    this.modal.querySelector('.preset-btn-paste').addEventListener('click', () => this.pasteSettings());
-    this.modal.querySelector('.preset-btn-share').addEventListener('click', () => this.sharePreset());
     
     // Force preset buttons
     this.modal.querySelectorAll('.force-preset-btn').forEach(btn => {
@@ -1020,28 +1025,32 @@ export class PresetModal {
     // Clear loading flag after UI is loaded
     this.isLoadingPreset = false;
     
-    // Enable paste button if there are copied settings
-    if (window.mainUI && window.mainUI.copiedSettings) {
-      this.enablePaste(window.mainUI.copiedSettings);
-    } else {
-      this.enablePaste(null);
-    }
   }
 
   updateButtonStates() {
     const saveBtn = this.modal.querySelector('.preset-btn-save');
     const deleteBtn = this.modal.querySelector('.preset-btn-delete');
     const isNew = !this.currentPresetKey;
+    const presetName = this.modal.querySelector('.preset-name-input').value;
     
-    // Save button behavior
-    if (isNew) {
-      saveBtn.textContent = 'Save';
+    // Determine if name has changed from original
+    let nameChanged = false;
+    if (this.currentPresetKey) {
+      const currentPreset = this.presetManager.getPreset(this.currentPresetKey);
+      if (currentPreset && currentPreset.name !== presetName) {
+        nameChanged = true;
+      }
+    }
+    
+    // Save button behavior - clearer naming
+    if (isNew || nameChanged) {
+      saveBtn.textContent = 'Save As New';
       saveBtn.title = 'Save as new preset';
-      deleteBtn.disabled = true;
-      deleteBtn.title = 'Cannot delete unsaved preset';
+      deleteBtn.disabled = isNew;
+      deleteBtn.title = isNew ? 'No preset selected to delete' : 'Delete current preset';
     } else {
-      saveBtn.textContent = 'Save';
-      saveBtn.title = 'Save changes to current preset (or change name to save as new)';
+      saveBtn.textContent = 'Update Preset';
+      saveBtn.title = 'Update existing preset with changes';
       deleteBtn.disabled = false;
       deleteBtn.title = 'Delete this preset';
     }
@@ -1373,20 +1382,6 @@ export class PresetModal {
     }
   }
 
-  apply() {
-    const preset = this.getPresetFromUI();
-    this.particleSystem.loadFullPreset(preset);
-    
-    // Update the main UI to reflect the new values
-    if (window.updateUIFromPreset) {
-      window.updateUIFromPreset(this.particleSystem);
-    }
-    
-    // Also update the main UI distribution drawer if it exists
-    this.syncToMainUI();
-    
-    // Note: Apply does NOT save the preset - just applies changes temporarily
-  }
   
   syncToMainUI() {
     // Sync all changes to the main UI to ensure consistency
@@ -1456,7 +1451,7 @@ export class PresetModal {
       }, 3000);
       
       // Force preset list refresh to show changes
-      this.refreshPresetList();
+      this.populatePresetDropdown();
       this.updateButtonStates();
     } catch (error) {
       console.error('Save failed:', error);
@@ -1465,23 +1460,6 @@ export class PresetModal {
   }
 
 
-  
-  async sharePreset() {
-    if (!this.currentPresetKey) {
-      alert('Please save the preset first before sharing.');
-      return;
-    }
-    
-    // Get the cloud sync UI instance
-    const cloudSyncUI = window.cloudSyncUI;
-    if (!cloudSyncUI) {
-      alert('Cloud sync not available. Please refresh the page.');
-      return;
-    }
-    
-    // Show the share modal
-    await cloudSyncUI.showShareModal(this.currentPresetKey);
-  }
 
   async deletePreset() {
     if (!this.currentPresetKey) {
@@ -1589,207 +1567,6 @@ export class PresetModal {
     }
   }
 
-  pasteSettings() {
-    // Check if there are copied settings available from MainUI
-    const mainUI = window.mainUI;
-    if (!mainUI || !mainUI.copiedSettings) {
-      alert('No settings copied from Floating UI. Please copy settings first.');
-      return;
-    }
-    
-    const settings = mainUI.copiedSettings;
-    
-    try {
-      // Apply the complete preset to the particle system
-      this.particleSystem.loadFullPreset(settings);
-      
-      // Merge pasted settings with current preset, preserving name
-      const presetName = this.modal.querySelector('.preset-name-input').value;
-      this.currentPreset = { ...settings };
-      this.currentPreset.name = presetName; // Keep current name to avoid switching to "Custom"
-      
-      // Update modal UI to reflect the new settings
-      this.syncAllModalElements(settings);
-      
-      // Update the force editor if on forces tab
-      if (this.activeTab === 'forces' && this.forceEditor) {
-        this.forceEditor.setForceMatrix(this.particleSystem.socialForce);
-        this.forceEditor.setSpecies(this.currentPreset.species.definitions);
-        this.forceEditor.updateMatrixView();
-      }
-      
-      // Update the distribution drawer if on layout tab - this is the key fix
-      if (this.distributionDrawer) {
-        // First, clear existing distribution
-        this.distributionDrawer.clear();
-        
-        // Import distribution data from pasted settings
-        if (settings.species && settings.species.definitions) {
-          const distributionData = {};
-          settings.species.definitions.forEach((species, index) => {
-            if (species.startPosition && species.startPosition.type === 'custom' && species.startPosition.customPoints) {
-              distributionData[index] = species.startPosition.customPoints;
-            }
-          });
-          
-          if (Object.keys(distributionData).length > 0) {
-            this.distributionDrawer.importDistribution(distributionData);
-          }
-        }
-      }
-      
-      // Apply UI-specific state
-      if (settings.uiState) {
-        this.applyUIState(settings.uiState);
-      }
-      
-      // Apply synth assignments to main UI
-      if (settings.synthAssignments && mainUI.loadSynthAssignments) {
-        mainUI.loadSynthAssignments(settings.synthAssignments);
-      }
-      
-      // Refresh the UI to show the pasted settings
-      this.loadPresetToUI();
-      this.markChanged();
-      
-      // Update main UI to reflect changes
-      if (mainUI.updateUIFromParticleSystem) {
-        mainUI.updateUIFromParticleSystem();
-      }
-      
-      // Show success message
-      this.updateSaveStatus('✓ Settings pasted from Floating UI');
-      
-    } catch (error) {
-      console.error('Paste settings error:', error);
-      alert('Failed to paste settings: ' + error.message);
-    }
-  }
-  
-  syncAllModalElements(settings) {
-    // Sync all modal elements with the new settings
-    
-    // Species count
-    if (settings.particles && settings.particles.numSpecies !== this.particleSystem.numSpecies) {
-      const speciesCountInput = this.modal.querySelector('#modal-species-count');
-      const speciesCountValue = this.modal.querySelector('#modal-species-count-value');
-      if (speciesCountInput) {
-        speciesCountInput.value = settings.particles.numSpecies;
-        if (speciesCountValue) {
-          speciesCountValue.textContent = settings.particles.numSpecies;
-        }
-        this.updateSpeciesCount(settings.particles.numSpecies);
-      }
-    }
-    
-    // Physics settings
-    if (settings.physics) {
-      this.syncToModal('modal-friction', settings.physics.friction);
-      this.syncToModal('modal-wall-damping', settings.physics.wallDamping);
-      this.syncToModal('force-factor', settings.physics.forceFactor);
-      this.syncToModal('modal-collision-radius', settings.physics.collisionRadiusValue || settings.physics.collisionRadius);
-      this.syncToModal('modal-social-radius', settings.physics.socialRadiusValue || settings.physics.socialRadius);
-    }
-    
-    // Visual settings
-    if (settings.visual) {
-      this.syncToModal('modal-background-color', settings.visual.backgroundColor);
-      this.syncToModal('modal-particle-size', settings.visual.particleSize);
-      this.syncToModal('modal-blur', settings.visual.blur);
-      this.syncToModal('modal-trail-enabled', settings.visual.trailEnabled);
-    }
-    
-    // Effects settings
-    if (settings.effects) {
-      this.syncToModal('trail-enabled', settings.effects.trailEnabled);
-      
-      // Halo settings
-      if (settings.effects.haloEnabled !== undefined) {
-        this.particleSystem.renderMode = settings.effects.haloEnabled ? 'dreamtime' : 'normal';
-        this.syncToModal('halo-enabled', settings.effects.haloEnabled);
-        this.syncToModal('halo-intensity', settings.effects.haloIntensity);
-        this.syncToModal('halo-radius', settings.effects.haloRadius);
-      }
-    }
-  }
-  
-  applyUIState(uiState) {
-    // Apply UI-specific state that's not part of the particle system
-    
-    // Species glow state
-    if (uiState.speciesGlowEnabled !== undefined) {
-      const glowEnabledCheckbox = this.modal.querySelector('#species-glow-enabled');
-      if (glowEnabledCheckbox) {
-        glowEnabledCheckbox.checked = uiState.speciesGlowEnabled;
-      }
-    }
-    
-    // Force relationship selectors
-    if (uiState.fromSpecies !== undefined) {
-      const fromSpeciesSelect = this.modal.querySelector('#force-from-species');
-      if (fromSpeciesSelect) {
-        fromSpeciesSelect.value = uiState.fromSpecies;
-      }
-    }
-    
-    if (uiState.toSpecies !== undefined) {
-      const toSpeciesSelect = this.modal.querySelector('#force-to-species');
-      if (toSpeciesSelect) {
-        toSpeciesSelect.value = uiState.toSpecies;
-      }
-    }
-  }
-  
-  syncToModal(elementId, value) {
-    const element = this.modal.querySelector(`#${elementId}`);
-    if (element) {
-      if (element.type === 'checkbox') {
-        element.checked = value;
-      } else if (element.type === 'color') {
-        element.value = value;
-      } else {
-        element.value = value;
-      }
-      
-      // Update value displays
-      const valueDisplay = this.modal.querySelector(`#${elementId}-value`);
-      if (valueDisplay) {
-        valueDisplay.textContent = typeof value === 'number' ? value.toFixed(2) : value;
-      }
-      
-      // Sync to particle system
-      const syncMapping = {
-        'friction': 'friction',
-        'wall-damping': 'wall-damping',
-        'force-factor': 'force-factor',
-        'modal-collision-radius': 'collision-radius',
-        'modal-social-radius': 'social-radius',
-        'modal-blur': 'blur',
-        'particle-size': 'particle-size'
-      };
-      
-      if (syncMapping[elementId]) {
-        this.syncToParticleSystem(syncMapping[elementId], value);
-        this.syncToMainUI(syncMapping[elementId], value);
-      }
-    }
-  }
-  
-  enablePaste(copiedSettings) {
-    // Enable or disable the paste button based on availability of copied settings
-    const pasteButton = this.modal.querySelector('.preset-btn-paste');
-    if (pasteButton) {
-      if (copiedSettings) {
-        pasteButton.disabled = false;
-        pasteButton.title = 'Paste settings from Floating UI';
-        pasteButton.style.opacity = '1';
-      } else {
-        pasteButton.disabled = true;
-        pasteButton.title = 'No settings copied. Copy settings from Floating UI first.';
-        pasteButton.style.opacity = '0.5';
-      }
-    }
-  }
 
   isInvalidPresetName(name) {
     if (!name || typeof name !== 'string') return true;

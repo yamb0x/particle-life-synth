@@ -219,11 +219,23 @@ The project uses a **consolidated testing system** - DO NOT create new test file
 
 ### Testing Guidelines for AI Assistants
 
-- **NEVER create new test-*.html files**
-- **ALWAYS update test-suite.html** when implementing new features
-- **Use debug-tools.html** for development debugging
-- **Reference existing test patterns** in test-suite.html for consistency
+#### Core Testing Workflow
+- **Self-Testing First**: Always implement automated tests in `test-suite.html` for any new feature or fix
+- **Debug-First Development**: Use `debug-tools.html` for all development debugging and diagnostic needs
+- **Test-Then-Implement**: Wait for user confirmation that tests pass before implementing full solutions
+- **Self-Debug Capability**: Add new debugging tools to `debug-tools.html` rather than creating separate utilities
+
+#### File Management Rules
+- **NEVER create new test-*.html files** - extend existing consolidated testing system
+- **ALWAYS update test-suite.html** when implementing new features or bug fixes
+- **Use debug-tools.html** for all development debugging and system diagnostics
+- **Reference existing test patterns** in test-suite.html for consistency and performance
 - **Clean up any temporary test files** created during development
+
+#### Integration Requirements
+- **Extend, Don't Create**: Add new test cases and debug tools to existing files unless explicitly requested
+- **Performance-Aware Testing**: Leverage existing performance monitoring in debug-tools.html
+- **User Preference Respect**: Follow established testing patterns that align with project's vanilla JS approach
 
 ## Next Steps
 

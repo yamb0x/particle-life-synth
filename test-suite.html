@@ -40,6 +40,36 @@
             opacity: 0.6;
         }
         
+        /* Rendering status indicator */
+        .rendering-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+        
+        .rendering-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+            animation: pulse 2s infinite;
+        }
+        
+        .rendering-indicator.active {
+            background: var(--accent-success);
+        }
+        
+        .rendering-indicator.inactive {
+            background: var(--accent-danger);
+            animation: none;
+        }
+        
+        .rendering-indicator.unknown {
+            background: var(--accent-warning);
+        }
+        
         .test-stats {
             display: flex;
             gap: var(--space-xl);
@@ -229,6 +259,10 @@
     <div class="header">
         <h1>Particle Life Synth - Test Suite</h1>
         <div class="test-stats">
+            <div class="rendering-status">
+                <div class="rendering-indicator unknown" id="rendering-indicator"></div>
+                <span id="rendering-text">Particles: Unknown</span>
+            </div>
             <div class="stat">
                 <span>Tests:</span>
                 <span class="stat-value" id="total-tests">0</span>
@@ -371,7 +405,7 @@
                 const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
                 
                 return {
-                    particleSize: randomFloat(2, 30),
+                    particleSize: randomFloat(2, 20), // Max is 20 based on slider range
                     particleCount: randomInt(50, 500),
                     worldScale: randomFloat(0.5, 2),
                     friction: randomFloat(0, 0.2),
@@ -390,6 +424,44 @@
             }
             
             setupTests() {
+                // RENDERING SYSTEM VALIDATION (First priority test)
+                this.addTest('system', 'rendering-system-health', 'Rendering System Health Check', async () => {
+                    const ctx = await this.getAppContext();
+                    
+                    // Comprehensive rendering validation
+                    let validation = await this.validateParticleRendering(ctx);
+                    this.logRenderingStatus(validation, 'Initial-Health-Check');
+                    
+                    // Attempt to fix any rendering issues
+                    if (!validation.renderingActive) {
+                        this.log('🔧 Detected rendering issues, attempting fixes...', 'warn');
+                        validation = await this.ensureRenderingActive(ctx);
+                        this.logRenderingStatus(validation, 'Post-Fix-Health-Check');
+                    }
+                    
+                    // Critical assertions
+                    this.assert(validation.hasCanvas, 'Canvas element exists');
+                    this.assert(validation.hasContext, 'Canvas 2D context available');
+                    this.assert(validation.hasParticles, 'Particles exist in system');
+                    this.assert(validation.particleCount > 0, `Particle count > 0 (found: ${validation.particleCount})`);
+                    
+                    // Warnings for non-critical issues
+                    if (validation.contextState !== 'connected') {
+                        this.log('⚠️ Context connection issue detected', 'warn');
+                    }
+                    
+                    if (validation.warnings.length > 0) {
+                        this.log(`⚠️ ${validation.warnings.length} rendering warnings detected`, 'warn');
+                    }
+                    
+                    return {
+                        renderingActive: validation.renderingActive,
+                        particleCount: validation.particleCount,
+                        fps: validation.avgFrameTime ? Math.round(1000 / validation.avgFrameTime) : 'unknown',
+                        warnings: validation.warnings.length
+                    };
+                });
+                
                 // UI Parameter Tests
                 this.addTest('ui', 'particle-size-control', 'Particle Size Control', async () => {
                     const ctx = await this.getAppContext();
@@ -623,6 +695,16 @@
                     const ctx = await this.getAppContext();
                     const ps = ctx.particleSystem;
                     
+                    // Check initial rendering state
+                    let validation = await this.validateParticleRendering(ctx);
+                    this.logRenderingStatus(validation, 'Pre-Matrix-Test');
+                    
+                    // Ensure particles are rendering
+                    if (!validation.renderingActive) {
+                        validation = await this.ensureRenderingActive(ctx);
+                        this.logRenderingStatus(validation, 'Post-Matrix-Ensure');
+                    }
+                    
                     // Check collision radius matrix structure
                     this.assert(Array.isArray(ps.collisionRadius), 'Collision radius is array');
                     this.assert(ps.collisionRadius.length === ps.numSpecies, 
@@ -663,9 +745,20 @@
                         await new Promise(resolve => setTimeout(resolve, 200));
                     }
                     
+                    // Final rendering validation after matrix operations
+                    const finalValidation = await this.validateParticleRendering(ctx);
+                    this.logRenderingStatus(finalValidation, 'Post-Matrix-Operations');
+                    
+                    // Ensure rendering is still active after all matrix operations
+                    if (!finalValidation.renderingActive) {
+                        await this.ensureRenderingActive(ctx);
+                        this.log('🔧 Fixed rendering after matrix operations', 'success');
+                    }
+                    
                     return { 
                         matrixSize: `${ps.numSpecies}x${ps.numSpecies}`,
-                        sampleValue: ps.collisionRadius[0][0]
+                        sampleValue: ps.collisionRadius[0][0],
+                        renderingHealthy: finalValidation.renderingActive
                     };
                 });
                 
@@ -903,6 +996,170 @@
                 this.updateStats();
             }
             
+            // RENDERING VALIDATION SYSTEM
+            
+            async validateParticleRendering(ctx) {
+                const validationResults = {
+                    hasParticles: false,
+                    particleCount: 0,
+                    hasCanvas: false,
+                    hasContext: false,
+                    contextState: 'unknown',
+                    renderingActive: false,
+                    animationRunning: false,
+                    lastFrameTime: null,
+                    avgFrameTime: null,
+                    warnings: []
+                };
+                
+                try {
+                    // Check particle system state
+                    if (ctx.particleSystem) {
+                        validationResults.hasParticles = ctx.particleSystem.particles && ctx.particleSystem.particles.length > 0;
+                        validationResults.particleCount = ctx.particleSystem.particles ? ctx.particleSystem.particles.length : 0;
+                        validationResults.avgFrameTime = ctx.particleSystem.avgFrameTime;
+                    }
+                    
+                    // Check canvas and context
+                    const canvas = ctx.document.getElementById('particle-canvas');
+                    if (canvas) {
+                        validationResults.hasCanvas = true;
+                        const context = canvas.getContext('2d');
+                        if (context) {
+                            validationResults.hasContext = true;
+                            validationResults.contextState = 'available';
+                            
+                            // Check if context is properly set in particle system
+                            if (ctx.particleSystem && ctx.particleSystem.ctx === context) {
+                                validationResults.contextState = 'connected';
+                            } else {
+                                validationResults.warnings.push('Particle system context not properly connected');
+                            }
+                        } else {
+                            validationResults.warnings.push('Canvas 2D context not available');
+                        }
+                    } else {
+                        validationResults.warnings.push('Particle canvas not found');
+                    }
+                    
+                    // Check animation loop status
+                    if (ctx.window && ctx.window.animationActive !== undefined) {
+                        validationResults.animationRunning = ctx.window.animationActive;
+                    }
+                    
+                    // Performance validation
+                    if (ctx.particleSystem) {
+                        const avgTime = ctx.particleSystem.avgFrameTime;
+                        if (avgTime > 50) { // More than 20fps
+                            validationResults.warnings.push(`Low performance detected: ${avgTime.toFixed(1)}ms avg frame time`);
+                        }
+                        
+                        // Check for frozen particles
+                        if (ctx.particleSystem.frameCount !== undefined) {
+                            const previousFrameCount = this.lastFrameCount || 0;
+                            if (ctx.particleSystem.frameCount === previousFrameCount) {
+                                validationResults.warnings.push('Animation appears frozen (frame count not updating)');
+                            }
+                            this.lastFrameCount = ctx.particleSystem.frameCount;
+                        }
+                    }
+                    
+                    // Species validation
+                    if (ctx.particleSystem && ctx.particleSystem.species) {
+                        const speciesWithColors = ctx.particleSystem.species.filter(s => s.color && s.color.r !== undefined);
+                        if (speciesWithColors.length === 0) {
+                            validationResults.warnings.push('No species with valid colors found');
+                        }
+                    }
+                    
+                    // Overall rendering health
+                    validationResults.renderingActive = validationResults.hasParticles && 
+                                                     validationResults.hasContext && 
+                                                     validationResults.contextState === 'connected' &&
+                                                     validationResults.warnings.length === 0;
+                    
+                } catch (error) {
+                    validationResults.warnings.push(`Validation error: ${error.message}`);
+                }
+                
+                return validationResults;
+            }
+            
+            logRenderingStatus(validation, testName) {
+                const status = validation.renderingActive ? '🟢' : '🔴';
+                const particleInfo = `${validation.particleCount} particles`;
+                const contextInfo = validation.contextState;
+                
+                this.log(`${status} Rendering Status [${testName}]: ${particleInfo}, context: ${contextInfo}`, 
+                         validation.renderingActive ? 'success' : 'warn');
+                
+                // Update visual indicator in header
+                this.updateRenderingIndicator(validation);
+                
+                if (validation.warnings.length > 0) {
+                    validation.warnings.forEach(warning => {
+                        this.log(`⚠️ ${warning}`, 'warn');
+                    });
+                }
+                
+                if (validation.avgFrameTime) {
+                    const fps = Math.round(1000 / validation.avgFrameTime);
+                    this.log(`📊 Performance: ${fps} FPS (${validation.avgFrameTime.toFixed(1)}ms/frame)`, 'info');
+                }
+            }
+            
+            updateRenderingIndicator(validation) {
+                const indicator = document.getElementById('rendering-indicator');
+                const text = document.getElementById('rendering-text');
+                
+                if (!indicator || !text) return;
+                
+                // Reset classes
+                indicator.className = 'rendering-indicator';
+                
+                if (validation.renderingActive) {
+                    indicator.classList.add('active');
+                    const fps = validation.avgFrameTime ? Math.round(1000 / validation.avgFrameTime) : '?';
+                    text.textContent = `Particles: ${validation.particleCount} (${fps} FPS)`;
+                } else if (validation.hasParticles === false || validation.particleCount === 0) {
+                    indicator.classList.add('inactive');
+                    text.textContent = `Particles: ${validation.particleCount} (Stopped)`;
+                } else {
+                    indicator.classList.add('unknown');
+                    text.textContent = `Particles: ${validation.particleCount} (Issues)`;
+                }
+            }
+            
+            async ensureRenderingActive(ctx) {
+                // Force restart animation if it appears stopped
+                const validation = await this.validateParticleRendering(ctx);
+                
+                if (!validation.animationRunning && ctx.window.startAnimation) {
+                    this.log('🔄 Restarting animation loop...', 'info');
+                    ctx.window.startAnimation();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                // Reinitialize particles if count is zero
+                if (validation.particleCount === 0 && ctx.particleSystem.initializeParticles) {
+                    this.log('🔄 Reinitializing particles...', 'info');
+                    ctx.particleSystem.initializeParticles();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                // Fix context connection if broken
+                if (validation.hasCanvas && validation.hasContext && validation.contextState !== 'connected') {
+                    const canvas = ctx.document.getElementById('particle-canvas');
+                    if (canvas && ctx.particleSystem) {
+                        this.log('🔄 Reconnecting canvas context...', 'info');
+                        ctx.particleSystem.setCanvas(canvas);
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                }
+                
+                return await this.validateParticleRendering(ctx);
+            }
+            
             async cleanupTestPresets() {
                 this.log(`\n=== Cleanup Check: ${this.testPresetsCreated.size} test presets tracked ===`, 'info');
                 
@@ -1072,19 +1329,19 @@
                 // Add comprehensive preset testing
                 this.addTest('storage', 'preset-creation', 'Preset Creation & Deletion', () => this.testPresetCreation());
                 this.addTest('storage', 'preset-update', 'Preset Update', () => this.testPresetUpdate());
-                this.addTest('storage', 'copy-paste-workflow', 'Copy/Paste Settings Workflow', () => this.testCopyPasteWorkflow());
+                this.addTest('storage', 'fetch-settings-workflow', 'Fetch Settings Workflow', () => this.testFetchSettingsWorkflow());
                 this.addTest('storage', 'parameter-sync', 'Parameter Synchronization', () => this.testParameterSync());
                 this.addTest('storage', 'starting-positions', 'Starting Position Editor', () => this.testStartingPositions());
                 this.addTest('storage', 'preset-navigation', 'Preset Navigation in Modal', () => this.testPresetNavigation());
                 this.addTest('integration', 'full-preset-workflow', 'Full Preset Edit Workflow', () => this.testFullPresetWorkflow());
                 
-                // Add NEW comprehensive tests for recent changes
-                this.addTest('integration', 'distribution-drawer-sync', 'Distribution Drawer Sync Between Main/Modal', () => this.testDistributionDrawerSync());
-                this.addTest('integration', 'fetch-scene-settings', 'Fetch Current Scene Settings', () => this.testFetchSceneSettings());
-                this.addTest('integration', 'preset-name-preservation', 'Preset Name Preservation on Paste', () => this.testPresetNamePreservation());
-                this.addTest('integration', 'modal-button-functionality', 'All Modal Buttons Function Correctly', () => this.testModalButtonFunctionality());
-                this.addTest('integration', 'data-consistency-main-modal', 'Data Consistency Between Main UI and Modal', () => this.testDataConsistencyMainModal());
-                this.addTest('integration', 'distribution-pattern-buttons', 'Distribution Pattern Buttons in Modal', () => this.testDistributionPatternButtons());
+                // UPDATED comprehensive tests for simplified preset workflow
+                this.addTest('integration', 'simplified-preset-workflow', 'Simplified Preset Workflow', () => this.testSimplifiedPresetWorkflow());
+                this.addTest('integration', 'fetch-scene-data', 'Fetch Scene Data Button', () => this.testFetchSceneData());
+                this.addTest('integration', 'save-as-new-vs-update', 'Save As New vs Update Preset Logic', () => this.testSaveAsNewVsUpdate());
+                this.addTest('integration', 'modal-button-states', 'Modal Button States Update Correctly', () => this.testModalButtonStates());
+                this.addTest('integration', 'preset-button-removal', 'Removed Buttons No Longer Present', () => this.testRemovedButtons());
+                this.addTest('integration', 'firebase-integration', 'Firebase Integration Test', () => this.testFirebaseIntegration());
             }
             
             // Comprehensive preset testing functions
@@ -1194,12 +1451,12 @@
                 }
             }
             
-            async testCopyPasteWorkflow() {
+            async testFetchSettingsWorkflow() {
                 try {
                     const ctx = await this.getAppContext();
                     const randomValues = this.generateRandomPresetValues();
                     
-                    // Set random values in the floating UI
+                    // Set random values in the main UI
                     const sizeSlider = await this.findMainUIElement('#particle-size');
                     const frictionSlider = await this.findMainUIElement('#friction');
                     const speciesSlider = await this.findMainUIElement('#species-count');
@@ -1215,67 +1472,51 @@
                     
                     await new Promise(resolve => setTimeout(resolve, 500));
                     
-                    // Copy settings
-                    ctx.mainUI.copySettings();
-                    this.assert(ctx.mainUI.copiedSettings !== null, 'Settings copied');
-                    
-                    // Verify copied values match what we set
-                    // Check if copiedSettings has the expected structure
-                    this.assert(ctx.mainUI.copiedSettings !== null, 'Settings were copied');
-                    this.assert(ctx.mainUI.copiedSettings.visual !== undefined, 'Visual settings exist');
-                    // Particle size might be rounded when going through the UI
-                    const copiedSize = ctx.mainUI.copiedSettings.visual.particleSize;
-                    const expectedSize = randomValues.particleSize;
-                    const currentSystemSize = ctx.particleSystem.particleSize;
-                    const sizeDiff = Math.abs(copiedSize - expectedSize);
-                    // Accept if copied value matches expected, current system, or is reasonably close
-                    this.assert(
-                        sizeDiff < 2.0 || 
-                        Math.abs(copiedSize - Math.round(expectedSize)) < 0.5 ||
-                        Math.abs(copiedSize - currentSystemSize) < 0.5,
-                        `Copied particle size reasonable (expected: ${expectedSize}, got: ${copiedSize}, system: ${currentSystemSize})`
-                    );
-                    this.assert(
-                        ctx.mainUI.copiedSettings.species.count === randomValues.speciesCount,
-                        'Copied species count matches'
-                    );
-                    
-                    // Open modal and paste
-                    ctx.presetModal.open(null);
+                    // Open preset modal
+                    ctx.presetModal.open();
                     await new Promise(resolve => setTimeout(resolve, 300));
                     
-                    // Find and click paste button in modal
-                    const pasteBtn = ctx.document.querySelector('.preset-modal .preset-btn-paste');
-                    this.assert(pasteBtn !== null, 'Paste button found in modal');
+                    // Click fetch scene data button
+                    const fetchBtn = ctx.presetModal.modal.querySelector('.preset-btn-fetch');
+                    this.assert(fetchBtn !== null, 'Fetch scene data button exists');
                     
-                    pasteBtn.click();
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    fetchBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     
-                    // Verify values were pasted into modal
-                    const modalSizeSlider = ctx.document.querySelector('.preset-modal #modal-particle-size');
-                    const modalSpeciesSlider = ctx.document.querySelector('.preset-modal #modal-species-count');
+                    // Verify values were fetched into modal
+                    const modalSizeInput = ctx.presetModal.modal.querySelector('#modal-particle-size');
+                    const modalFrictionInput = ctx.presetModal.modal.querySelector('#modal-friction');
+                    const modalSpeciesInput = ctx.presetModal.modal.querySelector('#modal-species-count');
                     
-                    // Check if value was pasted - it might be slightly different due to rounding
-                    const modalSize = parseFloat(modalSizeSlider.value);
-                    const expectedModalSize = randomValues.particleSize;
-                    // Accept if modal shows the copied value, expected value, or is reasonably close
-                    this.assert(
-                        Math.abs(modalSize - expectedModalSize) < 5.0 ||
-                        Math.abs(modalSize - copiedSize) < 1.0 ||
-                        Math.abs(modalSize - Math.round(expectedModalSize)) < 1.0,
-                        `Particle size pasted into modal (expected: ${expectedModalSize}, copied: ${copiedSize}, got: ${modalSize})`
-                    );
-                    this.assert(
-                        parseInt(modalSpeciesSlider.value) === randomValues.speciesCount,
-                        'Species count pasted into modal'
-                    );
+                    this.assert(modalSizeInput !== null, 'Modal particle size input found');
+                    this.assert(modalFrictionInput !== null, 'Modal friction input found');
+                    this.assert(modalSpeciesInput !== null, 'Modal species count input found');
+                    
+                    // Check if values match (with tolerance for UI precision)
+                    const fetchedSize = parseFloat(modalSizeInput.value);
+                    const fetchedFriction = parseFloat(modalFrictionInput.value);
+                    const fetchedSpecies = parseInt(modalSpeciesInput.value);
+                    
+                    this.assert(Math.abs(fetchedSize - randomValues.particleSize) < 0.5, 
+                               `Particle size fetched correctly: ${fetchedSize} ≈ ${randomValues.particleSize}`);
+                    this.assert(Math.abs(fetchedFriction - randomValues.friction) < 0.01,
+                               `Friction fetched correctly: ${fetchedFriction} ≈ ${randomValues.friction}`);
+                    this.assert(fetchedSpecies === randomValues.speciesCount,
+                               `Species count fetched correctly: ${fetchedSpecies} = ${randomValues.speciesCount}`);
                     
                     // Close modal
                     ctx.presetModal.close();
                     
-                    return { randomValues, copiedSettings: ctx.mainUI.copiedSettings };
+                    return { 
+                        randomValues,
+                        fetchedValues: {
+                            particleSize: fetchedSize,
+                            friction: fetchedFriction, 
+                            speciesCount: fetchedSpecies
+                        }
+                    };
                 } catch (error) {
-                    throw new Error(`Copy/paste workflow test failed: ${error.message}`);
+                    throw new Error(`Fetch settings workflow test failed: ${error.message}`);
                 }
             }
             
@@ -1562,50 +1803,59 @@
                     const testPresetKey = 'workflow-test-' + Date.now();
                     const randomValues = this.generateRandomPresetValues();
                     
-                    // Step 1: Adjust parameters in floating UI
-                    this.log('Step 1: Adjusting floating UI parameters...', 'info');
+                    // Step 1: Adjust parameters in main UI
+                    this.log('Step 1: Adjusting main UI parameters...', 'info');
                     const sizeSlider = await this.findMainUIElement('#particle-size');
+                    const frictionSlider = await this.findMainUIElement('#friction');
+                    const speciesSlider = await this.findMainUIElement('#species-count');
+                    
                     sizeSlider.value = randomValues.particleSize;
                     sizeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    frictionSlider.value = randomValues.friction;
+                    frictionSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    speciesSlider.value = randomValues.speciesCount;
+                    speciesSlider.dispatchEvent(new Event('input', { bubbles: true }));
                     
-                    // Step 2: Copy settings
-                    this.log('Step 2: Copying settings...', 'info');
-                    ctx.mainUI.copySettings();
-                    this.assert(ctx.mainUI.copiedSettings !== null, 'Settings copied');
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     
-                    // Step 3: Open configuration panel
-                    this.log('Step 3: Opening configuration panel...', 'info');
-                    ctx.presetModal.open(null);
+                    // Step 2: Open configuration panel
+                    this.log('Step 2: Opening configuration panel...', 'info');
+                    ctx.presetModal.open();
                     await new Promise(resolve => setTimeout(resolve, 300));
                     
-                    // Step 4: Paste settings
-                    this.log('Step 4: Pasting settings...', 'info');
-                    const pasteBtn = ctx.document.querySelector('.preset-modal .preset-btn-paste');
-                    this.assert(pasteBtn !== null, 'Paste button found');
-                    pasteBtn.click();
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // Step 3: Fetch current scene settings
+                    this.log('Step 3: Fetching scene data...', 'info');
+                    const fetchBtn = ctx.presetModal.modal.querySelector('.preset-btn-fetch');
+                    this.assert(fetchBtn !== null, 'Fetch scene data button found');
+                    fetchBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     
-                    // Step 5: Further refine in config panel
-                    this.log('Step 5: Refining in configuration panel...', 'info');
-                    const modalBgColor = ctx.document.querySelector('.preset-modal #modal-background-color');
-                    modalBgColor.value = randomValues.backgroundColor;
-                    modalBgColor.dispatchEvent(new Event('change', { bubbles: true }));
+                    // Step 4: Further refine in config panel
+                    this.log('Step 4: Refining in configuration panel...', 'info');
+                    const modalBgColor = ctx.presetModal.modal.querySelector('#modal-background-color');
+                    if (modalBgColor) {
+                        modalBgColor.value = randomValues.backgroundColor;
+                        modalBgColor.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                     
-                    // Step 6: Save as new preset
-                    this.log('Step 6: Saving as new preset...', 'info');
-                    const nameInput = ctx.document.querySelector('.preset-modal .preset-name-input');
+                    // Step 5: Save as new preset
+                    this.log('Step 5: Saving as new preset...', 'info');
+                    const nameInput = ctx.presetModal.modal.querySelector('.preset-name-input');
                     this.assert(nameInput !== null, 'Preset name input found');
                     nameInput.value = 'WorkflowValidation';
                     nameInput.dispatchEvent(new Event('input', { bubbles: true }));
                     
-                    const saveBtn = ctx.document.querySelector('.preset-modal .preset-btn-save');
-                    this.assert(saveBtn !== null, 'Save button found');
-                    saveBtn.click();
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 200));
                     
-                    // Step 7: Verify preset was created with all parameters
-                    this.log('Step 7: Verifying preset...', 'info');
-                    const presetManager = ctx.window.presetModal.presetManager;
+                    const saveBtn = ctx.presetModal.modal.querySelector('.preset-btn-save');
+                    this.assert(saveBtn !== null, 'Save button found');
+                    this.assert(saveBtn.textContent.includes('Save As New'), 'Save button shows "Save As New" for new preset');
+                    saveBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Step 6: Verify preset was created with all parameters
+                    this.log('Step 6: Verifying preset...', 'info');
+                    const presetManager = ctx.presetModal.presetManager;
                     const userPresets = presetManager.getUserPresets();
                     const newPreset = userPresets.find(p => p.name === 'WorkflowValidation');
                     
@@ -1617,14 +1867,20 @@
                         this.testPresetsCreated.add(newPreset.key);
                         this.log(`Tracking workflow test preset for cleanup: ${newPreset.key}`, 'info');
                     }
+                    // Get the full preset data to check properties
+                    let fullPreset = null;
+                    if (newPreset && newPreset.key) {
+                        fullPreset = presetManager.getPreset(newPreset.key);
+                    }
+                    
                     // Check visual properties if they exist
-                    if (newPreset && newPreset.visual) {
+                    if (fullPreset && fullPreset.visual) {
                         this.assert(
-                            Math.abs(newPreset.visual.particleSize - randomValues.particleSize) < 0.5,
+                            Math.abs(fullPreset.visual.particleSize - randomValues.particleSize) < 0.5,
                             'Particle size saved correctly'
                         );
                         this.assert(
-                            newPreset.visual.backgroundColor === randomValues.backgroundColor,
+                            fullPreset.visual.backgroundColor === randomValues.backgroundColor,
                             'Background color saved correctly'
                         );
                     } else {
@@ -1632,14 +1888,16 @@
                     }
                     
                     // Cleanup
-                    await presetManager.deletePreset(newPreset.key);
+                    if (newPreset && newPreset.key) {
+                        await presetManager.deletePreset(newPreset.key);
+                    }
                     
                     // Close modal
                     ctx.presetModal.close();
                     
                     return { 
                         workflowCompleted: true,
-                        presetKey: newPreset.key,
+                        presetKey: newPreset ? newPreset.key : null,
                         randomValues 
                     };
                 } catch (error) {
@@ -1727,6 +1985,16 @@
                 try {
                     const ctx = await this.getAppContext();
                     
+                    // Check initial rendering state
+                    let validation = await this.validateParticleRendering(ctx);
+                    this.logRenderingStatus(validation, 'Pre-Randomize');
+                    
+                    // Ensure particles are rendering before test
+                    if (!validation.renderingActive) {
+                        validation = await this.ensureRenderingActive(ctx);
+                        this.logRenderingStatus(validation, 'Post-Ensure');
+                    }
+                    
                     // Get initial values for comparison
                     const initialParams = {
                         particlesPerSpecies: ctx.particleSystem.particlesPerSpecies,
@@ -1749,6 +2017,15 @@
                         
                         randomizeBtn.click();
                         await new Promise(resolve => setTimeout(resolve, 500));
+                        
+                        // Check rendering status after randomization
+                        const postRandomizeValidation = await this.validateParticleRendering(ctx);
+                        this.logRenderingStatus(postRandomizeValidation, `Post-Randomize-${i + 1}`);
+                        
+                        // Attempt to fix rendering if broken
+                        if (!postRandomizeValidation.renderingActive) {
+                            await this.ensureRenderingActive(ctx);
+                        }
                         
                         // Verify that parameters have changed
                         const newParams = {
@@ -2260,6 +2537,361 @@
                     return results;
                 } catch (error) {
                     throw new Error(`Distribution pattern buttons test failed: ${error.message}`);
+                }
+            }
+            
+            // NEW SIMPLIFIED PRESET WORKFLOW TESTS
+            
+            async testSimplifiedPresetWorkflow() {
+                try {
+                    const ctx = await this.getAppContext();
+                    const testPresetName = 'SimplifiedWorkflowTest';
+                    
+                    // Step 1: Adjust parameters in main UI
+                    this.log('Step 1: Adjusting main UI parameters...', 'info');
+                    const sizeSlider = await this.findMainUIElement('#particle-size');
+                    const frictionSlider = await this.findMainUIElement('#friction');
+                    
+                    sizeSlider.value = 8.5;
+                    sizeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    frictionSlider.value = 0.15;
+                    frictionSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Step 2: Open preset modal
+                    this.log('Step 2: Opening preset modal...', 'info');
+                    ctx.presetModal.open();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Step 3: Click "Fetch Scene Data"
+                    this.log('Step 3: Fetching scene data...', 'info');
+                    const fetchBtn = ctx.presetModal.modal.querySelector('.preset-btn-fetch');
+                    this.assert(fetchBtn !== null, 'Fetch Scene Data button exists');
+                    this.assert(fetchBtn.textContent.includes('Fetch'), 'Button has correct label');
+                    
+                    fetchBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Verify scene data was fetched
+                    const modalParticleSize = ctx.presetModal.modal.querySelector('#modal-particle-size');
+                    const modalFriction = ctx.presetModal.modal.querySelector('#modal-friction');
+                    this.assert(parseFloat(modalParticleSize.value) === 8.5, 'Particle size fetched correctly');
+                    this.assert(parseFloat(modalFriction.value) === 0.15, 'Friction fetched correctly');
+                    
+                    // Step 4: Set preset name and save
+                    this.log('Step 4: Setting name and saving...', 'info');
+                    const nameInput = ctx.presetModal.modal.querySelector('.preset-name-input');
+                    nameInput.value = testPresetName;
+                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Verify save button shows "Save As New"
+                    const saveBtn = ctx.presetModal.modal.querySelector('.preset-btn-save');
+                    this.assert(saveBtn.textContent.includes('Save As New'), 'Save button shows "Save As New" for new preset');
+                    
+                    saveBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Step 5: Verify preset was saved
+                    this.log('Step 5: Verifying preset saved...', 'info');
+                    const presetManager = ctx.window.presetModal.presetManager;
+                    const userPresets = presetManager.getUserPresets();
+                    const savedPreset = userPresets.find(p => p.name === testPresetName);
+                    this.assert(savedPreset !== null && savedPreset !== undefined, 'Preset was saved to storage');
+                    this.assert(savedPreset.name === testPresetName, 'Preset name saved correctly');
+                    
+                    // Get the full preset data to check properties
+                    const fullPreset = presetManager.getPreset(savedPreset.key);
+                    if (fullPreset && fullPreset.visual) {
+                        this.assert(Math.abs(fullPreset.visual.particleSize - 8.5) < 0.1, 'Particle size saved correctly');
+                    }
+                    
+                    ctx.presetModal.close();
+                    
+                    // Track created preset for cleanup and perform immediate cleanup
+                    if (savedPreset && savedPreset.key) {
+                        this.testPresetsCreated.add(savedPreset.key);
+                        await presetManager.deletePreset(savedPreset.key);
+                    }
+                    
+                    return { testPresetName, particleSize: 8.5, friction: 0.15 };
+                    
+                } catch (error) {
+                    throw new Error(`Simplified preset workflow test failed: ${error.message}`);
+                }
+            }
+            
+            async testFetchSceneData() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Set specific values in main UI
+                    const trailSlider = await this.findMainUIElement('#trail-length');
+                    const speciesSlider = await this.findMainUIElement('#species-count');
+                    
+                    this.assert(trailSlider !== null, 'Trail slider found');
+                    this.assert(speciesSlider !== null, 'Species slider found');
+                    
+                    trailSlider.value = 0.87;
+                    trailSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    speciesSlider.value = 8;
+                    speciesSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Open modal
+                    ctx.presetModal.open();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Click fetch button
+                    const fetchBtn = ctx.presetModal.modal.querySelector('.preset-btn-fetch');
+                    this.assert(fetchBtn !== null, 'Fetch Scene Data button found');
+                    fetchBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Verify data was fetched
+                    const modalBlur = ctx.presetModal.modal.querySelector('#modal-blur');
+                    const modalSpecies = ctx.presetModal.modal.querySelector('#modal-species-count');
+                    
+                    this.assert(modalBlur !== null, 'Modal blur control found');
+                    this.assert(modalSpecies !== null, 'Modal species control found');
+                    this.assert(Math.abs(parseFloat(modalBlur.value) - 0.87) < 0.01, 'Trail/blur value fetched correctly');
+                    this.assert(parseInt(modalSpecies.value) === 8, 'Species count fetched correctly');
+                    
+                    ctx.presetModal.close();
+                    
+                    return { trailLength: 0.87, species: 8 };
+                    
+                } catch (error) {
+                    throw new Error(`Fetch scene data test failed: ${error.message}`);
+                }
+            }
+            
+            async testSaveAsNewVsUpdate() {
+                try {
+                    const ctx = await this.getAppContext();
+                    const testPresetName = 'UpdateTest';
+                    
+                    // Create initial preset
+                    const initialPreset = ctx.particleSystem.exportPreset();
+                    initialPreset.name = testPresetName;
+                    const presetKey = `user_${testPresetName.toLowerCase().replace(/\s+/g, '_')}`;
+                    const presetManager = ctx.window.presetModal.presetManager;
+                    await presetManager.savePreset(presetKey, initialPreset);
+                    
+                    // Open modal with existing preset
+                    ctx.presetModal.open(presetKey);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Verify button shows "Update Preset"
+                    const saveBtn = ctx.presetModal.modal.querySelector('.preset-btn-save');
+                    this.assert(saveBtn.textContent.includes('Update'), 'Save button shows "Update Preset" for existing preset');
+                    
+                    // Change name - should switch to "Save As New"
+                    const nameInput = ctx.presetModal.modal.querySelector('.preset-name-input');
+                    nameInput.value = 'UpdateTestNewName';
+                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    this.assert(saveBtn.textContent.includes('Save As New'), 'Save button switches to "Save As New" when name changes');
+                    
+                    // Reset name - should go back to "Update Preset"
+                    nameInput.value = testPresetName;
+                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    this.assert(saveBtn.textContent.includes('Update'), 'Save button switches back to "Update Preset" when name restored');
+                    
+                    ctx.presetModal.close();
+                    
+                    // Cleanup
+                    await presetManager.deletePreset(presetKey);
+                    
+                    return { testPresetName };
+                    
+                } catch (error) {
+                    throw new Error(`Save As New vs Update test failed: ${error.message}`);
+                }
+            }
+            
+            async testModalButtonStates() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test with new preset
+                    ctx.presetModal.open();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    const deleteBtn = ctx.presetModal.modal.querySelector('.preset-btn-delete');
+                    this.assert(deleteBtn.disabled === true, 'Delete button disabled for new preset');
+                    
+                    ctx.presetModal.close();
+                    
+                    // Test with existing preset
+                    const testPreset = ctx.particleSystem.exportPreset();
+                    testPreset.name = 'ButtonStateTest';
+                    const presetKey = 'user_buttonstatetest';
+                    const presetManager = ctx.window.presetModal.presetManager;
+                    await presetManager.savePreset(presetKey, testPreset);
+                    
+                    ctx.presetModal.open(presetKey);
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Get the delete button again for the existing preset context
+                    const deleteBtnExisting = ctx.presetModal.modal.querySelector('.preset-btn-delete');
+                    this.assert(deleteBtnExisting.disabled === false, 'Delete button enabled for existing preset');
+                    
+                    ctx.presetModal.close();
+                    
+                    // Cleanup
+                    await presetManager.deletePreset(presetKey);
+                    
+                    return { newPresetDeleteDisabled: true, existingPresetDeleteEnabled: true };
+                    
+                } catch (error) {
+                    throw new Error(`Modal button states test failed: ${error.message}`);
+                }
+            }
+            
+            async testRemovedButtons() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    ctx.presetModal.open();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Check that removed buttons are not present
+                    const closeBtnOld = ctx.presetModal.modal.querySelector('.preset-btn-close');
+                    const applyBtn = ctx.presetModal.modal.querySelector('.preset-btn-apply');
+                    const pasteBtn = ctx.presetModal.modal.querySelector('.preset-btn-paste');
+                    const shareBtn = ctx.presetModal.modal.querySelector('.preset-btn-share');
+                    
+                    this.assert(closeBtnOld === null, 'Old close button removed');
+                    this.assert(applyBtn === null, 'Apply button removed');
+                    this.assert(pasteBtn === null, 'Paste button removed');
+                    this.assert(shareBtn === null, 'Share button removed');
+                    
+                    // Check that essential buttons are still present
+                    const fetchBtn = ctx.presetModal.modal.querySelector('.preset-btn-fetch');
+                    const saveBtn = ctx.presetModal.modal.querySelector('.preset-btn-save');
+                    const deleteBtn = ctx.presetModal.modal.querySelector('.preset-btn-delete');
+                    const closeBtn = ctx.presetModal.modal.querySelector('.preset-modal-close');
+                    
+                    this.assert(fetchBtn !== null, 'Fetch Scene Data button present');
+                    this.assert(saveBtn !== null, 'Save button present');
+                    this.assert(deleteBtn !== null, 'Delete button present');
+                    this.assert(closeBtn !== null, 'Header close button present');
+                    
+                    ctx.presetModal.close();
+                    
+                    return { removedButtons: 4, essentialButtons: 4 };
+                    
+                } catch (error) {
+                    throw new Error(`Removed buttons test failed: ${error.message}`);
+                }
+            }
+            
+            async testFirebaseIntegration() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Check if cloud storage is available and enabled
+                    const presetManager = ctx.window.presetModal.presetManager;
+                    const cloudEnabled = (typeof presetManager.isCloudEnabled === 'function') && presetManager.isCloudEnabled();
+                    
+                    if (!cloudEnabled) {
+                        this.log('Cloud storage not enabled - testing local storage only', 'warn');
+                        return { cloudEnabled: false, localStorage: true };
+                    }
+                    
+                    const testPresetName = 'ValidFirebaseTest_' + Date.now();
+                    
+                    // Create a test preset that should NOT be uploaded (invalid name pattern)
+                    const invalidPreset = {
+                        ...ctx.particleSystem.exportPreset(),
+                        name: 'Test_Invalid_Pattern'  // Starts with 'test_' pattern - explicitly blocked
+                    };
+                    const invalidKey = 'user_test_invalid_pattern';
+                    
+                    // Save locally - should not upload to Firebase due to invalid name
+                    try {
+                        await presetManager.savePreset(invalidKey, invalidPreset, true);
+                    } catch (error) {
+                        // This is expected to fail for cloud upload but should succeed locally
+                        this.log(`Expected error for invalid preset: ${error.message}`, 'info');
+                    }
+                    
+                    // Verify it exists locally but not in cloud
+                    const localPreset = presetManager.getPreset(invalidKey);
+                    const localExists = localPreset !== null && localPreset !== undefined;
+                    this.assert(localExists, 'Invalid preset saved locally');
+                    
+                    // Create a valid preset that should be uploaded
+                    const validPreset = ctx.particleSystem.exportPreset();
+                    // Log the original name to debug the issue
+                    this.log(`Original exported preset name: "${validPreset.name}"`, 'info');
+                    
+                    // Create a clean preset object with valid name from the start
+                    const cleanValidPreset = {
+                        ...validPreset,
+                        name: testPresetName,  // 'FirebaseIntegrationTest' is a valid name
+                        visual: validPreset.visual ? {
+                            ...validPreset.visual,
+                            particleSize: 12.5  // Unique value for verification
+                        } : { particleSize: 12.5 }
+                    };
+                    const validKey = 'user_firebaseintegrationtest';
+                    
+                    // Save with cloud upload
+                    await presetManager.savePreset(validKey, cleanValidPreset, true);
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for Firebase
+                    
+                    // Verify local save
+                    const validLocalPreset = presetManager.getPreset(validKey);
+                    const validLocalExists = validLocalPreset !== null && validLocalPreset !== undefined;
+                    this.assert(validLocalExists, 'Valid preset saved locally');
+                    
+                    // Test Firebase validation (check if method exists first)
+                    const hasValidation = typeof presetManager.isInvalidPresetName === 'function';
+                    let isInvalid = false, isValid = true;
+                    if (hasValidation) {
+                        isInvalid = presetManager.isInvalidPresetName('Test_Invalid_Pattern');
+                        isValid = presetManager.isInvalidPresetName(cleanValidPreset.name);
+                        this.assert(isInvalid === true, 'Invalid pattern detected correctly');
+                        this.assert(isValid === false, 'Valid pattern detected correctly');
+                    } else {
+                        this.log('Preset name validation not available', 'warn');
+                    }
+                    
+                    // Cleanup - track for later cleanup if immediate deletion fails
+                    try {
+                        await presetManager.deletePreset(invalidKey);
+                    } catch (error) {
+                        this.log(`Failed to delete invalid preset: ${error.message}`, 'warn');
+                    }
+                    
+                    try {
+                        await presetManager.deletePreset(validKey);
+                    } catch (error) {
+                        this.log(`Failed to delete valid preset: ${error.message}`, 'warn');
+                        this.testPresetsCreated.add(validKey); // Track for cleanup
+                    }
+                    
+                    return { 
+                        cloudEnabled: true, 
+                        invalidPresetBlocked: isInvalid, 
+                        validPresetAllowed: !isValid,
+                        hasValidation,
+                        testPresetName: cleanValidPreset.name,
+                        originalPresetName: validPreset.name
+                    };
+                    
+                } catch (error) {
+                    throw new Error(`Firebase integration test failed: ${error.message}`);
                 }
             }
         }

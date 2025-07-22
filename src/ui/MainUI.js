@@ -47,7 +47,7 @@ export class MainUI {
             // Visual controls
             'background-color', 'particle-size', 'particle-size-value', 'species-colors-container',
             // Action buttons
-            'copy-settings-btn', 'randomize-forces-btn', 'reset-defaults-btn'
+            'randomize-forces-btn', 'reset-defaults-btn'
         ];
         
         const missingIds = [];
@@ -414,10 +414,7 @@ export class MainUI {
                 <!-- 7. ACTIONS Section -->
                 <div class="section">
                     <h4 class="section-title">Actions</h4>
-                    <button class="btn btn-primary" id="copy-settings-btn" style="width: 100%; margin-bottom: var(--space-sm);">
-                        Copy Settings (X)
-                    </button>
-                    <button class="btn btn-secondary" id="configure-preset-btn" style="width: 100%;">
+                    <button class="btn btn-primary" id="configure-preset-btn" style="width: 100%; margin-bottom: var(--space-sm);">
                         Configure Presets
                     </button>
                     <div class="quick-actions-row">
@@ -936,42 +933,6 @@ export class MainUI {
         }
     }
     
-    copySettings() {
-        // Capture all current settings including synth assignments
-        // Use exportPreset to get complete and consistent state
-        const completePreset = this.particleSystem.exportPreset();
-        
-        // Add UI-specific state that's not in the particle system
-        this.copiedSettings = {
-            ...completePreset,
-            // UI state additions
-            uiState: {
-                selectedGlowSpecies: parseInt(document.getElementById('glow-species-selector').value),
-                speciesGlowEnabled: document.getElementById('species-glow-enabled').checked,
-                fromSpecies: parseInt(document.getElementById('from-species').value),
-                toSpecies: parseInt(document.getElementById('to-species').value),
-                currentForceValue: this.particleSystem.socialForce[
-                    parseInt(document.getElementById('from-species').value)
-                ][parseInt(document.getElementById('to-species').value)]
-            },
-            synthAssignments: this.saveSynthAssignments()
-        };
-        
-        // Visual feedback
-        const btn = document.getElementById('copy-settings-btn');
-        const originalText = btn.textContent;
-        btn.textContent = '✓ Copied!';
-        btn.style.background = '#4a9eff';
-        setTimeout(() => {
-            btn.textContent = originalText;
-            btn.style.background = '';
-        }, 1500);
-        
-        // Enable paste in preset modal if it exists
-        if (window.presetModal) {
-            window.presetModal.enablePaste(this.copiedSettings);
-        }
-    }
     
     randomizeForces() {
         this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrix();
@@ -2271,10 +2232,6 @@ export class MainUI {
         });
         
         // Action buttons
-        document.getElementById('copy-settings-btn').addEventListener('click', () => {
-            this.copySettings();
-        });
-        
         document.getElementById('randomize-forces-btn').addEventListener('click', () => {
             this.randomizeForces();
         });
