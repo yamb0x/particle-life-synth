@@ -61,7 +61,7 @@ class CloudStorage {
     }
   }
 
-  async savePreset(preset, status = PRESET_STATUS.PRIVATE) {
+  async savePreset(preset, status = PRESET_STATUS.PUBLIC) {
     await this.initialize();
     
     // Skip saving invalid preset names (test artifacts, etc.)

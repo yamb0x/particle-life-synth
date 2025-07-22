@@ -375,21 +375,15 @@ export class HybridPresetManager extends PresetManager {
     
     // Add cloud presets if enabled
     if (this.cloudEnabled) {
-      console.log('Cloud enabled, checking cloud presets. Current userId:', userId);
-      console.log('Cloud presets map size:', this.cloudPresets.size);
-      
       for (const [id, cloudPreset] of this.cloudPresets) {
-        console.log('Checking cloud preset:', cloudPreset.name, 'userId:', cloudPreset.userId);
-        
-        // Only include presets from current user
-        if (cloudPreset.userId !== userId) {
-          console.log('Skipping preset - userId mismatch:', cloudPreset.userId, '!==', userId);
+        // Include all public presets, not just from current user
+        // This allows sharing presets across different anonymous sessions
+        if (cloudPreset.status === 'private' && cloudPreset.userId !== userId) {
           continue;
         }
         
         // Skip invalid presets
         if (!isValidPreset(cloudPreset)) {
-          console.log('Skipping preset - invalid:', cloudPreset.name);
           continue;
         }
         
