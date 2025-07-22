@@ -129,7 +129,8 @@ class CloudStorage {
       'automaticsaveasnew', // Block test suite artifacts
       'test preset',
       'temp',
-      'temporary'
+      'temporary',
+      'workflowvalidation' // Block test suite workflow validation presets
     ];
     
     // Check for exact matches
@@ -248,7 +249,8 @@ class CloudStorage {
       userId = null, 
       status = null, 
       limit: queryLimit = 100,
-      orderByField = 'updatedAt'
+      orderByField = 'updatedAt',
+      skipOrdering = false  // Add option to skip ordering to avoid index requirements
     } = options;
 
     try {
@@ -265,7 +267,12 @@ class CloudStorage {
         constraints.push(this.firebase.where('status', '==', status));
       }
       
-      constraints.push(this.firebase.orderBy(orderByField, 'desc'));
+      // Only add orderBy if not skipping and not filtering by userId
+      // (userId + orderBy requires composite index)
+      if (!skipOrdering && !userId) {
+        constraints.push(this.firebase.orderBy(orderByField, 'desc'));
+      }
+      
       constraints.push(this.firebase.limit(queryLimit));
       
       q = this.firebase.query(q, ...constraints);
@@ -456,10 +463,31 @@ class CloudStorage {
       console.log('Starting cleanup of test presets...');
       const userId = this.currentUser.uid;
       
-      // Get all user presets
-      const userPresets = await this.getAllPresets({ 
-        userId,
-        limit: 200 // Increased limit to catch more test presets
+      // Use a simpler query that doesn't require composite index
+      // Just get presets by userId without ordering
+      const q = this.firebase.query(
+        this.firebase.collection(this.db, COLLECTIONS.PRESETS),
+        this.firebase.where('userId', '==', userId),
+        this.firebase.limit(200)
+      );
+      
+      const querySnapshot = await this.firebase.getDocs(q);
+      const userPresets = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const parsed = this.parseFromFirestore(data);
+        userPresets.push({
+          id: doc.id,
+          ...parsed
+        });
+      });
+      
+      // Sort in memory to avoid index requirement
+      userPresets.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt || 0);
+        const dateB = new Date(b.updatedAt || b.createdAt || 0);
+        return dateB - dateA;
       });
       
       const toDelete = [];

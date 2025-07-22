@@ -142,7 +142,8 @@ export class HybridPresetManager extends PresetManager {
       'automaticsaveasnew', // Block test suite artifacts
       'test preset',
       'temp',
-      'temporary'
+      'temporary',
+      'workflowvalidation' // Block test suite workflow validation presets
     ];
     
     // Check for exact matches

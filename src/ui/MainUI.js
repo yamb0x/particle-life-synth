@@ -30,7 +30,7 @@ export class MainUI {
             'minimize-btn', 'preset-selector', 'load-preset-btn', 'randomize-values-btn', 'configure-preset-btn',
             // Particle controls
             'particles-per-species', 'particles-per-species-value', 'species-count', 'species-count-value',
-            'distribution-canvas', 'distribution-species', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear', 'total-particles',
+            'distribution-canvas', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear', 'total-particles',
             // Physics controls
             'force-strength', 'force-strength-value', 'friction', 'friction-value',
             'wall-bounce', 'wall-bounce-value', 'collision-radius', 'collision-radius-value',
@@ -87,7 +87,6 @@ export class MainUI {
                     <div class="control-group">
                         <select class="select" id="preset-selector">
                             <option value="">Custom</option>
-                            <option value="random">Randomize</option>
                         </select>
                     </div>
                     <div class="control-group">
@@ -133,29 +132,28 @@ export class MainUI {
                         <label>Initial Distribution</label>
                         <div class="distribution-drawer-container">
                             <canvas class="distribution-drawer" id="distribution-canvas"></canvas>
+                            <div class="mode-indicator" id="mode-indicator">Draw Mode</div>
+                            <div class="circle-indicator" id="circle-indicator">Click to set center</div>
                             <div class="distribution-controls">
-                                <div class="control-row">
-                                    <select class="select select-sm" id="distribution-species">
-                                        <option value="0">Red</option>
-                                        <option value="1">Green</option>
-                                        <option value="2">Blue</option>
-                                        <option value="3">Yellow</option>
-                                        <option value="4">Purple</option>
-                                    </select>
+                                <div class="control-row species-selector-row">
+                                    <div class="species-buttons" id="species-buttons-container">
+                                        <!-- Species buttons will be populated dynamically -->
+                                    </div>
                                     <span class="value-display" id="distribution-brush-value">20</span>
                                 </div>
                                 <div class="control-row">
                                     <input type="range" class="range-slider" id="distribution-brush-slider" min="5" max="50" value="20">
                                     <input type="number" class="input input-sm" id="distribution-brush" value="20" min="5" max="50">
                                 </div>
-                                <div class="pattern-buttons">
-                                    <button class="pattern-btn active" data-pattern="draw" title="Paint">✏️</button>
-                                    <button class="pattern-btn" data-pattern="erase" title="Erase">🧽</button>
-                                    <button class="pattern-btn" data-pattern="cluster" title="Cluster">○</button>
-                                    <button class="pattern-btn" data-pattern="ring" title="Ring">⊙</button>
-                                    <button class="pattern-btn" data-pattern="grid" title="Grid">⊞</button>
-                                    <button class="pattern-btn" data-pattern="random" title="Random">∴</button>
-                                    <button class="pattern-btn clear-btn" id="distribution-clear" title="Clear">🗑️</button>
+                                <div class="mode-buttons">
+                                    <button class="mode-btn active" data-mode="draw" title="Draw Mode">✏️</button>
+                                    <button class="mode-btn" data-mode="circles" title="Precision Circles">⭕</button>
+                                    <button class="mode-btn" data-mode="random" title="Species AI Patterns">🎲</button>
+                                    <button class="mode-btn" data-mode="glitch" title="Sci-Fi Glitch">⚡</button>
+                                    <button class="mode-btn" data-mode="erase" title="Erase Mode">🧽</button>
+                                </div>
+                                <div class="utility-buttons">
+                                    <button class="util-btn clear-btn" id="distribution-clear" title="Clear All">🗑️</button>
                                 </div>
                             </div>
                         </div>
@@ -565,6 +563,7 @@ export class MainUI {
             
             .distribution-drawer-container {
                 margin-top: var(--space-sm);
+                position: relative;
             }
             
             .distribution-drawer {
@@ -596,18 +595,112 @@ export class MainUI {
                 justify-content: space-between;
             }
             
-            .pattern-buttons {
-                display: flex;
-                gap: var(--space-xs);
-                flex-wrap: wrap;
-                justify-content: space-between;
+            /* Enhanced species selector - exact match to test page */
+            .species-selector-row {
+                align-items: center;
             }
             
-            .pattern-btn {
-                padding: 4px 6px;
-                min-width: 24px;
-                height: 24px;
-                font-size: 11px;
+            .species-buttons {
+                display: flex;
+                gap: var(--space-sm);
+                align-items: center;
+                flex: 1;
+            }
+            
+            .species-btn {
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                border: 1px solid rgba(255,255,255,0.2);
+                cursor: pointer;
+                transition: all var(--transition-fast);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 8px;
+                font-weight: bold;
+                color: rgba(255,255,255,0.9);
+                opacity: 0.75;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                position: relative;
+            }
+            
+            .species-btn:hover {
+                opacity: 0.9;
+                transform: scale(1.05);
+                border-color: rgba(255,255,255,0.4);
+            }
+            
+            .species-btn.active {
+                opacity: 1;
+                transform: scale(1.1);
+                border: 2px solid rgba(255,255,255,0.8);
+                box-shadow: 0 0 6px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.2);
+            }
+            
+            .species-btn.active::after {
+                content: '';
+                position: absolute;
+                top: -3px;
+                left: -3px;
+                right: -3px;
+                bottom: -3px;
+                border: 1px solid currentColor;
+                border-radius: 50%;
+                opacity: 0.4;
+                animation: pulse 2s infinite;
+            }
+            
+            @keyframes pulse {
+                0% { transform: scale(1); opacity: 0.4; }
+                50% { transform: scale(1.1); opacity: 0.2; }
+                100% { transform: scale(1); opacity: 0.4; }
+            }
+            
+            /* Mode indicators */
+            .mode-indicator {
+                position: absolute;
+                top: var(--space-sm);
+                left: var(--space-sm);
+                background: rgba(0,0,0,0.7);
+                color: white;
+                padding: 2px var(--space-sm);
+                border-radius: var(--radius-sm);
+                font-size: var(--font-size-xs);
+                pointer-events: none;
+            }
+
+            .circle-indicator {
+                position: absolute;
+                bottom: var(--space-sm);
+                right: var(--space-sm);
+                background: rgba(76, 175, 80, 0.9);
+                color: white;
+                padding: 2px var(--space-sm);
+                border-radius: var(--radius-sm);
+                font-size: var(--font-size-xs);
+                pointer-events: none;
+                display: none;
+            }
+
+            .circle-indicator.visible {
+                display: block;
+            }
+            
+            /* Enhanced mode buttons - improved visual hierarchy */
+            .mode-buttons {
+                display: flex;
+                gap: var(--space-xs);
+                margin-bottom: var(--space-sm);
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            
+            .mode-btn {
+                padding: 6px 8px;
+                min-width: 36px;
+                height: 28px;
+                font-size: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -615,22 +708,79 @@ export class MainUI {
                 border: 1px solid var(--border-default);
                 border-radius: var(--radius-sm);
                 color: var(--text-secondary);
+                font-weight: 500;
                 cursor: pointer;
                 transition: all var(--transition-fast);
-                flex: 1;
-                max-width: 40px;
+                position: relative;
+                outline: none;
             }
             
-            .pattern-btn:hover {
+            .mode-btn:hover {
                 background: var(--bg-hover);
                 border-color: var(--border-hover);
                 color: var(--text-primary);
+                transform: translateY(-1px);
             }
             
-            .pattern-btn.active {
+            .mode-btn.active {
                 background: var(--accent-primary);
                 border-color: var(--accent-primary);
                 color: white;
+                box-shadow: 0 0 8px rgba(74, 158, 255, 0.4);
+                transform: translateY(-1px);
+            }
+            
+            .mode-btn.active::before {
+                content: '';
+                position: absolute;
+                top: -2px;
+                left: -2px;
+                right: -2px;
+                bottom: -2px;
+                border: 1px solid var(--accent-primary);
+                border-radius: var(--radius-sm);
+                opacity: 0.3;
+            }
+            
+            /* Utility buttons - cleaner integration */
+            .utility-buttons {
+                display: flex;
+                justify-content: flex-end;
+                gap: var(--space-xs);
+            }
+            
+            .util-btn {
+                padding: 4px 8px;
+                min-width: 28px;
+                height: 24px;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-xs);
+                color: var(--text-tertiary);
+                cursor: pointer;
+                transition: all var(--transition-fast);
+            }
+            
+            .util-btn:hover {
+                background: rgba(255, 100, 100, 0.1);
+                border-color: rgba(255, 100, 100, 0.5);
+                color: #ff6464;
+            }
+            
+            .clear-btn {
+                background: var(--bg-tertiary);
+                border-color: var(--border-subtle);
+                color: var(--text-tertiary);
+            }
+            
+            .clear-btn:hover {
+                background: rgba(255, 100, 100, 0.1);
+                border-color: rgba(255, 100, 100, 0.5);
+                color: #ff6464;
             }
             
             
@@ -1780,9 +1930,7 @@ export class MainUI {
         
         document.getElementById('load-preset-btn').addEventListener('click', () => {
             const presetKey = document.getElementById('preset-selector').value;
-            if (presetKey === 'random') {
-                this.randomizeForces();
-            } else if (presetKey) {
+            if (presetKey) {
                 const preset = this.presetManager.getPreset(presetKey);
                 if (preset) {
                     this.particleSystem.loadFullPreset(preset);
@@ -1905,13 +2053,8 @@ export class MainUI {
             }
         });
         
-        // Distribution drawer controls
-        document.getElementById('distribution-species').addEventListener('change', (e) => {
-            const speciesId = parseInt(e.target.value);
-            this.distributionDrawer.setSpecies(speciesId);
-            // Update color display (like test page)
-            this.updateDistributionSpeciesColor(speciesId);
-        });
+        // Distribution drawer controls - Species buttons
+        this.setupSpeciesButtons();
         
         document.getElementById('distribution-brush-slider').addEventListener('input', (e) => {
             const size = parseInt(e.target.value);
@@ -1927,28 +2070,30 @@ export class MainUI {
             document.getElementById('distribution-brush-value').textContent = size;
         });
         
-        document.getElementById('distribution-clear').addEventListener('click', () => {
-            this.distributionDrawer.clear();
-        });
+        // Clear button is now handled in utility button handlers above
         
-        // Pattern button handlers
-        this.container.querySelectorAll('.pattern-btn').forEach(btn => {
+        // Mode button handlers (enhanced UI)
+        this.container.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // Skip clear button
-                if (e.target.id === 'distribution-clear') return;
-                
                 // Update button states
-                this.container.querySelectorAll('.pattern-btn').forEach(b => {
-                    if (b.id !== 'distribution-clear') {
-                        b.classList.remove('active');
-                    }
+                this.container.querySelectorAll('.mode-btn').forEach(b => {
+                    b.classList.remove('active');
                 });
                 e.target.classList.add('active');
                 
-                // Set pattern
-                const pattern = e.target.dataset.pattern;
-                if (pattern) {
-                    this.distributionDrawer.setPattern(pattern);
+                // Set mode
+                const mode = e.target.dataset.mode;
+                if (mode) {
+                    this.distributionDrawer.setMode(mode);
+                }
+            });
+        });
+        
+        // Utility button handlers (clear button)
+        this.container.querySelectorAll('.util-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (e.target.id === 'distribution-clear') {
+                    this.distributionDrawer.clear();
                 }
             });
         });
@@ -2165,7 +2310,7 @@ export class MainUI {
         const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
                        'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
-        const selectors = ['from-species', 'to-species', 'glow-species-selector', 'distribution-species'];
+        const selectors = ['from-species', 'to-species', 'glow-species-selector'];
         
         selectors.forEach(selectorId => {
             const select = document.getElementById(selectorId);
@@ -2188,6 +2333,9 @@ export class MainUI {
                 select.value = '1';
             }
         });
+        
+        // Update distribution species buttons separately
+        this.updateSpeciesButtons(numSpecies);
     }
     
     updateGraph() {
@@ -2282,19 +2430,8 @@ export class MainUI {
         const selector = document.getElementById('preset-selector');
         if (!selector) return;
         
-        // Clear existing options except built-in ones
-        const builtInOptions = ['', 'random'];
-        const optionsToRemove = [];
-        
-        for (let i = 0; i < selector.options.length; i++) {
-            const option = selector.options[i];
-            if (!builtInOptions.includes(option.value)) {
-                optionsToRemove.push(option);
-            }
-        }
-        
-        // Remove non-built-in options
-        optionsToRemove.forEach(option => option.remove());
+        // Clear all options except Custom
+        selector.innerHTML = '<option value="">Custom</option>';
         
         // Add user presets
         const userPresets = this.presetManager.getUserPresets();
@@ -2305,16 +2442,7 @@ export class MainUI {
             selector.appendChild(option);
         });
         
-        // Insert separator before random option if there are user presets
-        if (userPresets.length > 0) {
-            const randomOption = selector.querySelector('option[value="random"]');
-            if (randomOption) {
-                const separator = document.createElement('option');
-                separator.disabled = true;
-                separator.textContent = '─────────────';
-                selector.insertBefore(separator, randomOption);
-            }
-        }
+        // No separator needed since no random option exists
     }
     
     applyDistributionToParticleSystem() {
@@ -2433,6 +2561,46 @@ export class MainUI {
             document.getElementById('species-glow-controls').style.display = hasGlow ? '' : 'none';
             document.getElementById('species-glow-size-control').style.display = hasGlow ? '' : 'none';
             document.getElementById('species-glow-intensity-control').style.display = hasGlow ? '' : 'none';
+        }
+    }
+    
+    setupSpeciesButtons() {
+        const container = document.getElementById('species-buttons-container');
+        if (!container) return;
+        
+        this.updateSpeciesButtons(this.particleSystem.numSpecies);
+    }
+    
+    updateSpeciesButtons(numSpecies) {
+        const container = document.getElementById('species-buttons-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const speciesLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        
+        for (let i = 0; i < numSpecies; i++) {
+            const species = this.particleSystem.species[i];
+            const button = document.createElement('button');
+            button.className = `species-btn ${i === 0 ? 'active' : ''}`;
+            button.dataset.speciesId = i;
+            button.title = `Species ${speciesLabels[i]} (${i + 1})`;
+            button.style.background = `rgb(${species.color.r}, ${species.color.g}, ${species.color.b})`;
+            button.textContent = speciesLabels[i];
+            
+            button.addEventListener('click', (e) => {
+                // Update button states
+                container.querySelectorAll('.species-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.target.classList.add('active');
+                
+                // Update distribution drawer
+                const speciesId = parseInt(e.target.dataset.speciesId);
+                this.distributionDrawer.setSpecies(speciesId);
+            });
+            
+            container.appendChild(button);
         }
     }
 }

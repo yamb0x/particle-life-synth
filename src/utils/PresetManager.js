@@ -25,6 +25,11 @@ export class PresetManager {
   }
 
   async savePreset(key, preset) {
+    // Validate preset name - don't allow saving "Custom" presets
+    if (this.isInvalidPresetName(preset.name)) {
+      throw new Error('Cannot save presets named "Custom" or similar. Please choose a different name.');
+    }
+    
     this.presets.set(key, preset);
     await this.storage.savePreset(key, preset);
     this.saveToLocalStorage(); // Keep for backward compatibility
@@ -168,5 +173,24 @@ export class PresetManager {
     }
     
     return userPresets;
+  }
+
+  isInvalidPresetName(name) {
+    if (!name || typeof name !== 'string') return true;
+    
+    // Normalize name for comparison
+    const normalizedName = name.trim().toLowerCase();
+    
+    // Block various forms of "Custom"
+    const invalidNames = [
+      'custom',
+      'new preset',
+      'untitled',
+      'default',
+      '',
+      'preset'
+    ];
+    
+    return invalidNames.includes(normalizedName);
   }
 }

@@ -1,109 +1,82 @@
 # Particle Life Synth
 
-A visual particle simulation system that creates emergent behaviors, designed to control synthesizer parameters through living particle ecosystems. **Now deployed on Vercel with real-time cloud collaboration!**
+A visual particle simulation system that creates emergent behaviors through multi-species interactions. Features real-time cloud collaboration and will eventually control synthesizer parameters through living particle ecosystems.
 
-## 🌐 Live Demo & Deployment
+## 🌐 Live Demo
 
-### Access the Live App
-Your Particle Life Synth is deployed at your Vercel URL. All presets are automatically synced to the cloud!
+**Deploy instantly**: Follow the [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) to get your own live version with cloud collaboration.
 
 ### Key Features
-- **Automatic Cloud Sync** - No manual steps, just works
-- **Real-time Collaboration** - See team presets instantly
-- **Share via Links** - Click 🔗 to share any preset
-- **No Signup Required** - Anonymous authentication
-- **Works Offline** - Falls back to local storage
-- **Smart Preset Management** - Automatic updates vs. new saves based on name changes
-- **Duplicate Prevention** - Robust cloud storage prevents duplicate entries
+- **Real-time Cloud Collaboration** - Share presets instantly via links with robust Firebase management
+- **25+ Configurable Parameters** - Physics, visuals, and particle behaviors
+- **Visual Distribution Editor** - Paint particle distributions with brush, circle, lightning, and eraser modes
+- **Smart Preset Management** - Intelligent cloud sync with test artifact prevention and duplicate elimination
+- **Streamlined Workflow** - Save as new preset by simply changing the name
+- **Performance Optimized** - 60+ FPS with 500+ particles
+- **No Build Required** - Pure vanilla JavaScript with ES6 modules
 
-## Quick Start (Local Development)
+## Quick Start
 
-### Running Locally
 ```bash
-# Start local server
+# Clone and start local server
+git clone <your-repo>
+cd particle-life-synth
 python3 serve.py
 
-# Access at
-http://localhost:8000
+# Access at http://localhost:8000
 ```
 
-### Deployment Setup
+**For deployment**: See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for complete Firebase + Vercel setup.
 
-1. **Firebase** (Already configured ✅)
-   - Firestore for preset storage
-   - Anonymous authentication
-   - Real-time synchronization
-
-2. **Vercel** (Already deployed ✅)
-   - Automatic deployments from GitHub
-   - Zero configuration needed
-   - Updates on every push
-
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed setup instructions.
-
-## Controls
+## Controls & Features
 
 ### Keyboard Shortcuts
 - **C** - Toggle UI visibility
-- **X** - Copy current settings
-- **V** - Randomize values
-- **R** - Randomize force relationships  
+- **X** - Copy settings | **V** - Randomize values | **R** - Randomize forces
 - **Space** - Pause/Resume simulation
 
-*Note: Keyboard shortcuts are automatically disabled when the configuration modal is open to prevent conflicts with text input.*
+### Core Features
+- **Visual Distribution Editor** - Paint particle starting positions with brush, circle, lightning, and eraser modes
+- **Force Relationship Editor** - Visual matrix for species interactions
+- **Real-time Parameter Adjustment** - 25+ physics and visual parameters
+- **Preset System** - Save, load, and share configurations
+- **Cloud Collaboration** - Share presets via links with automatic sync
+- **Performance Monitoring** - Built-in FPS tracking and optimization
 
-### Features
-- **25+ configurable parameters** for physics and visuals
-- **Preset system** with save/load functionality
-- **Cloud sync** for collaborative preset sharing (NEW!)
-- **Share presets** via temporary links
-- **Force relationship editor** with visual graph
-- **Per-species customization** of colors and particle counts
-- **Visual effects** including trails, halos, and species glow
-- **Copy/paste workflow** for quick configuration sharing
+## Architecture
 
-## Development
-
-### Structure
 ```
 src/
 ├── core/           # Particle physics engine
-├── ui/             # UI components (presets, editors, controls)
+├── ui/             # UI components and editors
 ├── utils/          # Storage and preset management
+├── config/         # Firebase configuration
 └── main.js         # Application entry point
 ```
 
-### Key Technologies
-- Vanilla JavaScript (ES6 modules)
-- Canvas 2D rendering
-- IndexedDB + localStorage for persistence
-- No build tools required
+**Tech Stack**: Vanilla JavaScript (ES6 modules) • Canvas 2D • IndexedDB/localStorage • Firebase • Vercel
 
-## Status
+## Development Status
 
-- **Visual Engine** - Complete ✅
-- **Preset System** - Complete ✅ 
-- **Cloud Collaboration** - Complete ✅ (Firebase + Vercel deployment)
-- **Performance** - 60+ FPS with 500 particles ✅
-- **UI/UX System** - Complete ✅ (all parameters working with responsive design)
-- **Testing Suite** - Complete ✅ (comprehensive automated testing)
-- **Audio Engine** - In development (20%)
-- **VST/AU Plugin** - Planned
+| Component | Status | Notes |
+|-----------|--------|--------|
+| **Visual Engine** | ✅ Complete | 60+ FPS with 500+ particles |
+| **Distribution Editor** | ✅ Complete | Multi-mode painting system |
+| **Cloud Collaboration** | ✅ Complete | Firebase + Vercel deployment |
+| **Testing Suite** | ✅ Complete | Automated testing and debugging |
+| **Audio Engine** | 🔄 20% | Next development phase |
+| **VST/AU Plugin** | 📋 Planned | Future milestone |
 
 ## Testing & Debugging
 
-### Test Suites
-- **Main Test Suite**: `http://localhost:8000/test-suite.html` - Comprehensive automated testing
-- **Debug Tools**: `http://localhost:8000/debug-tools.html` - Interactive debugging utilities
-- **Performance Tests**: `http://localhost:8000/performance-test.html` - Performance profiling
+### Available Test Pages
+- **`/test-suite.html`** - Comprehensive automated testing
+- **`/debug-tools.html`** - Interactive debugging, diagnostics, and Firebase management
+- **`/performance-test.html`** - Performance profiling and optimization
 
-### Testing Capabilities
-- **Automated Issue Detection**: Self-scanning for problems
-- **Performance Monitoring**: Real-time FPS, memory tracking
-- **Regression Testing**: Prevent introduction of bugs
-- **Fix Validation**: Verify recent bug fixes
-- **Architecture Testing**: Component validation
+### Issue Tracking
+See [`/issues/README.md`](issues/README.md) for current bugs and feature requests.
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License

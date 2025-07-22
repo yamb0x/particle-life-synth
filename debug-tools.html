@@ -208,6 +208,17 @@
                 <button class="btn btn-secondary btn-sm" onclick="checkMemoryLeaks()">Check Memory Leaks</button>
             </div>
             
+            <!-- Firebase Management -->
+            <div class="section">
+                <h3>☁️ Firebase Management</h3>
+                <button class="btn btn-secondary btn-sm" onclick="analyzeFirebaseDatabase()">Analyze Database</button>
+                <button class="btn btn-secondary btn-sm" onclick="listFirebasePresets()">List Firebase Presets</button>
+                <button class="btn btn-secondary btn-sm" onclick="cleanupFirebaseInvalidPresets()">Cleanup Invalid Presets</button>
+                <button class="btn btn-secondary btn-sm" onclick="removeFirebaseDuplicates()">Remove Duplicates</button>
+                <button class="btn btn-secondary btn-sm" onclick="migrateBuiltInPresets()">Migrate Built-in Presets</button>
+                <button class="btn btn-secondary error btn-sm" onclick="deleteAllFirebaseTestPresets()">Delete ALL Test Presets</button>
+            </div>
+            
             <!-- Fix Validation -->
             <div class="section">
                 <h3>✅ Fix Validation</h3>
@@ -1087,6 +1098,12 @@
         window.exportLogs = exportLogs;
         window.toggleVerboseLogging = toggleVerboseLogging;
         window.fixSliderSync = fixSliderSync;
+        window.analyzeFirebaseDatabase = analyzeFirebaseDatabase;
+        window.listFirebasePresets = listFirebasePresets;
+        window.cleanupFirebaseInvalidPresets = cleanupFirebaseInvalidPresets;
+        window.removeFirebaseDuplicates = removeFirebaseDuplicates;
+        window.migrateBuiltInPresets = migrateBuiltInPresets;
+        window.deleteAllFirebaseTestPresets = deleteAllFirebaseTestPresets;
         
         // Export logs function
         function exportLogs() {
@@ -2110,6 +2127,330 @@
                 
             } catch (error) {
                 log(`✗ Memory leak check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // === FIREBASE MANAGEMENT FUNCTIONS ===
+        // Merged from cleanup-firebase.html for comprehensive Firebase preset management
+        
+        async function analyzeFirebaseDatabase() {
+            log('☁️ Analyzing Firebase database...', 'info');
+            
+            try {
+                const { win } = await getApp();
+                const { cloudStorage } = await import('./src/utils/CloudStorage.js');
+                
+                await cloudStorage.initialize();
+                log('✓ Connected to Firebase', 'success');
+                
+                // Get all presets without filtering
+                const allPresets = await cloudStorage.getAllPresets({ limit: 200 });
+                log(`Total presets in database: ${allPresets.length}`, 'info');
+                
+                // Analyze by user
+                const userMap = new Map();
+                const nameMap = new Map();
+                const invalidPresets = [];
+                const testPresets = [];
+                
+                allPresets.forEach(preset => {
+                    // Count by user
+                    const userId = preset.userId || 'unknown';
+                    userMap.set(userId, (userMap.get(userId) || 0) + 1);
+                    
+                    // Count by name
+                    const name = preset.name || 'unnamed';
+                    if (!nameMap.has(name)) {
+                        nameMap.set(name, []);
+                    }
+                    nameMap.get(name).push(preset);
+                    
+                    // Check for invalid names
+                    const nameLower = name.toLowerCase();
+                    if (nameLower.includes('custom') || 
+                        nameLower.includes('automaticsaveasnew') ||
+                        nameLower.includes('test') ||
+                        nameLower.includes('temp') ||
+                        nameLower === 'randomize') {
+                        invalidPresets.push(preset);
+                    }
+                    
+                    // Check for test patterns
+                    if (nameLower.includes('test') || 
+                        nameLower.includes('automaticsaveasnew') ||
+                        nameLower.includes('workflowvalidation')) {
+                        testPresets.push(preset);
+                    }
+                });
+                
+                // Report findings
+                log('\\n=== User Distribution ===', 'info');
+                userMap.forEach((count, userId) => {
+                    log(`User ${userId}: ${count} presets`, 'info');
+                });
+                
+                log('\\n=== Duplicate Names ===', 'warning');
+                let duplicateCount = 0;
+                nameMap.forEach((presets, name) => {
+                    if (presets.length > 1) {
+                        duplicateCount++;
+                        log(`"${name}": ${presets.length} copies`, 'warning');
+                        presets.forEach(p => {
+                            log(`  - ID: ${p.id}, User: ${p.userId}, Updated: ${new Date(p.updatedAt).toLocaleString()}`, 'info');
+                        });
+                    }
+                });
+                
+                if (duplicateCount === 0) {
+                    log('No duplicate names found', 'success');
+                }
+                
+                log('\\n=== Invalid Presets ===', 'error');
+                log(`Found ${invalidPresets.length} invalid presets:`, 'error');
+                invalidPresets.forEach(p => {
+                    log(`- "${p.name}" (ID: ${p.id})`, 'error');
+                });
+                
+                log('\\n=== Test Presets ===', 'warning');
+                log(`Found ${testPresets.length} test presets`, 'warning');
+                
+                log('\\n✅ Firebase analysis complete', 'success');
+                
+            } catch (error) {
+                log(`✗ Firebase analysis failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+        
+        async function listFirebasePresets() {
+            log('📋 Fetching all Firebase presets...', 'info');
+            
+            try {
+                const { cloudStorage } = await import('./src/utils/CloudStorage.js');
+                await cloudStorage.initialize();
+                
+                const presets = await cloudStorage.getAllPresets({ limit: 200 });
+                
+                log(`\\nFound ${presets.length} presets:`, 'info');
+                log('========================================', 'info');
+                
+                presets.forEach(preset => {
+                    const status = preset.status || 'unknown';
+                    const created = new Date(preset.createdAt).toLocaleDateString();
+                    const updated = new Date(preset.updatedAt).toLocaleDateString();
+                    
+                    log(`\\nName: ${preset.name}`, 'info');
+                    log(`ID: ${preset.id}`, 'info');
+                    log(`User: ${preset.userId}`, 'info');
+                    log(`Status: ${status}`, 'info');
+                    log(`Created: ${created}, Updated: ${updated}`, 'info');
+                    log(`Version: ${preset.version || 1}`, 'info');
+                });
+                
+                log('\\n✅ Firebase preset list complete', 'success');
+                
+            } catch (error) {
+                log(`✗ Failed to list Firebase presets: ${error.message}`, 'error');
+            }
+        }
+        
+        async function cleanupFirebaseInvalidPresets() {
+            log('🧹 Starting cleanup of invalid Firebase presets...', 'info');
+            
+            try {
+                const { cloudStorage } = await import('./src/utils/CloudStorage.js');
+                await cloudStorage.initialize();
+                
+                const cleanedCount = await cloudStorage.cleanupTestPresets();
+                log(`✅ Cleanup completed: ${cleanedCount} presets removed`, 'success');
+                
+            } catch (error) {
+                log(`✗ Firebase cleanup failed: ${error.message}`, 'error');
+                
+                // Check if it's an index error
+                if (error.message && error.message.includes('index')) {
+                    log('⚠️ Firebase index required. Please create the index in Firebase Console.', 'warning');
+                    log('Follow the link in the console error to create the index.', 'info');
+                }
+            }
+        }
+        
+        async function removeFirebaseDuplicates() {
+            log('🔍 Removing duplicate Firebase presets...', 'info');
+            
+            try {
+                const { cloudStorage } = await import('./src/utils/CloudStorage.js');
+                await cloudStorage.initialize();
+                
+                const allPresets = await cloudStorage.getAllPresets({ limit: 200 });
+                
+                // Group by name and user
+                const groups = new Map();
+                allPresets.forEach(preset => {
+                    const key = `${preset.userId}_${preset.name}`;
+                    if (!groups.has(key)) {
+                        groups.set(key, []);
+                    }
+                    groups.get(key).push(preset);
+                });
+                
+                let deletedCount = 0;
+                
+                // For each group, keep the newest one
+                for (const [key, presets] of groups) {
+                    if (presets.length > 1) {
+                        log(`\\nFound ${presets.length} copies of "${presets[0].name}"`, 'warning');
+                        
+                        // Sort by updatedAt (newest first)
+                        presets.sort((a, b) => {
+                            const dateA = new Date(a.updatedAt || a.createdAt);
+                            const dateB = new Date(b.updatedAt || b.createdAt);
+                            return dateB - dateA;
+                        });
+                        
+                        // Keep the first (newest), delete the rest
+                        log(`Keeping: ${presets[0].id} (updated: ${new Date(presets[0].updatedAt).toLocaleString()})`, 'success');
+                        
+                        for (let i = 1; i < presets.length; i++) {
+                            try {
+                                log(`Deleting: ${presets[i].id}`, 'warning');
+                                await cloudStorage.deletePreset(presets[i].id);
+                                deletedCount++;
+                            } catch (error) {
+                                log(`Failed to delete ${presets[i].id}: ${error.message}`, 'error');
+                            }
+                        }
+                    }
+                }
+                
+                log(`\\n✅ Deleted ${deletedCount} duplicate presets`, 'success');
+                
+            } catch (error) {
+                log(`✗ Duplicate removal failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function migrateBuiltInPresets() {
+            log('📤 Migrating built-in presets to Firebase...', 'info');
+            
+            try {
+                const { win } = await getApp();
+                const { HybridPresetManager } = await import('./src/utils/HybridPresetManager.js');
+                const { SimpleParticleSystem } = await import('./src/core/SimpleParticleSystem.js');
+                
+                const presetManager = new HybridPresetManager();
+                await presetManager.enableCloudSync();
+                log('✓ Cloud sync enabled', 'success');
+                
+                // Create the built-in presets
+                const particleSystem = new SimpleParticleSystem(800, 600);
+                
+                const builtInPresets = [
+                    {
+                        key: 'predatorPrey',
+                        name: 'Predator-Prey',
+                        description: 'Red hunts Green, Green hunts Blue, Blue hunts Red',
+                        isBuiltIn: true
+                    },
+                    {
+                        key: 'crystallization',
+                        name: 'Crystallization',
+                        description: 'Particles form crystal-like structures',
+                        isBuiltIn: true
+                    },
+                    {
+                        key: 'vortex',
+                        name: 'Vortex',
+                        description: 'Circular chase pattern creating swirling vortices',
+                        isBuiltIn: true
+                    },
+                    {
+                        key: 'symbiosis',
+                        name: 'Symbiosis',
+                        description: 'Complex interdependent relationships',
+                        isBuiltIn: true
+                    },
+                    {
+                        key: 'dreamtime',
+                        name: 'Dreamtime',
+                        description: 'Ethereal flowing patterns with glow effects',
+                        isBuiltIn: true
+                    }
+                ];
+                
+                log(`Uploading ${builtInPresets.length} built-in presets...`, 'info');
+                
+                let successCount = 0;
+                for (const presetInfo of builtInPresets) {
+                    try {
+                        // Load the preset data from particle system
+                        particleSystem.loadPreset(presetInfo.key);
+                        const presetData = particleSystem.exportPreset();
+                        
+                        // Merge with preset info
+                        const fullPreset = {
+                            ...presetData,
+                            ...presetInfo
+                        };
+                        
+                        log(`Uploading preset: ${presetInfo.name}...`, 'info');
+                        await presetManager.savePreset(presetInfo.key, fullPreset, true);
+                        log(`✓ Uploaded: ${presetInfo.name}`, 'success');
+                        successCount++;
+                    } catch (error) {
+                        log(`✗ Failed to upload ${presetInfo.name}: ${error.message}`, 'error');
+                    }
+                }
+                
+                log(`\\n✅ Migration complete! Uploaded ${successCount}/${builtInPresets.length} presets`, 
+                    successCount === builtInPresets.length ? 'success' : 'warning');
+                
+            } catch (error) {
+                log(`✗ Migration failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+        
+        async function deleteAllFirebaseTestPresets() {
+            if (!confirm('⚠️ WARNING: This will delete ALL test presets from Firebase. This cannot be undone. Continue?')) {
+                log('Firebase test preset deletion cancelled by user', 'info');
+                return;
+            }
+            
+            log('🗑️ Deleting all test presets from Firebase...', 'warning');
+            
+            try {
+                const { cloudStorage } = await import('./src/utils/CloudStorage.js');
+                await cloudStorage.initialize();
+                
+                const allPresets = await cloudStorage.getAllPresets({ limit: 200 });
+                
+                const testPatterns = [
+                    'test', 'temp', 'automaticsaveasnew', 'workflowvalidation',
+                    'automaticcreation', 'automaticupdate', 'custom'
+                ];
+                
+                let deletedCount = 0;
+                
+                for (const preset of allPresets) {
+                    const nameLower = (preset.name || '').toLowerCase();
+                    const isTest = testPatterns.some(pattern => nameLower.includes(pattern));
+                    
+                    if (isTest) {
+                        try {
+                            log(`Deleting test preset: "${preset.name}" (${preset.id})`, 'warning');
+                            await cloudStorage.deletePreset(preset.id);
+                            deletedCount++;
+                        } catch (error) {
+                            log(`Failed to delete ${preset.id}: ${error.message}`, 'error');
+                        }
+                    }
+                }
+                
+                log(`\\n✅ Deleted ${deletedCount} test presets from Firebase`, 'success');
+                
+            } catch (error) {
+                log(`✗ Test preset deletion failed: ${error.message}`, 'error');
             }
         }
     </script>

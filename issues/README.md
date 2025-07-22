@@ -33,7 +33,12 @@ Each issue is documented as a numbered markdown file (01.md, 02.md, etc.) with t
 
 Resolved issues have been moved to the `completed/` subfolder for better organization.
 
-1. **[completed/02.md](completed/02.md)** - Trails toggle not working properly
+1. **[completed/01.md](completed/01.md)** - Enhanced Distribution UI Implementation Problems
+   - Priority: High
+   - Status: ✅ **RESOLVED** (2025-07-21)
+   - Fixed UI/UX issues with distribution mode buttons and visual hierarchy
+
+2. **[completed/02.md](completed/02.md)** - Trails toggle not working properly
    - Priority: Medium
    - Status: ✅ **RESOLVED** (2025-07-20)
    - Fixed trail rendering implementation with proper alpha blending

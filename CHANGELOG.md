@@ -1,6 +1,48 @@
 # Changelog
 
-All notable changes to the Particle Life Synth project will be documented in this file.
+All notable changes to the Particle Life Synth project are documented here.
+
+## [2025-07-22] - Firebase Management & Documentation Cleanup
+
+### Enhanced Firebase Management
+- **Comprehensive Preset Validation** - Blocks test artifacts from syncing to Firebase
+  - Added `isInvalidPresetName()` validation in both CloudStorage.js and HybridPresetManager.js
+  - Prevents "AutomaticSaveAsNew", "Custom", and other test presets from polluting cloud storage
+  - Blocks any preset names starting with "test_", "temp_", or "auto_"
+
+- **Fixed Firebase Index Issues** - Resolved "query requires an index" errors
+  - Modified `cleanupTestPresets()` to use simple queries without ordering
+  - Added `skipOrdering` option to `getAllPresets()` to avoid composite index requirements
+  - Sorts results in memory instead of requiring Firebase indexes
+
+- **Duplicate Prevention** - Enhanced preset ID strategy
+  - Uses consistent `userId_presetName` format for proper updates vs. new entries
+  - Preserves creation timestamps when updating existing presets
+  - Prevents multiple versions of the same preset in cloud storage
+
+### UI Improvements
+- **Removed "Save As New" Button** - Simplified preset saving workflow
+  - Users now save as new by changing the preset name before saving
+  - Reduced UI complexity and potential confusion
+  - Updated test suite to reflect new workflow
+
+### Firebase Management Tools
+- **Integrated Debug Tools** - Comprehensive Firebase management in debug-tools.html
+  - Database analysis and preset listing functionality
+  - Cleanup tools for invalid presets and duplicates
+  - Built-in preset migration utilities
+  - Centralized Firebase operations for easy maintenance
+
+### Documentation Cleanup
+- **Removed Redundant Files**
+  - VERCEL_UPDATES.md - Merged into DEPLOYMENT_GUIDE.md for clarity
+  - cleanup-firebase.html - Functionality merged into debug-tools.html
+  - migrate-presets.html - Functionality merged into debug-tools.html
+
+- **Improved Documentation Structure**
+  - README.md - More concise, better structure, clearer feature overview
+  - Issue tracking - Moved completed issues (01, 07) to completed folder
+  - Cleaner organization with fewer redundant files
 
 ## [2025-07-21] - Firebase Improvements & Code Cleanup
 

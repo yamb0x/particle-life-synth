@@ -112,19 +112,9 @@ When working on this project:
 
 ## AI Collaboration Guidelines
 - Never decide that an issue is resolved before the user has tested it
-
-## Current State
-
-- Visual engine: 100% complete ✓
-- Performance optimization: 100% complete ✓
-- Preset system: 100% complete ✓
-- Cloud collaboration: 100% complete ✓ (Firebase + Vercel deployment)
-- UI parameter system: 100% complete ✓ (all parameters working)
-- Testing suite: 100% complete ✓ (consolidated and comprehensive)
-- Bug resolution: 12/14 issues resolved ✓ (only 2 low-priority issues remain)
-- Firebase improvements: 100% complete ✓ (robust preset management)
-- Audio engine: 20% complete (next phase)
-- Documentation: Updated with all recent changes ✓
+- Always validate preset names before Firebase operations using `isInvalidPresetName()` method
+- Use debug-tools.html for Firebase management operations - don't create new utility files
+- Remember: Users save as new preset by changing the preset name (no "Save As New" button)
 
 ## Cloud Deployment Architecture
 
