@@ -1,0 +1,18 @@
+# Vercel ignore file
+.git
+.github
+node_modules
+.DS_Store
+*.log
+.env*
+debug-*.html
+test-*.html
+performance-test.html
+issues/
+docs/
+*.md
+!README.md
+serve.py
+server.sh
+run-specific-tests.js
+deploy-production.sh

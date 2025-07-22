@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
   "buildCommand": "echo 'No build required'",
   "outputDirectory": ".",
   "framework": null,
