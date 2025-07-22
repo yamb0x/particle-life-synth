@@ -5,16 +5,11 @@
   "type": "module",
   "scripts": {
     "start": "python3 serve.py",
-    "dev": "python3 serve.py",
-    "build": "echo 'No build required - static site'",
-    "deploy": "vercel --prod"
+    "dev": "python3 serve.py"
   },
   "keywords": ["particle", "simulation", "synthesizer", "canvas", "web-audio"],
   "author": "Yambo Studio",
   "license": "MIT",
-  "devDependencies": {
-    "vercel": "^32.0.0"
-  },
   "dependencies": {
     "firebase": "^10.7.1"
   }
