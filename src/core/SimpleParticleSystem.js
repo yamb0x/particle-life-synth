@@ -565,18 +565,45 @@ export class SimpleParticleSystem {
     
     createAsymmetricMatrix() {
         const matrix = [];
-        const patterns = [
-            // Predator-prey cycles
-            () => [0.8, -0.6, 0.3, -0.4, 0.5],
-            () => [-0.5, 0.7, -0.6, 0.4, -0.3],
-            () => [0.3, -0.4, 0.8, -0.7, 0.4],
-            () => [-0.4, 0.5, -0.3, 0.6, -0.8],
-            () => [0.6, -0.3, 0.4, -0.5, 0.7]
-        ];
+        
+        // Dynamic pattern generation that works for any number of species
+        const generatePatternRow = (rowIndex, numSpecies) => {
+            const row = new Array(numSpecies);
+            
+            // Create interesting predator-prey patterns that scale with species count
+            for (let j = 0; j < numSpecies; j++) {
+                if (rowIndex === j) {
+                    // Self-interaction: weak positive or neutral
+                    row[j] = 0.2 + Math.random() * 0.3;
+                } else {
+                    // Different pattern types based on relationship
+                    const relationship = (j - rowIndex + numSpecies) % numSpecies;
+                    
+                    if (relationship === 1) {
+                        // Chase next species (clockwise predator-prey)
+                        row[j] = 0.5 + Math.random() * 0.4;
+                    } else if (relationship === numSpecies - 1) {
+                        // Flee from previous species (avoid being prey)
+                        row[j] = -0.3 - Math.random() * 0.4;
+                    } else if (relationship <= numSpecies / 3) {
+                        // Neutral to slight attraction for nearby species
+                        row[j] = -0.1 + Math.random() * 0.4;
+                    } else if (relationship <= 2 * numSpecies / 3) {
+                        // Mixed interactions for middle-distance species
+                        row[j] = -0.3 + Math.random() * 0.6;
+                    } else {
+                        // Weak interactions for distant species
+                        row[j] = -0.2 + Math.random() * 0.4;
+                    }
+                }
+            }
+            return row;
+        };
         
         for (let i = 0; i < this.numSpecies; i++) {
-            matrix[i] = patterns[i % patterns.length]();
-            // Add some randomness
+            matrix[i] = generatePatternRow(i, this.numSpecies);
+            
+            // Add some randomness and ensure values stay in valid range
             for (let j = 0; j < this.numSpecies; j++) {
                 matrix[i][j] += (Math.random() - 0.5) * 0.3;
                 matrix[i][j] = Math.max(-1, Math.min(1, matrix[i][j]));
