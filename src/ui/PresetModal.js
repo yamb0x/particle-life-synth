@@ -1241,36 +1241,61 @@ export class PresetModal {
     // Update start positions from distribution drawer if available
     if (this.distributionDrawer) {
       const distribution = this.distributionDrawer.exportDistribution();
+      console.log('Distribution data being saved:', distribution);
+      
       Object.entries(distribution).forEach(([speciesId, points]) => {
         const index = parseInt(speciesId);
-        if (preset.species.definitions[index] && points.length > 0) {
-          // Calculate center and radius for the preset format
-          let centerX = 0, centerY = 0, totalWeight = 0;
-          for (const point of points) {
-            const weight = point.opacity;
-            centerX += point.x * weight;
-            centerY += point.y * weight;
-            totalWeight += weight;
-          }
-          if (totalWeight > 0) {
-            centerX /= totalWeight;
-            centerY /= totalWeight;
-            
-            let avgRadius = 0;
+        if (preset.species.definitions[index]) {
+          if (points.length > 0) {
+            // Calculate center and radius for the preset format
+            let centerX = 0, centerY = 0, totalWeight = 0;
             for (const point of points) {
-              const dist = Math.sqrt((point.x - centerX) ** 2 + (point.y - centerY) ** 2);
-              avgRadius += dist;
+              const weight = point.opacity;
+              centerX += point.x * weight;
+              centerY += point.y * weight;
+              totalWeight += weight;
             }
-            avgRadius /= points.length;
-            avgRadius = Math.max(0.05, Math.min(0.4, avgRadius));
-            
-            preset.species.definitions[index].startPosition = {
-              type: 'custom',
-              center: { x: centerX, y: centerY },
-              radius: avgRadius,
-              customPoints: points
-            };
+            if (totalWeight > 0) {
+              centerX /= totalWeight;
+              centerY /= totalWeight;
+              
+              let avgRadius = 0;
+              for (const point of points) {
+                const dist = Math.sqrt((point.x - centerX) ** 2 + (point.y - centerY) ** 2);
+                avgRadius += dist;
+              }
+              avgRadius /= points.length;
+              avgRadius = Math.max(0.05, Math.min(0.4, avgRadius));
+              
+              preset.species.definitions[index].startPosition = {
+                type: 'custom',
+                center: { x: centerX, y: centerY },
+                radius: avgRadius,
+                customPoints: points
+              };
+              
+              console.log(`Saved custom distribution for species ${index}:`, preset.species.definitions[index].startPosition);
+            }
+          } else {
+            // If no custom points, keep existing startPosition or use default
+            if (!preset.species.definitions[index].startPosition) {
+              preset.species.definitions[index].startPosition = {
+                type: 'cluster',
+                center: { x: 0.5, y: 0.5 },
+                radius: 0.1
+              };
+            }
           }
+        }
+      });
+      
+      // Also sync the distribution data to the particle system for immediate use
+      const currentDistribution = this.distributionDrawer.exportDistribution();
+      Object.entries(currentDistribution).forEach(([speciesId, points]) => {
+        const index = parseInt(speciesId);
+        if (this.particleSystem.species[index] && points.length > 0) {
+          // Update the particle system's species startPosition
+          this.particleSystem.species[index].startPosition = preset.species.definitions[index].startPosition;
         }
       });
     }
@@ -1557,13 +1582,17 @@ export class PresetModal {
         const startPos = this.particleSystem.species[i].startPosition;
         if (startPos.type === 'custom' && startPos.customPoints) {
           distributionData[i] = startPos.customPoints;
+          console.log(`Found custom distribution for species ${i}:`, startPos.customPoints.length, 'points');
         }
       }
     }
     
     // Import the distribution data if we have any
     if (Object.keys(distributionData).length > 0 && this.distributionDrawer) {
+      console.log('Importing distribution data for', Object.keys(distributionData).length, 'species');
       this.distributionDrawer.importDistribution(distributionData);
+    } else {
+      console.log('No custom distribution data found in particle system');
     }
   }
 
