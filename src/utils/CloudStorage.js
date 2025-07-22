@@ -64,18 +64,43 @@ class CloudStorage {
   async savePreset(preset, status = PRESET_STATUS.PRIVATE) {
     await this.initialize();
     
-    // Deep clone and convert nested arrays to Firestore-compatible format
-    const presetData = this.prepareForFirestore({
-      ...preset,
-      userId: this.currentUser?.uid || 'anonymous',
-      status,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      version: 1
-    });
-
-    // Generate ID if not provided
-    const id = preset.id || `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Skip saving invalid preset names (test artifacts, etc.)
+    if (this.isInvalidPresetName(preset.name)) {
+      console.log('Skipping invalid preset name for Firebase:', preset.name);
+      throw new Error(`Invalid preset name "${preset.name}" not allowed in cloud storage`);
+    }
+    
+    const userId = this.currentUser?.uid || 'anonymous';
+    const safeName = preset.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    
+    // Use consistent ID based on user and name for proper updates
+    const id = preset.id || `${userId}_${safeName}`;
+    
+    // Check if preset already exists
+    const existingPreset = await this.getPreset(id);
+    
+    let presetData;
+    if (existingPreset) {
+      // Update existing preset, preserving creation info
+      presetData = this.prepareForFirestore({
+        ...preset,
+        userId,
+        status,
+        createdAt: existingPreset.createdAt, // Preserve original creation time
+        updatedAt: new Date().toISOString(),
+        version: (existingPreset.version || 1) + 1
+      });
+    } else {
+      // Create new preset
+      presetData = this.prepareForFirestore({
+        ...preset,
+        userId,
+        status,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1
+      });
+    }
     
     try {
       await this.firebase.setDoc(
@@ -87,6 +112,61 @@ class CloudStorage {
       console.error('Failed to save preset:', error);
       throw error;
     }
+  }
+
+  // Check if a preset name should be blocked from cloud storage
+  isInvalidPresetName(name) {
+    if (!name || typeof name !== 'string') return true;
+    
+    // Normalize name for comparison
+    const normalizedName = name.trim().toLowerCase();
+    
+    // Block test artifacts and invalid names
+    const invalidNames = [
+      'custom',
+      'new preset',
+      'untitled',
+      'automaticsaveasnew', // Block test suite artifacts
+      'test preset',
+      'temp',
+      'temporary'
+    ];
+    
+    // Check for exact matches
+    if (invalidNames.includes(normalizedName)) {
+      return true;
+    }
+    
+    // Block names that start with test patterns
+    const invalidPatterns = ['test_', 'temp_', 'auto_'];
+    if (invalidPatterns.some(pattern => normalizedName.startsWith(pattern))) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Extract only the essential content for comparison (exclude metadata)
+  extractPresetContent(preset) {
+    return {
+      name: preset.name,
+      speciesCount: preset.speciesCount,
+      forces: preset.forces,
+      startPositions: preset.startPositions,
+      parameters: preset.parameters
+    };
+  }
+
+  // Create a simple hash of preset content for comparison
+  hashPresetContent(content) {
+    const jsonStr = JSON.stringify(content, Object.keys(content).sort());
+    let hash = 0;
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString(36);
   }
 
   // Convert nested arrays to Firestore-compatible format
@@ -363,6 +443,68 @@ class CloudStorage {
 
   getCurrentUserId() {
     return this.currentUser?.uid || null;
+  }
+
+  // Clean up test presets and duplicates
+  async cleanupTestPresets() {
+    if (!this.initialized || !this.currentUser) {
+      console.log('Cannot cleanup - not authenticated');
+      return;
+    }
+
+    try {
+      console.log('Starting cleanup of test presets...');
+      const userId = this.currentUser.uid;
+      
+      // Get all user presets
+      const userPresets = await this.getAllPresets({ 
+        userId,
+        limit: 200 // Increased limit to catch more test presets
+      });
+      
+      const toDelete = [];
+      const seenNames = new Map(); // Track duplicates by name
+      
+      for (const preset of userPresets) {
+        // Mark invalid preset names for deletion
+        if (this.isInvalidPresetName(preset.name)) {
+          toDelete.push(preset);
+          continue;
+        }
+        
+        // Track duplicates - keep the most recent version
+        const key = preset.name.toLowerCase();
+        if (seenNames.has(key)) {
+          const existing = seenNames.get(key);
+          // Keep the one with the higher version or more recent update
+          if ((preset.version || 1) > (existing.version || 1) || 
+              preset.updatedAt > existing.updatedAt) {
+            toDelete.push(existing);
+            seenNames.set(key, preset);
+          } else {
+            toDelete.push(preset);
+          }
+        } else {
+          seenNames.set(key, preset);
+        }
+      }
+      
+      // Delete marked presets
+      for (const preset of toDelete) {
+        try {
+          console.log(`Deleting ${this.isInvalidPresetName(preset.name) ? 'invalid' : 'duplicate'} preset:`, preset.name, preset.id);
+          await this.deletePreset(preset.id);
+        } catch (error) {
+          console.warn(`Failed to delete preset ${preset.id}:`, error);
+        }
+      }
+      
+      console.log(`Cleanup completed: deleted ${toDelete.length} presets`);
+      return toDelete.length;
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      throw error;
+    }
   }
 }
 

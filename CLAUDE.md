@@ -122,8 +122,9 @@ When working on this project:
 - UI parameter system: 100% complete ✓ (all parameters working)
 - Testing suite: 100% complete ✓ (consolidated and comprehensive)
 - Bug resolution: 12/14 issues resolved ✓ (only 2 low-priority issues remain)
+- Firebase improvements: 100% complete ✓ (robust preset management)
 - Audio engine: 20% complete (next phase)
-- Documentation: Updated with cloud deployment ✓
+- Documentation: Updated with all recent changes ✓
 
 ## Cloud Deployment Architecture
 
@@ -150,9 +151,28 @@ The project now runs on:
 ### Firebase Integration Points
 
 - `src/config/firebase.config.js` - Firebase configuration
-- `src/utils/CloudStorage.js` - Firestore integration with nested array handling
-- `src/utils/HybridPresetManager.js` - Local + cloud preset management
+- `src/utils/CloudStorage.js` - Firestore integration with robust preset management
+- `src/utils/HybridPresetManager.js` - Local + cloud preset management with cleanup
 - `src/ui/CloudSyncUI.js` - Share modal and URL import handling
+
+### Recent Firebase Improvements (Latest Update)
+
+**Robust Preset Management:**
+- **Fixed Duplicate Creation**: Now uses consistent IDs (`userId_presetName`) for proper updates instead of creating new entries
+- **Test Artifact Prevention**: Blocks "AutomaticSaveAsNew" and other test presets from being uploaded to Firebase
+- **Smart Save Logic**: Automatically detects name changes to create new presets vs. updating existing ones
+- **Cleanup Methods**: Added `cleanupTestPresets()` and `cleanupCloudPresets()` for maintaining database hygiene
+- **Error Recovery**: Graceful handling of network issues and validation failures
+
+**UI Improvements:**
+- **Removed "Save As New"**: Simplified interface - users change names to save as new presets
+- **Better User Feedback**: Clear indication of save vs. save-as-new behavior
+- **Consistent Experience**: Single "Save" button with intelligent behavior based on context
+
+**Data Integrity:**
+- **Validation**: Comprehensive preset name validation prevents invalid entries
+- **Version Control**: Proper version numbering for preset updates
+- **Conflict Resolution**: Handles concurrent edits and duplicate prevention
 
 ## Performance Characteristics
 
@@ -186,13 +206,14 @@ The `/issues` folder contains all documented bugs and improvements:
 
 ## Testing
 
-The project has a consolidated testing system as per the MASTER_DEVELOPMENT_PLAN:
+The project uses a **consolidated testing system** - DO NOT create new test files:
 
-- **Comprehensive Test Suite**: `http://localhost:8000/test-suite.html`
+- **Master Test Suite**: `http://localhost:8000/test-suite.html`
   - Automated parameter testing
   - Trail rendering validation
   - UI state manager tests
   - Species count validation
+  - **UPDATE THIS FILE** when adding new features or tests
 
 - **Developer Debug Tools**: `http://localhost:8000/debug-tools.html`
   - System diagnostics
@@ -205,6 +226,14 @@ The project has a consolidated testing system as per the MASTER_DEVELOPMENT_PLAN
 - **Performance Testing**: `http://localhost:8000/performance-test.html`
   - High particle count testing
   - FPS monitoring and optimization analysis
+
+### Testing Guidelines for AI Assistants
+
+- **NEVER create new test-*.html files**
+- **ALWAYS update test-suite.html** when implementing new features
+- **Use debug-tools.html** for development debugging
+- **Reference existing test patterns** in test-suite.html for consistency
+- **Clean up any temporary test files** created during development
 
 ## Next Steps
 

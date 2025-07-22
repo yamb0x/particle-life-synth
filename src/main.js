@@ -22,6 +22,20 @@ async function init() {
     const presetManager = new HybridPresetManager();
     // Wait for async initialization
     await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Expose cleanup method globally for testing/debugging
+    window.cleanupCloudPresets = async () => {
+      try {
+        if (!presetManager.isCloudEnabled()) {
+          console.log('Cloud sync not enabled');
+          return 0;
+        }
+        return await presetManager.cleanupCloudPresets();
+      } catch (error) {
+        console.error('Cleanup failed:', error);
+        throw error;
+      }
+    };
     
     // Create cloud sync UI
     const cloudSyncUI = new CloudSyncUI(presetManager);
@@ -33,9 +47,12 @@ async function init() {
         try {
             await presetManager.enableCloudSync();
             console.log('Cloud sync automatically enabled');
+            // Now update preset selector with both local and cloud presets
+            mainUI.updatePresetSelector();
         } catch (error) {
             console.warn('Cloud sync failed to initialize:', error);
-            // Continue without cloud sync - app works offline
+            // Continue without cloud sync - show local presets only
+            mainUI.updatePresetSelector();
         }
     }, 1000); // Small delay to ensure UI is ready
     
@@ -137,8 +154,7 @@ async function init() {
     const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene);
     window.mainUI = mainUI; // Make it globally accessible
     
-    // Update the preset selector to include saved presets
-    mainUI.updatePresetSelector();
+    // Don't update preset selector yet - wait for cloud sync
     
     // Make emergency reset available globally for console access
     window.emergencyReset = () => mainUI.emergencyReset();

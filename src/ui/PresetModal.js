@@ -228,10 +228,10 @@ export class PresetModal {
       <div class="preset-modal-footer">
         <div class="preset-save-status"></div>
         <button class="btn btn-secondary btn-sm preset-btn-share">🔗 Share</button>
-        <button class="btn btn-secondary btn-sm preset-btn-paste">Paste from Floating UI</button>
+        <button class="btn btn-secondary btn-sm preset-btn-fetch">📥 Fetch from Scene</button>
+        <button class="btn btn-secondary btn-sm preset-btn-paste">Paste Settings</button>
         <button class="btn btn-secondary btn-sm preset-btn-delete">Delete</button>
         <button class="btn btn-secondary btn-sm preset-btn-close">Close</button>
-        <button class="btn btn-secondary btn-sm preset-btn-save-new">Save as New</button>
         <button class="btn btn-primary btn-sm preset-btn-save">Save</button>
         <button class="btn btn-primary btn-sm preset-btn-apply">Apply</button>
       </div>
@@ -394,12 +394,7 @@ export class PresetModal {
       document.head.appendChild(style);
     }
     
-    const canvas = this.modal.querySelector('#distribution-drawer-canvas');
-    this.distributionDrawer = new DistributionDrawer(canvas, this.particleSystem, {
-      compact: false,
-      onChange: () => this.markChanged()
-    });
-    
+    // Initialize Force Editor
     const forceCanvas = this.modal.querySelector('#force-editor-canvas');
     this.forceEditor = new ForceEditor(forceCanvas, () => this.markChanged());
     this.forceEditor.setInfoElement(this.modal.querySelector('#force-info'));
@@ -443,16 +438,8 @@ export class PresetModal {
       
       // Load the selected preset
       if (newPresetKey) {
-        // Check if it's a built-in preset
-        const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
+        // Get preset from manager (could be local or cloud)
         let preset = this.presetManager.getPreset(newPresetKey);
-        
-        if (!preset && builtInPresets.includes(newPresetKey)) {
-          // Handle built-in presets by loading them from particle system
-          this.particleSystem.loadPreset(newPresetKey);
-          preset = this.particleSystem.exportPreset();
-          preset.name = this.getBuiltInPresetName(newPresetKey);
-        }
         
         if (preset) {
           this.currentPresetKey = newPresetKey;
@@ -527,8 +514,8 @@ export class PresetModal {
     this.modal.querySelector('.preset-btn-close').addEventListener('click', () => this.close());
     this.modal.querySelector('.preset-btn-apply').addEventListener('click', () => this.apply());
     this.modal.querySelector('.preset-btn-save').addEventListener('click', () => this.save());
-    this.modal.querySelector('.preset-btn-save-new').addEventListener('click', () => this.saveAsNew());
     this.modal.querySelector('.preset-btn-delete').addEventListener('click', () => this.deletePreset());
+    this.modal.querySelector('.preset-btn-fetch').addEventListener('click', () => this.fetchCurrentSceneSettings());
     this.modal.querySelector('.preset-btn-paste').addEventListener('click', () => this.pasteSettings());
     this.modal.querySelector('.preset-btn-share').addEventListener('click', () => this.sharePreset());
     
@@ -570,6 +557,47 @@ export class PresetModal {
         }
       });
     }
+    
+    // Pattern buttons for distribution drawer
+    this.modal.querySelectorAll('.pattern-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Remove active class from all pattern buttons
+        this.modal.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+        // Add active class to clicked button
+        btn.classList.add('active');
+        
+        // Set the pattern mode in distribution drawer
+        if (this.distributionDrawer) {
+          const pattern = btn.dataset.pattern;
+          this.distributionDrawer.setMode(pattern);
+        }
+      });
+    });
+    
+    // Distribution controls (brush size, opacity)
+    const modalBrushSize = this.modal.querySelector('#modal-brush-size');
+    const modalBrushSizeValue = this.modal.querySelector('#modal-brush-size-value');
+    if (modalBrushSize && modalBrushSizeValue) {
+      modalBrushSize.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        modalBrushSizeValue.textContent = value;
+        if (this.distributionDrawer) {
+          this.distributionDrawer.setBrushSize(value);
+        }
+      });
+    }
+    
+    const modalOpacity = this.modal.querySelector('#modal-opacity');
+    const modalOpacityValue = this.modal.querySelector('#modal-opacity-value');
+    if (modalOpacity && modalOpacityValue) {
+      modalOpacity.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        modalOpacityValue.textContent = value.toFixed(1);
+        if (this.distributionDrawer) {
+          this.distributionDrawer.setOpacity(value);
+        }
+      });
+    }
   }
 
   switchTab(tabName) {
@@ -586,6 +614,8 @@ export class PresetModal {
     if (tabName === 'layout' && this.currentPreset && this.distributionDrawer) {
       // Convert species definitions to distribution data and apply
       this.updateDistributionFromPreset(this.currentPreset.species.definitions);
+      // Also update from current particle system state to ensure we have the latest
+      this.distributionDrawer.updateFromParticleSystem();
     }
     
     if (tabName === 'forces' && this.currentPreset) {
@@ -922,15 +952,6 @@ export class PresetModal {
     this.updateModalDistributionSpeciesSelector();
   }
 
-  getBuiltInPresetName(key) {
-    const nameMap = {
-      'predatorPrey': 'Predator-Prey',
-      'crystallization': 'Crystallization',
-      'vortex': 'Vortex',
-      'symbiosis': 'Symbiosis'
-    };
-    return nameMap[key] || key;
-  }
 
   populatePresetDropdown() {
     const selector = this.modal.querySelector('#modal-preset-selector');
@@ -939,37 +960,16 @@ export class PresetModal {
     // Clear existing options
     selector.innerHTML = '<option value="">New Preset</option>';
     
-    // Add built-in presets (always available, regardless of presetManager state)
-    const builtInPresets = [
-      { key: 'predatorPrey', name: 'Predator-Prey' },
-      { key: 'crystallization', name: 'Crystallization' },
-      { key: 'vortex', name: 'Vortex' },
-      { key: 'symbiosis', name: 'Symbiosis' }
-    ];
+    // No built-in presets - Firebase is the single source of truth
     
-    builtInPresets.forEach(({ key, name }) => {
+    // Add user presets (including cloud presets)
+    const userPresets = this.presetManager.getUserPresets();
+    userPresets.forEach(preset => {
       const option = document.createElement('option');
-      option.value = key;
-      option.textContent = name;
+      option.value = preset.key;
+      option.textContent = preset.name;
       selector.appendChild(option);
     });
-    
-    // Add separator if there are user presets
-    const userPresets = this.presetManager.getUserPresets();
-    if (userPresets.length > 0) {
-      const separator = document.createElement('option');
-      separator.disabled = true;
-      separator.textContent = '─────────────';
-      selector.appendChild(separator);
-      
-      // Add user presets
-      userPresets.forEach(preset => {
-        const option = document.createElement('option');
-        option.value = preset.key;
-        option.textContent = preset.name;
-        selector.appendChild(option);
-      });
-    }
   }
   
   open(presetKey = null) {
@@ -991,15 +991,7 @@ export class PresetModal {
     this.currentPreset = this.particleSystem.exportPreset();
     
     if (presetKey) {
-      const builtInPresets = ['predatorPrey', 'crystallization', 'vortex', 'symbiosis'];
       let savedPreset = this.presetManager.getPreset(presetKey);
-      
-      // Handle built-in presets
-      if (!savedPreset && builtInPresets.includes(presetKey)) {
-        this.particleSystem.loadPreset(presetKey);
-        savedPreset = this.particleSystem.exportPreset();
-        savedPreset.name = this.getBuiltInPresetName(presetKey);
-      }
       
       if (savedPreset) {
         // If opening a specific preset, merge its data with current state
@@ -1038,37 +1030,31 @@ export class PresetModal {
 
   updateButtonStates() {
     const saveBtn = this.modal.querySelector('.preset-btn-save');
-    const saveNewBtn = this.modal.querySelector('.preset-btn-save-new');
     const deleteBtn = this.modal.querySelector('.preset-btn-delete');
-    const builtInPresets = [];
-    const isBuiltIn = builtInPresets.includes(this.currentPresetKey);
     const isNew = !this.currentPresetKey;
     
-    // Save button - always stays "Save" but behavior changes
-    saveBtn.textContent = 'Save';
-    
+    // Save button behavior
     if (isNew) {
-      saveBtn.title = 'Save as new preset (no current preset to update)';
+      saveBtn.textContent = 'Save';
+      saveBtn.title = 'Save as new preset';
       deleteBtn.disabled = true;
       deleteBtn.title = 'Cannot delete unsaved preset';
-    } else if (isBuiltIn) {
-      saveBtn.title = 'Cannot overwrite built-in preset - will save as new instead';
-      deleteBtn.disabled = false;
-      deleteBtn.title = 'Delete this built-in preset';
     } else {
-      saveBtn.title = 'Save changes to current preset';
+      saveBtn.textContent = 'Save';
+      saveBtn.title = 'Save changes to current preset (or change name to save as new)';
       deleteBtn.disabled = false;
       deleteBtn.title = 'Delete this preset';
     }
-    
-    // Save as New button - always available
-    saveNewBtn.title = 'Create a new preset copy';
   }
 
   close() {
     if (this.hasChanges) {
       this.autoSave();
     }
+    
+    // Sync any final changes to main UI before closing
+    this.syncToMainUI();
+    
     this.overlay.style.display = 'none';
     this.isOpen = false;
     this.currentPresetKey = null;
@@ -1078,13 +1064,7 @@ export class PresetModal {
   markChanged() {
     this.hasChanges = true;
     
-    // Check if it's a built-in preset
-    const builtInPresets = [];
-    if (builtInPresets.includes(this.currentPresetKey)) {
-      this.updateSaveStatus('Modified built-in preset (save as new)');
-    } else {
-      this.updateSaveStatus('Changed (auto-saving...)');
-    }
+    this.updateSaveStatus('Changed (auto-saving...)');
     
     // Update button states in case preset type changed
     this.updateButtonStates();
@@ -1103,18 +1083,22 @@ export class PresetModal {
       return;
     }
     
-    // Don't auto-save built-in presets
-    const builtInPresets = [];
-    if (builtInPresets.includes(this.currentPresetKey)) {
-      this.updateSaveStatus('Built-in preset (save as new)');
-      return;
-    }
-    
     try {
       const preset = this.getPresetFromUI();
-      await this.presetManager.savePreset(this.currentPresetKey, preset);
-      this.hasChanges = false;
-      this.updateSaveStatus('Saved ✓');
+      
+      // Auto-save should only save to localStorage for temporary state preservation
+      // Don't upload "Custom" presets or temporary working states to Firebase
+      if (this.isInvalidPresetName(preset.name)) {
+        // For Custom/temporary presets, only save locally for session preservation
+        await this.presetManager.storage.savePreset(this.currentPresetKey, preset);
+        this.hasChanges = false;
+        this.updateSaveStatus('Auto-saved locally ✓');
+      } else {
+        // For named presets, save normally (includes Firebase upload)
+        await this.presetManager.savePreset(this.currentPresetKey, preset);
+        this.hasChanges = false;
+        this.updateSaveStatus('Saved ✓');
+      }
       
       // Clear status after 3 seconds
       setTimeout(() => {
@@ -1123,7 +1107,8 @@ export class PresetModal {
         }
       }, 3000);
     } catch (error) {
-      this.updateSaveStatus('Save failed!');
+      this.updateSaveStatus('Auto-save failed!');
+      console.error('Auto-save error:', error);
     }
   }
   
@@ -1397,25 +1382,69 @@ export class PresetModal {
       window.updateUIFromPreset(this.particleSystem);
     }
     
+    // Also update the main UI distribution drawer if it exists
+    this.syncToMainUI();
+    
     // Note: Apply does NOT save the preset - just applies changes temporarily
+  }
+  
+  syncToMainUI() {
+    // Sync all changes to the main UI to ensure consistency
+    const mainUI = window.mainUI;
+    if (!mainUI) return;
+    
+    // Update main UI distribution drawer with current modal data
+    if (mainUI.distributionDrawer && this.distributionDrawer) {
+      const distributionData = this.distributionDrawer.exportDistribution();
+      if (Object.keys(distributionData).length > 0) {
+        mainUI.distributionDrawer.importDistribution(distributionData);
+      }
+    }
+    
+    // Update main UI preset selector to match current preset
+    const mainPresetSelector = document.getElementById('preset-selector');
+    if (mainPresetSelector && this.currentPresetKey) {
+      mainPresetSelector.value = this.currentPresetKey;
+    }
+    
+    // Trigger auto-save in main UI if available
+    if (mainUI.triggerAutoSave) {
+      mainUI.triggerAutoSave();
+    }
   }
 
   async save() {
-    if (!this.currentPresetKey) {
-      // If no preset key, treat as "Save as New"
-      return this.saveAsNew();
-    }
-    
-    // Check if it's a built-in preset
-    const builtInPresets = [];
-    if (builtInPresets.includes(this.currentPresetKey)) {
-      // Can't save over built-in presets, must save as new
-      return this.saveAsNew();
-    }
-    
     try {
       const preset = this.getPresetFromUI();
-      await this.presetManager.savePreset(this.currentPresetKey, preset);
+      
+      // Validate preset name - don't allow saving "Custom" presets
+      if (this.isInvalidPresetName(preset.name)) {
+        this.updateSaveStatus('❌ Cannot save "Custom" presets');
+        alert('Cannot save presets named "Custom". Please choose a different name.');
+        return;
+      }
+      
+      // Determine if this should be a new preset or update existing
+      let saveKey = this.currentPresetKey;
+      
+      if (this.currentPresetKey) {
+        // Check if name has changed - if so, save as new
+        const currentPreset = this.presetManager.getPreset(this.currentPresetKey);
+        if (currentPreset && currentPreset.name !== preset.name) {
+          // Name changed - create new preset with new name
+          saveKey = this.presetManager.generateUniqueKey(preset.name);
+          console.log(`Name changed from '${currentPreset.name}' to '${preset.name}' - creating new preset`);
+        }
+      } else {
+        // No current preset - definitely new
+        saveKey = this.presetManager.generateUniqueKey(preset.name);
+      }
+      
+      await this.presetManager.savePreset(saveKey, preset);
+      
+      // Update current preset key if we created a new one
+      this.currentPresetKey = saveKey;
+      
       this.hasChanges = false;
       this.updateSaveStatus('Saved ✓');
       
@@ -1425,36 +1454,16 @@ export class PresetModal {
           this.updateSaveStatus('');
         }
       }, 3000);
+      
+      // Force preset list refresh to show changes
+      this.refreshPresetList();
+      this.updateButtonStates();
     } catch (error) {
+      console.error('Save failed:', error);
       this.updateSaveStatus('Save failed!');
     }
   }
 
-  async saveAsNew() {
-    const preset = this.getPresetFromUI();
-    const key = this.presetManager.generateUniqueKey(preset.name);
-    await this.presetManager.savePreset(key, preset);
-    
-    // Switch to editing the new preset
-    this.currentPresetKey = key;
-    this.hasChanges = false;
-    
-    if (window.updatePresetSelector) {
-      window.updatePresetSelector();
-      // Update the selector to show the new preset
-      const selector = document.getElementById('preset-selector');
-      if (selector) {
-        selector.value = key;
-        // Save as the last selected preset
-        localStorage.setItem('lastSelectedPreset', key);
-      }
-    }
-    
-    this.updateSaveStatus(`Saved as: ${preset.name} ✓`);
-    setTimeout(() => {
-      this.updateSaveStatus('');
-    }, 3000);
-  }
 
   
   async sharePreset() {
@@ -1486,13 +1495,7 @@ export class PresetModal {
       return;
     }
     
-    // Show warning for built-in presets
-    const builtInPresets = [];
-    const isBuiltIn = builtInPresets.includes(this.currentPresetKey);
-    
-    const message = isBuiltIn 
-      ? `Are you sure you want to delete the built-in preset "${preset.name}"?\n\nThis action cannot be undone. The preset will be permanently removed.`
-      : `Are you sure you want to delete the preset "${preset.name}"?\n\nThis action cannot be undone.`;
+    const message = `Are you sure you want to delete the preset "${preset.name}"?\n\nThis action cannot be undone.`;
     
     if (confirm(message)) {
       try {
@@ -1519,6 +1522,73 @@ export class PresetModal {
     }
   }
   
+  fetchCurrentSceneSettings() {
+    // Get the current scene state directly from particle system
+    // This is more robust than copying/pasting
+    try {
+      // Export current complete state
+      const currentState = this.particleSystem.exportPreset();
+      
+      // Preserve the current preset name instead of using exported name
+      const presetName = this.modal.querySelector('.preset-name-input').value;
+      currentState.name = presetName;
+      
+      // Update the current preset object
+      this.currentPreset = currentState;
+      
+      // Update all UI elements to reflect the current scene
+      this.loadPresetToUI();
+      
+      // Force update the distribution drawer with current particle system state
+      if (this.distributionDrawer) {
+        this.distributionDrawer.updateFromParticleSystem();
+        // If there's existing distribution data in the particle system, import it
+        this.updateDistributionFromCurrentSystem();
+      }
+      
+      // Update force editor with current state
+      if (this.forceEditor) {
+        this.forceEditor.setForceMatrix(this.particleSystem.socialForce);
+        this.forceEditor.setSpecies(this.currentPreset.species.definitions);
+        this.forceEditor.updateMatrixView();
+      }
+      
+      this.markChanged();
+      this.updateSaveStatus('✓ Fetched current scene settings');
+      
+      // Clear status after 3 seconds
+      setTimeout(() => {
+        if (!this.hasChanges) {
+          this.updateSaveStatus('');
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Fetch scene settings error:', error);
+      alert('Failed to fetch scene settings: ' + error.message);
+    }
+  }
+
+  updateDistributionFromCurrentSystem() {
+    // Update distribution drawer with actual particle positions or species start positions
+    const distributionData = {};
+    
+    // Check if we have custom start positions for each species
+    for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+      if (this.particleSystem.species[i] && this.particleSystem.species[i].startPosition) {
+        const startPos = this.particleSystem.species[i].startPosition;
+        if (startPos.type === 'custom' && startPos.customPoints) {
+          distributionData[i] = startPos.customPoints;
+        }
+      }
+    }
+    
+    // Import the distribution data if we have any
+    if (Object.keys(distributionData).length > 0 && this.distributionDrawer) {
+      this.distributionDrawer.importDistribution(distributionData);
+    }
+  }
+
   pasteSettings() {
     // Check if there are copied settings available from MainUI
     const mainUI = window.mainUI;
@@ -1533,8 +1603,10 @@ export class PresetModal {
       // Apply the complete preset to the particle system
       this.particleSystem.loadFullPreset(settings);
       
-      // Update the current preset object with the pasted settings
-      this.currentPreset = settings;
+      // Merge pasted settings with current preset, preserving name
+      const presetName = this.modal.querySelector('.preset-name-input').value;
+      this.currentPreset = { ...settings };
+      this.currentPreset.name = presetName; // Keep current name to avoid switching to "Custom"
       
       // Update modal UI to reflect the new settings
       this.syncAllModalElements(settings);
@@ -1542,12 +1614,28 @@ export class PresetModal {
       // Update the force editor if on forces tab
       if (this.activeTab === 'forces' && this.forceEditor) {
         this.forceEditor.setForceMatrix(this.particleSystem.socialForce);
+        this.forceEditor.setSpecies(this.currentPreset.species.definitions);
         this.forceEditor.updateMatrixView();
       }
       
-      // Update the distribution drawer if on layout tab
-      if (this.activeTab === 'layout' && this.distributionDrawer) {
-        this.distributionDrawer.updateFromParticleSystem();
+      // Update the distribution drawer if on layout tab - this is the key fix
+      if (this.distributionDrawer) {
+        // First, clear existing distribution
+        this.distributionDrawer.clear();
+        
+        // Import distribution data from pasted settings
+        if (settings.species && settings.species.definitions) {
+          const distributionData = {};
+          settings.species.definitions.forEach((species, index) => {
+            if (species.startPosition && species.startPosition.type === 'custom' && species.startPosition.customPoints) {
+              distributionData[index] = species.startPosition.customPoints;
+            }
+          });
+          
+          if (Object.keys(distributionData).length > 0) {
+            this.distributionDrawer.importDistribution(distributionData);
+          }
+        }
       }
       
       // Apply UI-specific state
@@ -1701,5 +1789,24 @@ export class PresetModal {
         pasteButton.style.opacity = '0.5';
       }
     }
+  }
+
+  isInvalidPresetName(name) {
+    if (!name || typeof name !== 'string') return true;
+    
+    // Normalize name for comparison
+    const normalizedName = name.trim().toLowerCase();
+    
+    // Block various forms of "Custom"
+    const invalidNames = [
+      'custom',
+      'new preset',
+      'untitled',
+      'default',
+      '',
+      'preset'
+    ];
+    
+    return invalidNames.includes(normalizedName);
   }
 }

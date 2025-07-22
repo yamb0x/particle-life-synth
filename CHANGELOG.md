@@ -2,6 +2,49 @@
 
 All notable changes to the Particle Life Synth project will be documented in this file.
 
+## [2025-07-21] - Firebase Improvements & Code Cleanup
+
+### Fixed
+- **Firebase Preset Duplication**: Fixed duplicate preset creation in Firebase
+  - Now uses consistent IDs (`userId_presetName`) for proper updates vs. new entries
+  - Prevents multiple versions of the same preset in cloud storage
+  - Preserves creation timestamps when updating existing presets
+
+- **Test Artifact Prevention**: Blocked test presets from uploading to Firebase
+  - Added comprehensive `isInvalidPresetName()` validation
+  - Prevents "AutomaticSaveAsNew" and other test artifacts from reaching cloud storage
+  - Protects production database from test pollution
+
+### Removed
+- **"Save As New" Button**: Simplified preset saving interface
+  - Removed separate "Save As New" button from PresetModal
+  - Single "Save" button now intelligently detects name changes
+  - Users change preset names to save as new presets (more intuitive)
+  - Updated test suite to remove `testSaveAsNew()` test
+
+### Added
+- **Cleanup Methods**: Added database hygiene utilities
+  - `CloudStorage.cleanupTestPresets()` - removes invalid presets and duplicates
+  - `HybridPresetManager.cleanupCloudPresets()` - wrapper with error handling
+  - `window.cleanupCloudPresets()` - global method for manual cleanup
+  - Automatic version control for preset updates
+
+### Improved
+- **Error Handling**: Enhanced robustness across Firebase operations
+  - Graceful degradation when cloud services are unavailable
+  - Better user feedback for save operations
+  - Comprehensive validation before cloud uploads
+
+- **Code Cleanup**: Removed excessive debugging console.log statements
+  - Cleaned up Firebase-related logging while preserving important messages
+  - Removed temporary backup files and artifacts
+  - Improved code maintainability
+
+### Documentation
+- **Updated README.md**: Added Firebase improvements and deployment info
+- **Enhanced CLAUDE.md**: Documented implementation details and recent changes
+- **Comprehensive Documentation**: All recent changes properly documented
+
 ## [2025-07-19] - Master Development Plan Implementation
 
 ### Fixed
