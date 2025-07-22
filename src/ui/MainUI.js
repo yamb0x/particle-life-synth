@@ -2428,13 +2428,18 @@ export class MainUI {
     
     updatePresetSelector() {
         const selector = document.getElementById('preset-selector');
-        if (!selector) return;
+        if (!selector) {
+            console.error('Preset selector not found!');
+            return;
+        }
         
         // Clear all options except Custom
         selector.innerHTML = '<option value="">Custom</option>';
         
         // Add user presets
         const userPresets = this.presetManager.getUserPresets();
+        console.log('User presets for dropdown:', userPresets);
+        
         userPresets.forEach(preset => {
             const option = document.createElement('option');
             option.value = preset.key;
@@ -2442,7 +2447,7 @@ export class MainUI {
             selector.appendChild(option);
         });
         
-        // No separator needed since no random option exists
+        console.log('Preset selector updated with', userPresets.length, 'presets');
     }
     
     applyDistributionToParticleSystem() {
