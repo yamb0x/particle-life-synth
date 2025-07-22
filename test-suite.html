@@ -542,6 +542,74 @@
                     return { color: ctx.particleSystem.backgroundColor };
                 });
                 
+                this.addTest('ui', 'sinusoidal-background-mode', 'Sinusoidal Background Mode', async () => {
+                    const ctx = await this.getAppContext();
+                    const modeSelect = ctx.document.getElementById('background-mode');
+                    const color1Input = ctx.document.getElementById('background-color1');
+                    const color2Input = ctx.document.getElementById('background-color2');
+                    const cycleTimeInput = ctx.document.getElementById('background-cycle-time');
+                    
+                    if (!modeSelect || !color1Input || !color2Input || !cycleTimeInput) {
+                        throw new Error('Sinusoidal background UI elements not found');
+                    }
+                    
+                    // Test mode switching
+                    modeSelect.value = 'sinusoidal';
+                    modeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    if (ctx.particleSystem.backgroundMode !== 'sinusoidal') {
+                        throw new Error('Background mode was not updated to sinusoidal');
+                    }
+                    
+                    // Test color inputs
+                    color1Input.value = '#ff0000';
+                    color1Input.dispatchEvent(new Event('change', { bubbles: true }));
+                    color2Input.value = '#0000ff';
+                    color2Input.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    if (ctx.particleSystem.backgroundColor1 !== '#ff0000' || ctx.particleSystem.backgroundColor2 !== '#0000ff') {
+                        throw new Error('Sinusoidal background colors were not updated');
+                    }
+                    
+                    // Test cycle time
+                    cycleTimeInput.value = '3.0';
+                    cycleTimeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    if (Math.abs(ctx.particleSystem.backgroundCycleTime - 3.0) > 0.1) {
+                        throw new Error('Background cycle time was not updated');
+                    }
+                    
+                    // Test sinusoidal color calculation
+                    ctx.particleSystem.time = 0;
+                    const colorAtStart = ctx.particleSystem.getCurrentBackgroundColor();
+                    ctx.particleSystem.time = ctx.particleSystem.backgroundCycleTime / 4;
+                    const colorAtQuarter = ctx.particleSystem.getCurrentBackgroundColor();
+                    
+                    const hexPattern = /^#[0-9A-F]{6}$/i;
+                    if (!hexPattern.test(colorAtStart) || !hexPattern.test(colorAtQuarter)) {
+                        throw new Error('Invalid hex color format from sinusoidal calculation');
+                    }
+                    
+                    if (colorAtStart === colorAtQuarter) {
+                        throw new Error('Sinusoidal color calculation not producing different colors over time');
+                    }
+                    
+                    return { 
+                        mode: ctx.particleSystem.backgroundMode,
+                        color1: ctx.particleSystem.backgroundColor1,
+                        color2: ctx.particleSystem.backgroundColor2,
+                        cycleTime: ctx.particleSystem.backgroundCycleTime,
+                        colorAtStart,
+                        colorAtQuarter
+                    };
+                });
+                
                 this.addTest('ui', 'collision-radius-control', 'Collision Radius Control', async () => {
                     const ctx = await this.getAppContext();
                     const slider = await this.findMainUIElement('#collision-radius');

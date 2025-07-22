@@ -45,7 +45,8 @@ export class MainUI {
             'species-glow-intensity-control', 'glow-species-selector', 'species-glow-size',
             'species-glow-size-value', 'species-glow-intensity', 'species-glow-intensity-value',
             // Visual controls
-            'background-color', 'particle-size', 'particle-size-value', 'species-colors-container',
+            'background-mode', 'background-color', 'background-color1', 'background-color2', 
+            'background-cycle-time', 'background-cycle-time-value', 'particle-size', 'particle-size-value', 'species-colors-container',
             // Action buttons
             'randomize-forces-btn', 'reset-defaults-btn'
         ];
@@ -387,8 +388,26 @@ export class MainUI {
                 <div class="section">
                     <h4 class="section-title">Colors</h4>
                     <div class="control-group">
+                        <label>Background Mode</label>
+                        <select id="background-mode">
+                            <option value="solid">Solid Color</option>
+                            <option value="sinusoidal">Sinusoidal</option>
+                        </select>
+                    </div>
+                    <div class="control-group" id="solid-background-group">
                         <label>Background Color</label>
                         <input type="color" id="background-color" value="#000000">
+                    </div>
+                    <div class="control-group" id="sinusoidal-background-group" style="display: none;">
+                        <label>First Color</label>
+                        <input type="color" id="background-color1" value="#000000">
+                        <label>Second Color</label>
+                        <input type="color" id="background-color2" value="#001133">
+                        <label>Cycle Time (seconds)
+                            <span class="value-display" id="background-cycle-time-value">5.0</span>
+                        </label>
+                        <input type="range" class="range-slider" id="background-cycle-time" 
+                               min="0.5" max="30" step="0.1" value="5.0">
                     </div>
                     <div class="control-group">
                         <label>Particle Size
@@ -2209,8 +2228,31 @@ export class MainUI {
         });
         
         // Visual controls
+        safeAddEventListener('background-mode', 'change', (e) => {
+            this.particleSystem.backgroundMode = e.target.value;
+            this.toggleBackgroundModeUI(e.target.value);
+            this.triggerAutoSave();
+        });
+        
         safeAddEventListener('background-color', 'change', (e) => {
             this.particleSystem.backgroundColor = e.target.value;
+            this.triggerAutoSave();
+        });
+        
+        safeAddEventListener('background-color1', 'change', (e) => {
+            this.particleSystem.backgroundColor1 = e.target.value;
+            this.triggerAutoSave();
+        });
+        
+        safeAddEventListener('background-color2', 'change', (e) => {
+            this.particleSystem.backgroundColor2 = e.target.value;
+            this.triggerAutoSave();
+        });
+        
+        safeAddEventListener('background-cycle-time', 'input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.backgroundCycleTime = value;
+            document.getElementById('background-cycle-time-value').textContent = value.toFixed(1);
             this.triggerAutoSave();
         });
         
@@ -2365,7 +2407,14 @@ export class MainUI {
         this.updateSpeciesGlowUI(ps);
         
         // COLORS Section
+        document.getElementById('background-mode').value = ps.backgroundMode || 'solid';
         document.getElementById('background-color').value = ps.backgroundColor || '#000000';
+        document.getElementById('background-color1').value = ps.backgroundColor1 || '#000000';
+        document.getElementById('background-color2').value = ps.backgroundColor2 || '#001133';
+        document.getElementById('background-cycle-time').value = ps.backgroundCycleTime || 5.0;
+        document.getElementById('background-cycle-time-value').textContent = (ps.backgroundCycleTime || 5.0).toFixed(1);
+        this.toggleBackgroundModeUI(ps.backgroundMode || 'solid');
+        
         document.getElementById('particle-size').value = ps.particleSize;
         document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
         
@@ -2558,6 +2607,19 @@ export class MainUI {
             });
             
             container.appendChild(button);
+        }
+    }
+    
+    toggleBackgroundModeUI(mode) {
+        const solidGroup = document.getElementById('solid-background-group');
+        const sinusoidalGroup = document.getElementById('sinusoidal-background-group');
+        
+        if (mode === 'sinusoidal') {
+            solidGroup.style.display = 'none';
+            sinusoidalGroup.style.display = 'block';
+        } else {
+            solidGroup.style.display = 'block';
+            sinusoidalGroup.style.display = 'none';
         }
     }
 }

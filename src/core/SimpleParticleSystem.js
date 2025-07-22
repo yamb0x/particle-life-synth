@@ -26,7 +26,14 @@ export class SimpleParticleSystem {
         this.blur = 0.95; // Trail effect (0.5-0.99, higher = shorter trails)
         this.particleSize = 3;
         this.trailEnabled = true;
-        this.backgroundColor = '#000000'; // Default black background
+        
+        // Background color system
+        this.backgroundMode = 'solid'; // 'solid' or 'sinusoidal'
+        this.backgroundColor = '#000000'; // Default black background (used in solid mode)
+        this.backgroundColor1 = '#000000'; // First color for sinusoidal mode
+        this.backgroundColor2 = '#001133'; // Second color for sinusoidal mode
+        this.backgroundCycleTime = 5.0; // Time in seconds to cycle between colors
+        
         this.renderMode = 'normal'; // 'normal' or 'dreamtime'
         this.glowIntensity = 0.5; // 0-1, how strong the glow effect is
         this.glowRadius = 2.0; // Multiplier for glow size relative to particle size
@@ -200,6 +207,33 @@ export class SimpleParticleSystem {
         this.poolIndex = 0;
     }
     
+    getCurrentBackgroundColor() {
+        if (this.backgroundMode === 'sinusoidal') {
+            // Calculate sine wave position (0 to 1, oscillating)
+            const sineValue = (Math.sin((this.time / this.backgroundCycleTime) * Math.PI * 2) + 1) / 2;
+            
+            // Parse colors to RGB values
+            const color1 = this.hexToRgb(this.backgroundColor1);
+            const color2 = this.hexToRgb(this.backgroundColor2);
+            
+            if (!color1 || !color2) {
+                console.warn('Invalid background colors, falling back to solid black');
+                return '#000000';
+            }
+            
+            // Interpolate between the two colors using sine wave
+            const r = Math.round(color1.r + (color2.r - color1.r) * sineValue);
+            const g = Math.round(color1.g + (color2.g - color1.g) * sineValue);
+            const b = Math.round(color1.b + (color2.b - color1.b) * sineValue);
+            
+            // Convert back to hex
+            return this.rgbToHex(r, g, b);
+        }
+        
+        // Default to solid color mode
+        return this.backgroundColor;
+    }
+    
     clearCaches() {
         if (this.gradientCache) {
             this.gradientCache.clear();
@@ -214,10 +248,13 @@ export class SimpleParticleSystem {
         // Use fillRect with globalCompositeOperation for clean trails
         // This prevents the gray residue accumulation issue completely
         
+        // Get current background color (dynamic for sinusoidal mode)
+        const currentBgColor = this.getCurrentBackgroundColor();
+        
         // Parse background color to get RGB values
         let bgR = 0, bgG = 0, bgB = 0;
-        if (this.backgroundColor.startsWith('#')) {
-            const hex = this.backgroundColor.slice(1);
+        if (currentBgColor.startsWith('#')) {
+            const hex = currentBgColor.slice(1);
             bgR = parseInt(hex.substr(0, 2), 16) || 0;
             bgG = parseInt(hex.substr(2, 2), 16) || 0;
             bgB = parseInt(hex.substr(4, 2), 16) || 0;
@@ -231,7 +268,7 @@ export class SimpleParticleSystem {
         // Apply trail decay using alpha blending
         this.ctx.save();
         this.ctx.globalAlpha = trailAlpha;
-        this.ctx.fillStyle = this.backgroundColor;
+        this.ctx.fillStyle = currentBgColor;
         this.ctx.fillRect(0, 0, this.width, this.height);
         this.ctx.restore();
     }
@@ -649,7 +686,7 @@ export class SimpleParticleSystem {
         if (this.particles.length === 0) {
             console.warn('No particles to update');
             // Clear canvas when no particles
-            this.ctx.fillStyle = this.backgroundColor;
+            this.ctx.fillStyle = this.getCurrentBackgroundColor();
             this.ctx.fillRect(0, 0, this.width, this.height);
             return;
         }
@@ -662,7 +699,7 @@ export class SimpleParticleSystem {
             this.applyTrailDecay();
         } else {
             // Clear canvas completely
-            this.ctx.fillStyle = this.backgroundColor;
+            this.ctx.fillStyle = this.getCurrentBackgroundColor();
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
         
@@ -1083,7 +1120,13 @@ export class SimpleParticleSystem {
         this.blur = preset.visual.blur;
         this.particleSize = preset.visual.particleSize;
         this.trailEnabled = preset.visual.trailEnabled;
+        
+        // Background color system
+        this.backgroundMode = preset.visual.backgroundMode || 'solid';
         this.backgroundColor = preset.visual.backgroundColor || '#000000';
+        this.backgroundColor1 = preset.visual.backgroundColor1 || '#000000';
+        this.backgroundColor2 = preset.visual.backgroundColor2 || '#001133';
+        this.backgroundCycleTime = preset.visual.backgroundCycleTime || 5.0;
         
         // Load EFFECTS Section
         if (preset.effects) {
@@ -1284,7 +1327,11 @@ export class SimpleParticleSystem {
                 blur: this.blur,
                 particleSize: this.particleSize,
                 trailEnabled: this.trailEnabled,
-                backgroundColor: this.backgroundColor
+                backgroundMode: this.backgroundMode,
+                backgroundColor: this.backgroundColor,
+                backgroundColor1: this.backgroundColor1,
+                backgroundColor2: this.backgroundColor2,
+                backgroundCycleTime: this.backgroundCycleTime
             },
             
             // EFFECTS Section
@@ -1348,7 +1395,14 @@ export class SimpleParticleSystem {
         this.friction = 0.95; // Physics value (0.05 UI value)
         this.wallDamping = 0.9;
         this.forceFactor = 0.5;
+        
+        // Background color defaults
+        this.backgroundMode = 'solid';
         this.backgroundColor = '#000000';
+        this.backgroundColor1 = '#000000';
+        this.backgroundColor2 = '#001133';
+        this.backgroundCycleTime = 5.0;
+        
         this.renderMode = 'normal';
         this.glowIntensity = 0.8;
         this.glowRadius = 3.0;

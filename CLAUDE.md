@@ -49,6 +49,15 @@ src/
 - **Implementation**: `ctx.globalAlpha = blur`
 - **Effect**: Higher value = shorter trails (more fade)
 
+#### Background Color System
+- **Mode**: 'solid' (static color) or 'sinusoidal' (animated between two colors)
+- **Sinusoidal Parameters**: 
+  - `backgroundColor1`: First color (hex format)
+  - `backgroundColor2`: Second color (hex format) 
+  - `backgroundCycleTime`: Time in seconds to complete full color cycle (0.5 to 30s)
+- **Implementation**: Uses `Math.sin()` to interpolate between colors over time
+- **Effect**: Creates smooth, organic color transitions in the background
+
 ### Storage Strategy
 1. **IndexedDB**: Primary storage (async, reliable)
 2. **localStorage**: Fallback and immediate persistence
