@@ -2,6 +2,47 @@
 
 All notable changes to the Particle Life Synth project are documented here.
 
+## [2025-07-22] - Sinusoidal Background Color Mode & Visual Enhancements
+
+### New Features
+- **🎨 Sinusoidal Background Color Mode** - Dynamic animated background colors
+  - New background mode selector: Solid Color vs. Sinusoidal
+  - Time-based sine wave interpolation between two colors
+  - Configurable cycle time (0.5-30 seconds) for smooth transitions
+  - UI controls: First Color, Second Color, and Cycle Time slider
+  - Real-time color calculation during particle rendering
+  - Creates smooth, organic color transitions for enhanced visual experience
+
+### Technical Implementation
+- **Enhanced SimpleParticleSystem.js** with new background color system
+  - `getCurrentBackgroundColor()` method for dynamic color calculation
+  - Mathematical sine wave interpolation with proper hex color handling
+  - Updated `applyTrailDecay()` and rendering methods for dynamic colors
+  - Full preset system integration for save/load functionality
+
+- **Updated MainUI.js** with conditional UI controls
+  - Background mode selector with automatic UI state management
+  - `toggleBackgroundModeUI()` method for proper control visibility
+  - Event handlers for all new background parameters
+  - Seamless integration with existing auto-save functionality
+
+### Testing & Quality
+- **Comprehensive test suite** added to `test-suite.html`
+  - UI control validation and mode switching functionality
+  - Color interpolation accuracy and mathematical validation
+  - Time parameter updates and hex color format verification
+  - Backward compatibility with existing solid color presets
+
+### Documentation
+- **Updated CLAUDE.md** with complete technical specifications
+  - Parameter ranges, implementation details, and usage instructions
+  - Integration notes for future audio synthesis mapping
+
+### Compatibility
+- **Full Firebase Integration** - Automatic cloud storage support
+- **Backward Compatibility** - Existing presets continue to work seamlessly
+- **Preset System** - New parameters included in export/import functionality
+
 ## [2025-07-22] - Firebase Management & Documentation Cleanup
 
 ### Enhanced Firebase Management
