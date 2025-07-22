@@ -50,34 +50,20 @@ export class HybridPresetManager extends PresetManager {
       // Get all public presets from cloud
       const cloudPresets = await cloudStorage.getAllPresets({ 
         status: PRESET_STATUS.PUBLIC,
-        limit: 50 
+        limit: 100  // Increased limit to get all presets
       });
 
-      // Update cloud presets map
+      // Update cloud presets map, filtering out invalid ones
       this.cloudPresets.clear();
       for (const preset of cloudPresets) {
+        // Skip invalid presets
+        if (this.isInvalidPresetName(preset.name)) continue;
+        if (preset.name.toLowerCase() === 'randomize') continue;
+        
         this.cloudPresets.set(preset.id, preset);
       }
 
-      // Batch upload local presets that don't exist in cloud
-      const localPresets = this.getUserPresets();
-      const presetsToUpload = [];
-      
-      for (const { key, preset } of localPresets) {
-        const exists = this.presetExistsInCloud(preset);
-        
-        if (!exists) {
-          presetsToUpload.push({ key, preset });
-        }
-      }
-
-      // Upload in parallel batches for better performance
-      if (presetsToUpload.length > 0) {
-        console.log(`Uploading ${presetsToUpload.length} unique presets to cloud...`);
-        await this.batchUploadPresets(presetsToUpload);
-      }
-
-      console.log('Cloud sync completed');
+      console.log(`Cloud sync completed: ${this.cloudPresets.size} valid presets loaded`);
     } catch (error) {
       console.error('Cloud sync failed:', error);
     } finally {
@@ -359,15 +345,29 @@ export class HybridPresetManager extends PresetManager {
   // Override getUserPresets to include cloud presets
   getUserPresets() {
     const userPresets = [];
-    const builtInKeys = []; // No more built-in presets
+    const userId = cloudStorage.getCurrentUserId();
+    
+    // Filter function to exclude invalid presets
+    const isValidPreset = (preset) => {
+      if (!preset || !preset.name) return false;
+      
+      // Skip invalid preset names
+      if (this.isInvalidPresetName(preset.name)) return false;
+      
+      // Skip "randomize" - it's not a real preset
+      if (preset.name.toLowerCase() === 'randomize') return false;
+      
+      return true;
+    };
     
     // Get local presets
     for (const [key, preset] of this.presets.entries()) {
-      if (!builtInKeys.includes(key)) {
+      if (isValidPreset(preset)) {
         userPresets.push({
           key: key,
           name: preset.name || key,
-          preset: preset
+          preset: preset,
+          isLocal: true
         });
       }
     }
@@ -375,9 +375,15 @@ export class HybridPresetManager extends PresetManager {
     // Add cloud presets if enabled
     if (this.cloudEnabled) {
       for (const [id, cloudPreset] of this.cloudPresets) {
+        // Only include presets from current user
+        if (cloudPreset.userId !== userId) continue;
+        
+        // Skip invalid presets
+        if (!isValidPreset(cloudPreset)) continue;
+        
+        // Check if already exists locally by name
         const existsLocally = userPresets.some(p => 
-          p.name === cloudPreset.name && 
-          cloudPreset.userId === cloudStorage.getCurrentUserId()
+          p.name.toLowerCase() === cloudPreset.name.toLowerCase()
         );
         
         if (!existsLocally) {
@@ -391,6 +397,9 @@ export class HybridPresetManager extends PresetManager {
         }
       }
     }
+    
+    // Sort by name for consistent display
+    userPresets.sort((a, b) => a.name.localeCompare(b.name));
     
     return userPresets;
   }

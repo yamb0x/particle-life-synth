@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrate Built-in Presets to Firebase</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error { color: #ff6b6b; }
+        .success { color: #51cf66; }
+        .info { color: #74c0fc; }
+    </style>
+</head>
+<body>
+    <h1>Migrate Built-in Presets to Firebase</h1>
+    <p>This will upload the missing built-in presets to Firebase.</p>
+    
+    <button onclick="migratePresets()">Migrate Presets</button>
+    <button onclick="cleanupBadPresets()">Cleanup Bad Presets</button>
+    <button onclick="listCloudPresets()">List Cloud Presets</button>
+    
+    <div id="log"></div>
+
+    <script type="module">
+        import { HybridPresetManager } from './src/utils/HybridPresetManager.js';
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const span = document.createElement('div');
+            span.className = type;
+            span.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(span);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Create the built-in presets
+        function createBuiltInPresets() {
+            const particleSystem = new SimpleParticleSystem(800, 600);
+            
+            const builtInPresets = [
+                {
+                    key: 'predatorPrey',
+                    name: 'Predator-Prey',
+                    description: 'Red hunts Green, Green hunts Blue, Blue hunts Red',
+                    visual: {
+                        particleSize: 2,
+                        blur: 0.92,
+                        backgroundColor: '#0a0a0a',
+                        trailEnabled: true
+                    },
+                    physics: {
+                        friction: 0.95,
+                        wallDamping: 0.8,
+                        forceFactor: 3,
+                        collisionRadius: 5,
+                        socialRadius: 80
+                    },
+                    species: {
+                        count: 3,
+                        forces: [
+                            [0.3, 0.8, -0.7],   // Red: chase green, flee blue
+                            [-0.8, 0.3, 0.8],   // Green: flee red, chase blue
+                            [0.8, -0.8, 0.3]    // Blue: chase red, flee green
+                        ],
+                        startPositions: [],
+                        colors: [
+                            { r: 255, g: 100, b: 100 },
+                            { r: 100, g: 255, b: 100 },
+                            { r: 100, g: 100, b: 255 }
+                        ]
+                    }
+                },
+                {
+                    key: 'crystallization',
+                    name: 'Crystallization',
+                    description: 'Particles form crystal-like structures',
+                    visual: {
+                        particleSize: 2.5,
+                        blur: 0.98,
+                        backgroundColor: '#000814',
+                        trailEnabled: false
+                    },
+                    physics: {
+                        friction: 0.98,
+                        wallDamping: 0.9,
+                        forceFactor: 2,
+                        collisionRadius: 8,
+                        socialRadius: 60
+                    },
+                    species: {
+                        count: 4,
+                        forces: Array(4).fill(null).map((_, i) => 
+                            Array(4).fill(null).map((_, j) => i === j ? 0.8 : -0.3)
+                        ),
+                        startPositions: [],
+                        colors: [
+                            { r: 255, g: 200, b: 100 },
+                            { r: 100, g: 200, b: 255 },
+                            { r: 255, g: 100, b: 200 },
+                            { r: 200, g: 255, b: 100 }
+                        ]
+                    }
+                },
+                {
+                    key: 'vortex',
+                    name: 'Vortex',
+                    description: 'Circular chase pattern creating swirling vortices',
+                    visual: {
+                        particleSize: 1.8,
+                        blur: 0.88,
+                        backgroundColor: '#001219',
+                        trailEnabled: true
+                    },
+                    physics: {
+                        friction: 0.92,
+                        wallDamping: 0.95,
+                        forceFactor: 4,
+                        collisionRadius: 4,
+                        socialRadius: 100
+                    },
+                    species: {
+                        count: 5,
+                        forces: Array(5).fill(null).map((_, i) => 
+                            Array(5).fill(null).map((_, j) => {
+                                if (j === (i + 1) % 5) return 0.9; // Chase next
+                                if (j === (i - 1 + 5) % 5) return -0.9; // Flee previous
+                                return 0;
+                            })
+                        ),
+                        startPositions: [],
+                        colors: [
+                            { r: 255, g: 100, b: 100 },
+                            { r: 255, g: 200, b: 100 },
+                            { r: 200, g: 255, b: 100 },
+                            { r: 100, g: 255, b: 200 },
+                            { r: 100, g: 200, b: 255 }
+                        ]
+                    }
+                },
+                {
+                    key: 'symbiosis',
+                    name: 'Symbiosis',
+                    description: 'Complex interdependent relationships',
+                    visual: {
+                        particleSize: 2.2,
+                        blur: 0.95,
+                        backgroundColor: '#0d1117',
+                        trailEnabled: true
+                    },
+                    physics: {
+                        friction: 0.94,
+                        wallDamping: 0.85,
+                        forceFactor: 3.5,
+                        collisionRadius: 6,
+                        socialRadius: 90
+                    },
+                    species: {
+                        count: 4,
+                        forces: [
+                            [0.5, 0.6, -0.3, 0.7],   // Red: likes green & yellow
+                            [0.6, 0.4, 0.8, -0.5],   // Green: likes blue
+                            [-0.3, 0.8, 0.5, -0.2],  // Blue: likes green & self
+                            [0.7, -0.5, -0.2, 0.6]   // Yellow: likes red & self
+                        ],
+                        startPositions: [],
+                        colors: [
+                            { r: 255, g: 120, b: 120 },
+                            { r: 120, g: 255, b: 120 },
+                            { r: 120, g: 180, b: 255 },
+                            { r: 255, g: 255, b: 120 }
+                        ]
+                    }
+                },
+                {
+                    key: 'dreamtime',
+                    name: 'Dreamtime',
+                    description: 'Ethereal flowing patterns with glow effects',
+                    visual: {
+                        particleSize: 3,
+                        blur: 0.85,
+                        backgroundColor: '#050511',
+                        trailEnabled: true,
+                        speciesGlowEnabled: true
+                    },
+                    physics: {
+                        friction: 0.90,
+                        wallDamping: 0.98,
+                        forceFactor: 2.5,
+                        collisionRadius: 10,
+                        socialRadius: 120
+                    },
+                    species: {
+                        count: 3,
+                        forces: [
+                            [0.2, 0.7, -0.4],
+                            [0.7, 0.2, 0.6],
+                            [-0.4, 0.6, 0.3]
+                        ],
+                        startPositions: [],
+                        colors: [
+                            { r: 150, g: 100, b: 255 },
+                            { r: 255, g: 150, b: 200 },
+                            { r: 100, g: 255, b: 250 }
+                        ],
+                        glow: [
+                            { intensity: 0.8, size: 2.5 },
+                            { intensity: 0.6, size: 2.0 },
+                            { intensity: 0.7, size: 2.2 }
+                        ]
+                    }
+                }
+            ];
+
+            // Convert to full preset format
+            return builtInPresets.map(preset => {
+                // Export a full preset from particle system
+                particleSystem.loadPreset(preset.key);
+                const exported = particleSystem.exportPreset();
+                
+                // Merge with our preset data
+                return {
+                    ...exported,
+                    ...preset,
+                    key: preset.key,
+                    name: preset.name,
+                    description: preset.description,
+                    isBuiltIn: true
+                };
+            });
+        }
+
+        window.migratePresets = async function() {
+            addLog('Starting preset migration...', 'info');
+            
+            try {
+                const presetManager = new HybridPresetManager();
+                await presetManager.enableCloudSync();
+                addLog('Cloud sync enabled', 'success');
+                
+                const builtInPresets = createBuiltInPresets();
+                addLog(`Created ${builtInPresets.length} built-in presets`, 'info');
+                
+                for (const preset of builtInPresets) {
+                    try {
+                        addLog(`Uploading preset: ${preset.name}...`, 'info');
+                        await presetManager.savePreset(preset.key, preset, true);
+                        addLog(`✓ Uploaded: ${preset.name}`, 'success');
+                    } catch (error) {
+                        addLog(`✗ Failed to upload ${preset.name}: ${error.message}`, 'error');
+                    }
+                }
+                
+                addLog('Migration complete!', 'success');
+            } catch (error) {
+                addLog(`Migration failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.cleanupBadPresets = async function() {
+            addLog('Starting cleanup...', 'info');
+            
+            try {
+                const presetManager = new HybridPresetManager();
+                await presetManager.enableCloudSync();
+                addLog('Cloud sync enabled', 'success');
+                
+                const cleanedCount = await presetManager.cleanupCloudPresets();
+                addLog(`Cleaned up ${cleanedCount} presets`, 'success');
+            } catch (error) {
+                addLog(`Cleanup failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.listCloudPresets = async function() {
+            addLog('Fetching cloud presets...', 'info');
+            
+            try {
+                const { cloudStorage } = await import('./src/utils/CloudStorage.js');
+                await cloudStorage.initialize();
+                
+                const presets = await cloudStorage.getAllPresets({ limit: 100 });
+                addLog(`Found ${presets.length} presets in cloud:`, 'info');
+                
+                presets.forEach(preset => {
+                    addLog(`- ${preset.name} (${preset.userId}) - ${preset.status}`, 'info');
+                });
+            } catch (error) {
+                addLog(`Failed to list presets: ${error.message}`, 'error');
+            }
+        };
+    </script>
+</body>
+</html>
