@@ -84,7 +84,6 @@ export class SimpleParticleSystem {
         this.gradientCache = new Map();
         
         // Object pools for memory optimization
-        this.particlePool = [];
         this.tempArrayPool = [];
         this.poolIndex = 0;
     }
@@ -1654,29 +1653,4 @@ export class SimpleParticleSystem {
         }
     }
     
-    setSpeciesGlowSize(speciesId, value) {
-        if (speciesId >= 0 && speciesId < this.numSpecies) {
-            this.speciesGlowSize[speciesId] = Math.max(0.5, Math.min(3, value));
-        }
-    }
-    
-    getSpeciesGlowSize(speciesId) {
-        if (speciesId >= 0 && speciesId < this.numSpecies) {
-            return this.speciesGlowSize[speciesId] || 1.0;
-        }
-        return 1.0;
-    }
-    
-    setSpeciesGlowIntensity(speciesId, value) {
-        if (speciesId >= 0 && speciesId < this.numSpecies) {
-            this.speciesGlowIntensity[speciesId] = Math.max(0, Math.min(1, value));
-        }
-    }
-    
-    getSpeciesGlowIntensity(speciesId) {
-        if (speciesId >= 0 && speciesId < this.numSpecies) {
-            return this.speciesGlowIntensity[speciesId] || 0;
-        }
-        return 0;
-    }
 }

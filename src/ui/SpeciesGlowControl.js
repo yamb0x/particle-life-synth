@@ -74,7 +74,7 @@ export class SpeciesGlowControl {
         
         this.sizeSlider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
-            this.particleSystem.setSpeciesGlowSize(this.selectedSpecies, value);
+            this.particleSystem.setSpeciesGlow(this.selectedSpecies, { size: value });
             this.sizeValueDisplay.textContent = value.toFixed(1);
             
             // Trigger auto-save if available
@@ -85,7 +85,7 @@ export class SpeciesGlowControl {
         
         this.intensitySlider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
-            this.particleSystem.setSpeciesGlowIntensity(this.selectedSpecies, value);
+            this.particleSystem.setSpeciesGlow(this.selectedSpecies, { intensity: value });
             this.intensityValueDisplay.textContent = value.toFixed(2);
             
             // Trigger auto-save if available
@@ -96,8 +96,9 @@ export class SpeciesGlowControl {
     }
     
     updateUI() {
-        const currentSize = this.particleSystem.getSpeciesGlowSize(this.selectedSpecies);
-        const currentIntensity = this.particleSystem.getSpeciesGlowIntensity(this.selectedSpecies);
+        const glowSettings = this.particleSystem.getSpeciesGlow(this.selectedSpecies);
+        const currentSize = glowSettings.size;
+        const currentIntensity = glowSettings.intensity;
         
         this.sizeSlider.value = currentSize;
         this.sizeValueDisplay.textContent = currentSize.toFixed(1);
