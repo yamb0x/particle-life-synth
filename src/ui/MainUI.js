@@ -78,21 +78,27 @@ export class MainUI {
     init() {
         // Create main container
         this.container = document.createElement('div');
-        this.container.className = 'panel main-ui';
+        this.container.className = 'main-ui-container';
         this.container.innerHTML = `
-            <div class="panel-header">
-                <h3 class="panel-title">Particle Life Synth</h3>
-                <button class="btn btn-ghost btn-icon" id="minimize-btn" title="Hide panel (C)">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M4 8h8v1H4z"/>
-                    </svg>
-                </button>
+            <!-- Header Panel -->
+            <div class="panel main-ui-header">
+                <div class="panel-header">
+                    <h3 class="panel-title">Particle Life Synth</h3>
+                    <button class="btn btn-ghost btn-icon" id="minimize-btn" title="Hide panel (C)">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 8h8v1H4z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <div class="panel-content">
                 
-                <!-- 1. PRESETS Section -->
-                <div class="section">
+            
+            <!-- 1. PRESETS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Presets</h4>
+                </div>
+                <div class="panel-content">
                     <div class="control-group">
                         <select class="select" id="preset-selector">
                             <option value="">Custom</option>
@@ -102,14 +108,14 @@ export class MainUI {
                         <button class="btn btn-primary" id="load-preset-btn" style="width: 100%;">Load Preset</button>
                     </div>
                     <div class="control-group">
-                        <button class="btn btn-secondary" id="randomize-values-btn" style="width: 100%;">
-                            🎲 Randomize Values (V)
-                        </button>
-                    </div>
-                    <div class="control-group">
-                        <button class="btn btn-secondary" id="randomize-forces-btn" style="width: 100%;">
-                            🎲 Randomize Forces (R)
-                        </button>
+                        <div class="randomize-buttons-row">
+                            <button class="btn btn-secondary" id="randomize-values-btn">
+                                Randomize Values (V)
+                            </button>
+                            <button class="btn btn-secondary" id="randomize-forces-btn">
+                                Randomize Forces (R)
+                            </button>
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>
@@ -124,10 +130,14 @@ export class MainUI {
                         </div>
                     </div>
                 </div>
-                
-                <!-- 2. PARTICLES Section -->
-                <div class="section">
+            </div>
+            
+            <!-- 2. PARTICLES Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Particles</h4>
+                </div>
+                <div class="panel-content">
                     <div class="control-group">
                         <label>
                             Amount Scale
@@ -135,11 +145,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="particles-per-species" 
                                min="0" max="1000" step="10" value="${this.particleSystem.particlesPerSpecies}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="particles-amount-synth" 
-                                   placeholder="e.g. LFO Rate, Grain Density" 
-                                   data-parameter="particles_amount_scale">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>
@@ -148,11 +153,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="species-count" 
                                min="1" max="20" step="1" value="${this.particleSystem.numSpecies}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="species-count-synth" 
-                                   placeholder="e.g. Voice Count, OSC Mix" 
-                                   data-parameter="particles_species_count">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>Initial Distribution</label>
@@ -171,32 +171,31 @@ export class MainUI {
                                     <input type="range" class="range-slider" id="distribution-brush-slider" min="5" max="50" value="20">
                                     <input type="number" class="input input-sm" id="distribution-brush" value="20" min="5" max="50">
                                 </div>
-                                <div class="mode-buttons">
-                                    <button class="mode-btn active" data-mode="draw" title="Draw Mode">✏️</button>
-                                    <button class="mode-btn" data-mode="circles" title="Precision Circles">⭕</button>
-                                    <button class="mode-btn" data-mode="random" title="Species AI Patterns">🎲</button>
-                                    <button class="mode-btn" data-mode="glitch" title="Sci-Fi Glitch">⚡</button>
-                                    <button class="mode-btn" data-mode="erase" title="Erase Mode">🧽</button>
-                                </div>
-                                <div class="utility-buttons">
+                                <div class="mode-and-clear-row">
+                                    <div class="mode-buttons">
+                                        <button class="mode-btn active" data-mode="draw" title="Draw Mode">✏️</button>
+                                        <button class="mode-btn" data-mode="circles" title="Precision Circles">⭕</button>
+                                        <button class="mode-btn" data-mode="random" title="Species AI Patterns">🎲</button>
+                                        <button class="mode-btn" data-mode="glitch" title="Sci-Fi Glitch">⚡</button>
+                                        <button class="mode-btn" data-mode="erase" title="Erase Mode">🧽</button>
+                                    </div>
                                     <button class="util-btn clear-btn" id="distribution-clear" title="Clear All">🗑️</button>
                                 </div>
                             </div>
-                        </div>
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="distribution-synth" 
-                                   placeholder="e.g. Wave Shape, Sample Start" 
-                                   data-parameter="particles_distribution_pattern">
                         </div>
                     </div>
                     <div class="info-text">
                         Total: <span id="total-particles">${this.particleSystem.numSpecies * this.particleSystem.particlesPerSpecies}</span> particles
                     </div>
                 </div>
-                
-                <!-- 3. PHYSICS Section -->
-                <div class="section">
+            </div>
+            
+            <!-- 3. PHYSICS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Physics</h4>
+                </div>
+                <div class="panel-content">
                     <div class="control-group">
                         <label>
                             Force Strength
@@ -204,11 +203,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="force-strength" 
                                min="0.1" max="10" step="0.1" value="${this.particleSystem.forceFactor}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="force-strength-synth" 
-                                   placeholder="e.g. Filter Cutoff, LFO Amount" 
-                                   data-parameter="physics_force_strength">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>
@@ -217,11 +211,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="friction" 
                                min="0" max="0.2" step="0.01" value="${1.0 - this.particleSystem.friction}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="friction-synth" 
-                                   placeholder="e.g. Envelope Decay, Damping" 
-                                   data-parameter="physics_friction_amount">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>
@@ -230,11 +219,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="wall-bounce" 
                                min="0" max="2.0" step="0.05" value="${this.particleSystem.wallDamping}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="wall-bounce-synth" 
-                                   placeholder="e.g. Distortion, Compression" 
-                                   data-parameter="physics_wall_bounce">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>
@@ -243,11 +227,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="collision-radius" 
                                min="1" max="100" step="1" value="${this.particleSystem.collisionRadius[0][0]}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="collision-radius-synth" 
-                                   placeholder="e.g. Resonance, Feedback" 
-                                   data-parameter="physics_collision_radius">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>
@@ -256,11 +235,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="social-radius" 
                                min="1" max="500" step="5" value="${this.particleSystem.socialRadius[0][0]}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="social-radius-synth" 
-                                   placeholder="e.g. Chorus Width, Stereo" 
-                                   data-parameter="physics_social_radius">
-                        </div>
                     </div>
                     
                     <!-- Shockwave Controls -->
@@ -278,11 +252,6 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="shockwave-strength" 
                                    min="10" max="200" step="5" value="${this.particleSystem.shockwaveStrength}">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="shockwave-strength-synth" 
-                                       placeholder="e.g. Trigger Velocity, Impact Volume" 
-                                       data-parameter="shockwave_strength">
-                            </div>
                         </div>
                         <div class="control-group">
                             <label>
@@ -291,11 +260,6 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="shockwave-size" 
                                    min="40" max="600" step="10" value="${this.particleSystem.shockwaveSize}">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="shockwave-size-synth" 
-                                       placeholder="e.g. Reverb Size, Echo Spread" 
-                                       data-parameter="shockwave_size">
-                            </div>
                         </div>
                         <div class="control-group">
                             <label>
@@ -304,18 +268,17 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="shockwave-falloff" 
                                    min="0.5" max="5.0" step="0.1" value="${this.particleSystem.shockwaveFalloff}">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="shockwave-falloff-synth" 
-                                       placeholder="e.g. Attack/Decay Curve, Filter Slope" 
-                                       data-parameter="shockwave_falloff">
-                            </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- 4. FORCE RELATIONSHIPS Section -->
-                <div class="section">
+            </div>
+            
+            <!-- 4. FORCE RELATIONSHIPS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Force Relationships</h4>
+                </div>
+                <div class="panel-content">
                     <div class="species-selectors">
                         <div class="selector-group">
                             <label>From</label>
@@ -341,12 +304,16 @@ export class MainUI {
                     <div id="force-graph-container"></div>
                     <button class="btn btn-secondary btn-sm" id="clear-forces-btn" style="width: 100%;">Clear All Forces</button>
                 </div>
-                
-                <!-- 5. EFFECTS Section -->
-                <div class="section">
+            </div>
+            
+            <!-- 5. EFFECTS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Effects</h4>
-                    
-                    <!-- Trail Effect -->
+                </div>
+                <div class="panel-content">
+                        
+                        <!-- Trail Effect -->
                     <div class="effect-group">
                         <div class="control-group">
                             <label>
@@ -361,11 +328,6 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="trail-length" 
                                    min="0.0" max="0.99" step="0.01" value="${this.particleSystem.blur}">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="trail-length-synth" 
-                                       placeholder="e.g. Reverb Size, Delay Time" 
-                                       data-parameter="effects_trail_length">
-                            </div>
                             <span class="info-text">Lower = longer trails</span>
                         </div>
                     </div>
@@ -385,11 +347,6 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="halo-intensity" 
                                    min="0.0" max="1.0" step="0.05" value="${this.particleSystem.glowIntensity || 0.8}">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="halo-intensity-synth" 
-                                       placeholder="e.g. Ambient Level, Pad Mix" 
-                                       data-parameter="effects_halo_intensity">
-                            </div>
                         </div>
                         <div class="control-group" id="halo-radius-control" style="${this.particleSystem.renderMode !== 'dreamtime' ? 'display: none;' : ''}">
                             <label>
@@ -398,11 +355,6 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="halo-radius" 
                                    min="1.0" max="5.0" step="0.1" value="${this.particleSystem.glowRadius || 3.0}">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="halo-radius-synth" 
-                                       placeholder="e.g. Chorus Depth, Spread" 
-                                       data-parameter="effects_halo_radius">
-                            </div>
                         </div>
                     </div>
                     
@@ -423,11 +375,6 @@ export class MainUI {
                                 <option value="3">Yellow</option>
                                 <option value="4">Purple</option>
                             </select>
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="glow-species-synth" 
-                                       placeholder="e.g. Lead Voice, Solo Target" 
-                                       data-parameter="effects_species_glow_target">
-                            </div>
                         </div>
                         <div class="control-group" id="species-glow-size-control" style="display: none;">
                             <label>
@@ -436,11 +383,6 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="species-glow-size" 
                                    min="0.5" max="3.0" step="0.1" value="1.0">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="species-glow-size-synth" 
-                                       placeholder="e.g. Lead Width, Voice Size" 
-                                       data-parameter="effects_species_glow_size">
-                            </div>
                         </div>
                         <div class="control-group" id="species-glow-intensity-control" style="display: none;">
                             <label>
@@ -449,18 +391,17 @@ export class MainUI {
                             </label>
                             <input type="range" class="range-slider" id="species-glow-intensity" 
                                    min="0.0" max="1.0" step="0.05" value="0.0">
-                            <div class="synth-assignment">
-                                <input type="text" class="synth-field" id="species-glow-intensity-synth" 
-                                       placeholder="e.g. Lead Level, Solo Mix" 
-                                       data-parameter="effects_species_glow_intensity">
-                            </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- 6. COLORS Section -->
-                <div class="section">
+            </div>
+            
+            <!-- 6. COLORS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Colors</h4>
+                </div>
+                <div class="panel-content">
                     <div class="control-group">
                         <label>Background Mode</label>
                         <select id="background-mode">
@@ -489,11 +430,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="particle-size" 
                                min="0.5" max="30" step="0.5" value="${this.particleSystem.particleSize}">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="particle-size-synth" 
-                                   placeholder="e.g. Note Size, Grain Size" 
-                                   data-parameter="visual_particle_size">
-                        </div>
                         <div class="info-text">Visual size only (doesn't affect physics)</div>
                     </div>
                     <div class="control-group">
@@ -516,11 +452,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="species-size" 
                                min="0.5" max="30" step="0.5" value="3.0">
-                        <div class="synth-assignment">
-                            <input type="text" class="synth-field" id="species-size-synth" 
-                                   placeholder="e.g. Note Size, Grain Size" 
-                                   data-parameter="visual_species_size">
-                        </div>
                     </div>
                     <div class="control-group">
                         <label>Species Colors</label>
@@ -529,17 +460,20 @@ export class MainUI {
                         </div>
                     </div>
                 </div>
-                
-                <!-- 7. ACTIONS Section -->
-                <div class="section">
+            </div>
+            
+            <!-- 7. ACTIONS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
                     <h4 class="section-title">Actions</h4>
+                </div>
+                <div class="panel-content">
                     <button class="btn btn-primary" id="configure-preset-btn" style="width: 100%; margin-bottom: var(--space-sm);">
                         Configure Presets
                     </button>
-                    <div class="quick-actions-row">
-                        <button class="btn btn-secondary btn-sm" id="reset-defaults-btn">
-                            🔄 Reset to Defaults
-                        </button>
+                    <button class="btn btn-secondary" id="reset-defaults-btn" style="width: 100%;">
+                        Reset to Defaults
+                    </button>
                     </div>
                 </div>
             </div>
@@ -548,7 +482,7 @@ export class MainUI {
         // Add enhanced styles
         const style = document.createElement('style');
         style.textContent = `
-            .main-ui {
+            .main-ui-container {
                 position: fixed;
                 top: 10px;
                 right: 10px;
@@ -557,11 +491,92 @@ export class MainUI {
                 overflow-y: auto;
                 z-index: var(--z-sticky);
                 transition: transform var(--transition-normal), opacity var(--transition-normal);
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-md);
             }
             
-            .main-ui.hidden {
+            .main-ui-container.hidden {
                 transform: translateX(340px);
                 opacity: 0;
+            }
+            
+            /* Panel styling for separated sections */
+            .panel {
+                background-color: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-lg);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                padding: 0;
+                margin: 0;
+            }
+            
+            .panel-header {
+                padding: var(--space-md) var(--space-xl);
+                border-bottom: 1px solid var(--border-subtle);
+            }
+            
+            .panel-content {
+                padding: var(--space-xl);
+            }
+            
+            /* Legacy section styling (for compatibility) */
+            .ui-section,
+            .section {
+                background-color: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-lg);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                padding: 0;
+                margin: 0;
+            }
+            
+            /* Section titles */
+            .section-title {
+                font-size: var(--font-size-sm);
+                font-weight: 300;
+                color: var(--text-primary);
+                margin: 0;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+            }
+            
+            /* Section titles in panel headers should not have extra styling */
+            .panel-header .section-title {
+                padding: 0;
+                border: none;
+                background: none;
+                border-radius: 0;
+            }
+            
+            /* Legacy section titles (without panel structure) */
+            .section > .section-title {
+                padding: var(--space-md) var(--space-xl);
+                border-bottom: 1px solid var(--border-subtle);
+                background: var(--bg-elevated);
+                border-radius: var(--radius-md) var(--radius-md) 0 0;
+            }
+            
+            /* Content area for sections */
+            .section > .control-group:first-of-type,
+            .section > .effect-group:first-of-type,
+            .section > .species-selectors:first-of-type,
+            .section > button:first-of-type {
+                margin-top: var(--space-xl);
+            }
+            
+            .section > * {
+                margin-left: var(--space-xl);
+                margin-right: var(--space-xl);
+            }
+            
+            
+            .section > *:last-child {
+                margin-bottom: var(--space-xl);
             }
             
             .panel-title {
@@ -571,30 +586,23 @@ export class MainUI {
                 color: var(--text-primary);
             }
             
-            .synth-assignment {
-                margin-top: var(--space-xs);
+            /* Main header panel styling */
+            .main-ui-header {
+                background-color: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-lg);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
             }
             
-            .synth-field {
-                width: 100%;
-                padding: var(--space-xs) var(--space-sm);
-                font-size: var(--font-size-xs);
-                background: var(--bg-primary);
-                border: 1px solid var(--border-subtle);
-                border-radius: var(--radius-sm);
-                color: var(--text-secondary);
+            .main-ui-header .panel-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: var(--space-md) var(--space-xl);
             }
             
-            .synth-field:focus {
-                outline: none;
-                border-color: var(--accent-primary);
-                background: var(--bg-tertiary);
-            }
-            
-            .synth-field::placeholder {
-                color: var(--text-tertiary);
-                font-size: var(--font-size-xs);
-            }
             
             
             .species-selectors {
@@ -613,6 +621,16 @@ export class MainUI {
             .selector-group label {
                 font-size: var(--font-size-xs);
                 color: var(--text-secondary);
+            }
+            
+            .randomize-buttons-row {
+                display: flex;
+                gap: var(--space-sm);
+                width: 100%;
+            }
+            
+            .randomize-buttons-row .btn {
+                flex: 1;
             }
             
             .quick-actions-row {
@@ -677,28 +695,34 @@ export class MainUI {
             .distribution-drawer-container {
                 margin-top: var(--space-sm);
                 position: relative;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 320px;
+                left: 50%;
+                transform: translateX(-50%);
             }
             
             .distribution-drawer {
-                width: 100%;
-                height: 120px;
+                width: 100% !important;
+                height: 213px !important;
                 border: 1px solid var(--border-default);
-                border-radius: var(--radius-md);
+                border-radius: var(--radius-sm);
                 background: var(--bg-primary);
                 cursor: crosshair;
                 display: block;
                 transition: border-color var(--transition-fast);
+                margin-bottom: var(--space-md);
             }
             
             .distribution-drawer:hover {
-                border-color: var(--border-hover);
+                border-color: var(--border-strong);
             }
             
             .distribution-controls {
-                margin-top: var(--space-sm);
                 display: flex;
                 flex-direction: column;
-                gap: var(--space-sm);
+                gap: var(--space-md);
             }
             
             .control-row {
@@ -711,63 +735,40 @@ export class MainUI {
             /* Enhanced species selector - exact match to test page */
             .species-selector-row {
                 align-items: center;
+                justify-content: center;
             }
             
             .species-buttons {
                 display: flex;
-                gap: var(--space-sm);
+                gap: var(--space-xs);
                 align-items: center;
                 flex: 1;
             }
             
             .species-btn {
-                width: 18px;
-                height: 18px;
-                border-radius: 50%;
-                border: 1px solid rgba(255,255,255,0.2);
+                width: 24px;
+                height: 20px;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border-default);
                 cursor: pointer;
                 transition: all var(--transition-fast);
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 8px;
-                font-weight: bold;
-                color: rgba(255,255,255,0.9);
-                opacity: 0.75;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-                position: relative;
+                font-size: var(--font-size-xs);
+                font-weight: 500;
+                color: var(--text-primary);
+                background: var(--bg-secondary);
             }
             
             .species-btn:hover {
-                opacity: 0.9;
-                transform: scale(1.05);
-                border-color: rgba(255,255,255,0.4);
+                border-color: var(--border-strong);
+                background: var(--bg-elevated);
             }
             
             .species-btn.active {
-                opacity: 1;
-                transform: scale(1.1);
-                border: 2px solid rgba(255,255,255,0.8);
-                box-shadow: 0 0 6px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.2);
-            }
-            
-            .species-btn.active::after {
-                content: '';
-                position: absolute;
-                top: -3px;
-                left: -3px;
-                right: -3px;
-                bottom: -3px;
-                border: 1px solid currentColor;
-                border-radius: 50%;
-                opacity: 0.4;
-                animation: pulse 2s infinite;
-            }
-            
-            @keyframes pulse {
-                0% { transform: scale(1); opacity: 0.4; }
-                50% { transform: scale(1.1); opacity: 0.2; }
-                100% { transform: scale(1); opacity: 0.4; }
+                border-color: var(--border-strong);
+                background: var(--bg-elevated);
             }
             
             /* Mode indicators */
@@ -800,20 +801,28 @@ export class MainUI {
                 display: block;
             }
             
+            /* Mode and clear button row */
+            .mode-and-clear-row {
+                display: flex;
+                align-items: center;
+                gap: var(--space-sm);
+                justify-content: space-between;
+                width: 100%;
+            }
+            
             /* Enhanced mode buttons - improved visual hierarchy */
             .mode-buttons {
                 display: flex;
                 gap: var(--space-xs);
-                margin-bottom: var(--space-sm);
-                justify-content: flex-start;
                 flex-wrap: wrap;
+                flex: 1;
             }
             
             .mode-btn {
-                padding: 6px 8px;
-                min-width: 36px;
-                height: 28px;
-                font-size: 12px;
+                padding: var(--space-sm) var(--space-md);
+                min-width: 32px;
+                height: 24px;
+                font-size: var(--font-size-xs);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -821,67 +830,42 @@ export class MainUI {
                 border: 1px solid var(--border-default);
                 border-radius: var(--radius-sm);
                 color: var(--text-secondary);
-                font-weight: 500;
                 cursor: pointer;
                 transition: all var(--transition-fast);
-                position: relative;
                 outline: none;
             }
             
             .mode-btn:hover {
-                background: var(--bg-hover);
-                border-color: var(--border-hover);
+                border-color: var(--border-strong);
                 color: var(--text-primary);
-                transform: translateY(-1px);
             }
             
             .mode-btn.active {
-                background: var(--accent-primary);
-                border-color: var(--accent-primary);
-                color: white;
-                box-shadow: 0 0 8px rgba(74, 158, 255, 0.4);
-                transform: translateY(-1px);
+                background: var(--bg-elevated);
+                border-color: var(--border-strong);
+                color: var(--text-primary);
             }
             
-            .mode-btn.active::before {
-                content: '';
-                position: absolute;
-                top: -2px;
-                left: -2px;
-                right: -2px;
-                bottom: -2px;
-                border: 1px solid var(--accent-primary);
-                border-radius: var(--radius-sm);
-                opacity: 0.3;
-            }
-            
-            /* Utility buttons - cleaner integration */
-            .utility-buttons {
-                display: flex;
-                justify-content: flex-end;
-                gap: var(--space-xs);
-            }
             
             .util-btn {
-                padding: 4px 8px;
-                min-width: 28px;
+                padding: var(--space-sm);
+                min-width: 24px;
                 height: 24px;
-                font-size: 11px;
+                font-size: var(--font-size-xs);
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: var(--bg-tertiary);
-                border: 1px solid var(--border-subtle);
-                border-radius: var(--radius-xs);
-                color: var(--text-tertiary);
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-sm);
+                color: var(--text-secondary);
                 cursor: pointer;
                 transition: all var(--transition-fast);
             }
             
             .util-btn:hover {
-                background: rgba(255, 100, 100, 0.1);
-                border-color: rgba(255, 100, 100, 0.5);
-                color: #ff6464;
+                border-color: var(--border-strong);
+                color: var(--text-primary);
             }
             
             .clear-btn {
@@ -891,9 +875,8 @@ export class MainUI {
             }
             
             .clear-btn:hover {
-                background: rgba(255, 100, 100, 0.1);
-                border-color: rgba(255, 100, 100, 0.5);
-                color: #ff6464;
+                border-color: var(--border-strong);
+                color: var(--text-primary);
             }
             
             
@@ -921,14 +904,11 @@ export class MainUI {
                 color: white !important;
             }
             
-            .clear-btn:hover {
-                background: var(--accent-repel) !important;
-                border-color: var(--accent-repel) !important;
-            }
             
             .range-slider {
                 flex: 1;
-                margin: 0 var(--space-sm);
+                margin: 0;
+                width: 100%;
             }
             
             .slider-labels {
@@ -940,11 +920,25 @@ export class MainUI {
                 opacity: 0.6;
             }
             
+            /* Override control group label font size to make it smaller */
+            .control-group label,
+            .panel-content .control-group label {
+                font-size: var(--font-size-xs) !important;
+                color: var(--text-primary);
+            }
+            
             .slider-label-left,
             .slider-label-right {
                 font-size: var(--font-size-xs);
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+                color: var(--text-secondary);
+            }
+            
+            .info-text {
+                font-size: var(--font-size-xs);
+                color: var(--text-secondary) !important;
+                font-style: italic;
             }
         `;
         document.head.appendChild(style);
@@ -2493,24 +2487,6 @@ export class MainUI {
             this.triggerAutoSave();
         });
         
-        // Synth assignment fields - save on change and provide immediate feedback
-        document.querySelectorAll('.synth-field').forEach(field => {
-            field.addEventListener('input', (e) => {
-                // Save assignments
-                this.synthAssignments = this.saveSynthAssignments();
-                
-                // Visual feedback that the field is active
-                e.target.style.borderColor = '#4a9eff';
-                setTimeout(() => {
-                    e.target.style.borderColor = '';
-                }, 500);
-            });
-            
-            field.addEventListener('blur', () => {
-                // Save on blur as well to ensure changes are captured
-                this.synthAssignments = this.saveSynthAssignments();
-            });
-        });
     }
     
     updateSpeciesSelectors(numSpecies) {

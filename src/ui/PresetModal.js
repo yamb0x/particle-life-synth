@@ -428,6 +428,14 @@ export class PresetModal {
       if (e.target === this.overlay) this.close();
     });
     
+    // Prevent keyboard shortcuts from being triggered when modal is open
+    // Add keydown listener to the entire modal to stop propagation
+    this.modal.addEventListener('keydown', (e) => {
+      // Stop all keyboard events from bubbling up to document level
+      // This prevents shortcuts from being triggered while typing in modal inputs
+      e.stopPropagation();
+    });
+    
     // Preset dropdown change handler
     this.modal.querySelector('#modal-preset-selector').addEventListener('change', (e) => {
       const newPresetKey = e.target.value;

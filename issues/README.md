@@ -38,6 +38,11 @@ Resolved issues have been moved to the `completed/` subfolder for better organiz
    - Status: ✅ **RESOLVED** (2025-07-21)
    - Fixed UI/UX issues with distribution mode buttons and visual hierarchy
 
+2. **[completed/01-ui-improvements.md](completed/01-ui-improvements.md)** - UI Improvements and Panel Separation
+   - Priority: High
+   - Status: ✅ **RESOLVED** (2025-07-23)
+   - Fixed panel separation, range sliders, typography, canvas sizing, and overall UI polish
+
 2. **[completed/02.md](completed/02.md)** - Trails toggle not working properly
    - Priority: Medium
    - Status: ✅ **RESOLVED** (2025-07-20)
