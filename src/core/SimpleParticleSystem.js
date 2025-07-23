@@ -71,6 +71,15 @@ export class SimpleParticleSystem {
         this.canvas = null;
         this.ctx = null;
         
+        // Shockwave system
+        this.shockwaveEnabled = true;
+        this.shockwaveStrength = 50; // Force strength (10-200)
+        this.shockwaveSize = 150; // Radius of effect (40-600)
+        this.shockwaveFalloff = 2.0; // Falloff power (0.5-5.0, higher = sharper falloff)
+        this.activeShockwaves = []; // Active shockwave effects
+        this.mousePressed = false; // Track mouse state for continuous shockwaves
+        this.currentMousePos = { x: 0, y: 0 }; // Current mouse position
+        
         // Cached gradient for dreamtime mode
         this.gradientCache = new Map();
         
@@ -652,6 +661,173 @@ export class SimpleParticleSystem {
     setCanvas(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Setup mouse click handling for shockwaves
+        this.setupMouseHandling();
+    }
+    
+    setupMouseHandling() {
+        if (!this.canvas) return;
+        
+        // Handle mouse down - start continuous shockwave
+        this.canvas.addEventListener('mousedown', (event) => {
+            if (!this.shockwaveEnabled) return;
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            this.mousePressed = true;
+            this.currentMousePos = { x, y };
+            
+            // Create initial shockwave
+            this.createShockwave(x, y);
+        });
+        
+        // Handle mouse move - update shockwave position while pressed
+        this.canvas.addEventListener('mousemove', (event) => {
+            if (!this.shockwaveEnabled || !this.mousePressed) return;
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            this.currentMousePos = { x, y };
+        });
+        
+        // Handle mouse up - stop continuous shockwave
+        this.canvas.addEventListener('mouseup', () => {
+            this.mousePressed = false;
+        });
+        
+        // Handle mouse leave - stop continuous shockwave
+        this.canvas.addEventListener('mouseleave', () => {
+            this.mousePressed = false;
+        });
+        
+        // Touch events for mobile/trackpad support
+        this.canvas.addEventListener('touchstart', (event) => {
+            if (!this.shockwaveEnabled) return;
+            event.preventDefault(); // Prevent scrolling
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const touch = event.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            this.mousePressed = true;
+            this.currentMousePos = { x, y };
+            this.createShockwave(x, y);
+        });
+        
+        this.canvas.addEventListener('touchmove', (event) => {
+            if (!this.shockwaveEnabled || !this.mousePressed) return;
+            event.preventDefault();
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const touch = event.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            this.currentMousePos = { x, y };
+        });
+        
+        this.canvas.addEventListener('touchend', () => {
+            this.mousePressed = false;
+        });
+        
+        this.canvas.addEventListener('touchcancel', () => {
+            this.mousePressed = false;
+        });
+        
+        // Fallback click handler for single clicks (when mousedown/up happen quickly)
+        this.canvas.addEventListener('click', (event) => {
+            if (!this.shockwaveEnabled || this.mousePressed) return;
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // Create single shockwave for quick clicks
+            this.createShockwave(x, y);
+        });
+    }
+    
+    createShockwave(x, y) {
+        // Add shockwave effect with duration
+        this.activeShockwaves.push({
+            x: x,
+            y: y,
+            strength: this.shockwaveStrength,
+            size: this.shockwaveSize,
+            falloff: this.shockwaveFalloff,
+            age: 0,
+            duration: 0.3 // Shockwave lasts 0.3 seconds
+        });
+        
+        if (!this.mousePressed) {
+            console.log(`Shockwave created at (${x.toFixed(1)}, ${y.toFixed(1)}) with strength ${this.shockwaveStrength}`);
+        }
+    }
+    
+    updateShockwaves(dt) {
+        // Update shockwave ages and remove expired ones
+        for (let i = this.activeShockwaves.length - 1; i >= 0; i--) {
+            this.activeShockwaves[i].age += dt;
+            
+            // Remove expired shockwaves
+            if (this.activeShockwaves[i].age > this.activeShockwaves[i].duration) {
+                this.activeShockwaves.splice(i, 1);
+            }
+        }
+    }
+    
+    calculateShockwaveForce(particle) {
+        let fx = 0, fy = 0;
+        
+        // Apply force from all active temporal shockwaves
+        for (const shockwave of this.activeShockwaves) {
+            const dx = particle.x - shockwave.x;
+            const dy = particle.y - shockwave.y;
+            const dist2 = dx * dx + dy * dy;
+            const dist = Math.sqrt(dist2);
+            
+            // Skip if particle is outside shockwave radius
+            if (dist > shockwave.size || dist < 0.1) continue;
+            
+            // Calculate falloff: starts strong, fades with distance and time
+            const distanceFalloff = Math.pow(1 - (dist / shockwave.size), shockwave.falloff);
+            const timeFalloff = 1 - (shockwave.age / shockwave.duration);
+            const totalFalloff = distanceFalloff * timeFalloff;
+            
+            // Calculate force magnitude
+            const forceMagnitude = (shockwave.strength * totalFalloff) / Math.max(dist, 1);
+            
+            // Apply force in direction away from shockwave center
+            const invDist = 1.0 / dist;
+            fx += dx * invDist * forceMagnitude;
+            fy += dy * invDist * forceMagnitude;
+        }
+        
+        // Apply continuous force from mouse position if pressed
+        if (this.mousePressed) {
+            const dx = particle.x - this.currentMousePos.x;
+            const dy = particle.y - this.currentMousePos.y;
+            const dist2 = dx * dx + dy * dy;
+            const dist = Math.sqrt(dist2);
+            
+            // Apply continuous force if within range
+            if (dist <= this.shockwaveSize && dist >= 0.1) {
+                const distanceFalloff = Math.pow(1 - (dist / this.shockwaveSize), this.shockwaveFalloff);
+                const forceMagnitude = (this.shockwaveStrength * distanceFalloff * 0.5) / Math.max(dist, 1); // Reduced strength for continuous
+                
+                const invDist = 1.0 / dist;
+                fx += dx * invDist * forceMagnitude;
+                fy += dy * invDist * forceMagnitude;
+            }
+        }
+        
+        return { fx, fy };
     }
     
     initializeParticles() {
@@ -681,6 +857,9 @@ export class SimpleParticleSystem {
     update(dt) {
         const startTime = performance.now();
         this.time += dt;
+        
+        // Update shockwaves
+        this.updateShockwaves(dt);
         
         // Safety check for empty particle array
         if (this.particles.length === 0) {
@@ -712,6 +891,10 @@ export class SimpleParticleSystem {
             
             // Reset forces
             let fx = 0, fy = 0;
+            
+            // Apply shockwave forces first
+            fx += this.calculateShockwaveForce(p1).fx;
+            fy += this.calculateShockwaveForce(p1).fy;
             
             // Get nearby particles using spatial partitioning
             const nearbyIndices = this.getNearbyParticles(i);
@@ -1116,6 +1299,20 @@ export class SimpleParticleSystem {
             this.socialRadius = this.createMatrix(socialR, socialR);
         }
         
+        // Load shockwave settings from physics section
+        if (preset.physics.shockwaveEnabled !== undefined) {
+            this.shockwaveEnabled = preset.physics.shockwaveEnabled;
+        }
+        if (preset.physics.shockwaveStrength !== undefined) {
+            this.shockwaveStrength = preset.physics.shockwaveStrength;
+        }
+        if (preset.physics.shockwaveSize !== undefined) {
+            this.shockwaveSize = preset.physics.shockwaveSize;
+        }
+        if (preset.physics.shockwaveFalloff !== undefined) {
+            this.shockwaveFalloff = preset.physics.shockwaveFalloff;
+        }
+        
         // Load VISUAL Section
         this.blur = preset.visual.blur;
         this.particleSize = preset.visual.particleSize;
@@ -1319,7 +1516,12 @@ export class SimpleParticleSystem {
                 socialRadius: this.socialRadius,
                 // Store single values for UI compatibility
                 collisionRadiusValue: this.collisionRadius[0][0],
-                socialRadiusValue: this.socialRadius[0][0]
+                socialRadiusValue: this.socialRadius[0][0],
+                // Shockwave settings
+                shockwaveEnabled: this.shockwaveEnabled,
+                shockwaveStrength: this.shockwaveStrength,
+                shockwaveSize: this.shockwaveSize,
+                shockwaveFalloff: this.shockwaveFalloff
             },
             
             // VISUAL Section
@@ -1395,6 +1597,12 @@ export class SimpleParticleSystem {
         this.friction = 0.95; // Physics value (0.05 UI value)
         this.wallDamping = 0.9;
         this.forceFactor = 0.5;
+        
+        // Shockwave defaults
+        this.shockwaveEnabled = true;
+        this.shockwaveStrength = 50;
+        this.shockwaveSize = 150;
+        this.shockwaveFalloff = 2.0;
         
         // Background color defaults
         this.backgroundMode = 'solid';

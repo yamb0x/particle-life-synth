@@ -35,6 +35,9 @@ export class MainUI {
             'force-strength', 'force-strength-value', 'friction', 'friction-value',
             'wall-bounce', 'wall-bounce-value', 'collision-radius', 'collision-radius-value',
             'social-radius', 'social-radius-value',
+            // Shockwave controls
+            'shockwave-enabled', 'shockwave-controls', 'shockwave-strength', 'shockwave-strength-value',
+            'shockwave-size', 'shockwave-size-value', 'shockwave-falloff', 'shockwave-falloff-value',
             // Force controls
             'from-species', 'to-species', 'force-graph-container', 'clear-forces-btn',
             // Effects controls
@@ -235,6 +238,55 @@ export class MainUI {
                             <input type="text" class="synth-field" id="social-radius-synth" 
                                    placeholder="e.g. Chorus Width, Stereo" 
                                    data-parameter="physics_social_radius">
+                        </div>
+                    </div>
+                    
+                    <!-- Shockwave Controls -->
+                    <div class="control-group">
+                        <label>
+                            Shockwave Enabled
+                            <input type="checkbox" id="shockwave-enabled" ${this.particleSystem.shockwaveEnabled ? 'checked' : ''}>
+                        </label>
+                    </div>
+                    <div class="control-group" id="shockwave-controls" ${!this.particleSystem.shockwaveEnabled ? 'style="display: none;"' : ''}>
+                        <div class="control-group">
+                            <label>
+                                Shockwave Strength
+                                <span class="value-display" id="shockwave-strength-value">${this.particleSystem.shockwaveStrength}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="shockwave-strength" 
+                                   min="10" max="200" step="5" value="${this.particleSystem.shockwaveStrength}">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="shockwave-strength-synth" 
+                                       placeholder="e.g. Trigger Velocity, Impact Volume" 
+                                       data-parameter="shockwave_strength">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>
+                                Shockwave Size
+                                <span class="value-display" id="shockwave-size-value">${this.particleSystem.shockwaveSize}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="shockwave-size" 
+                                   min="40" max="600" step="10" value="${this.particleSystem.shockwaveSize}">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="shockwave-size-synth" 
+                                       placeholder="e.g. Reverb Size, Echo Spread" 
+                                       data-parameter="shockwave_size">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>
+                                Shockwave Falloff
+                                <span class="value-display" id="shockwave-falloff-value">${this.particleSystem.shockwaveFalloff.toFixed(1)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="shockwave-falloff" 
+                                   min="0.5" max="5.0" step="0.1" value="${this.particleSystem.shockwaveFalloff}">
+                            <div class="synth-assignment">
+                                <input type="text" class="synth-field" id="shockwave-falloff-synth" 
+                                       placeholder="e.g. Attack/Decay Curve, Filter Slope" 
+                                       data-parameter="shockwave_falloff">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2124,6 +2176,37 @@ export class MainUI {
             document.getElementById('social-radius-value').textContent = value;
         });
         
+        // Shockwave controls
+        document.getElementById('shockwave-enabled').addEventListener('change', (e) => {
+            this.particleSystem.shockwaveEnabled = e.target.checked;
+            const controls = document.getElementById('shockwave-controls');
+            if (controls) {
+                controls.style.display = e.target.checked ? 'block' : 'none';
+            }
+            this.triggerAutoSave();
+        });
+        
+        document.getElementById('shockwave-strength').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.shockwaveStrength = value;
+            document.getElementById('shockwave-strength-value').textContent = value;
+            this.triggerAutoSave();
+        });
+        
+        document.getElementById('shockwave-size').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.shockwaveSize = value;
+            document.getElementById('shockwave-size-value').textContent = value;
+            this.triggerAutoSave();
+        });
+        
+        document.getElementById('shockwave-falloff').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.shockwaveFalloff = value;
+            document.getElementById('shockwave-falloff-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
+        });
+        
         // Force relationship controls
         document.getElementById('from-species').addEventListener('change', () => this.updateGraph());
         document.getElementById('to-species').addEventListener('change', () => this.updateGraph());
@@ -2385,6 +2468,19 @@ export class MainUI {
         document.getElementById('collision-radius-value').textContent = ps.collisionRadius[0]?.[0] || 15;
         document.getElementById('social-radius').value = ps.socialRadius[0]?.[0] || 50;
         document.getElementById('social-radius-value').textContent = ps.socialRadius[0]?.[0] || 50;
+        
+        // Shockwave controls
+        document.getElementById('shockwave-enabled').checked = ps.shockwaveEnabled || false;
+        const shockwaveControls = document.getElementById('shockwave-controls');
+        if (shockwaveControls) {
+            shockwaveControls.style.display = ps.shockwaveEnabled ? 'block' : 'none';
+        }
+        document.getElementById('shockwave-strength').value = ps.shockwaveStrength || 50;
+        document.getElementById('shockwave-strength-value').textContent = ps.shockwaveStrength || 50;
+        document.getElementById('shockwave-size').value = ps.shockwaveSize || 100;
+        document.getElementById('shockwave-size-value').textContent = ps.shockwaveSize || 100;
+        document.getElementById('shockwave-falloff').value = ps.shockwaveFalloff || 2.0;
+        document.getElementById('shockwave-falloff-value').textContent = (ps.shockwaveFalloff || 2.0).toFixed(1);
         
         // EFFECTS Section
         // Trail Effect
