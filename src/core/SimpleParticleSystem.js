@@ -25,6 +25,7 @@ export class SimpleParticleSystem {
         // Visual settings
         this.blur = 0.95; // Trail effect (0.5-0.99, higher = shorter trails)
         this.particleSize = 3;
+        this.perSpeciesSize = false; // Enable per-species particle size control
         this.trailEnabled = true;
         
         // Background color system
@@ -651,6 +652,84 @@ export class SimpleParticleSystem {
             // Add some randomness and ensure values stay in valid range
             for (let j = 0; j < this.numSpecies; j++) {
                 matrix[i][j] += (Math.random() - 0.5) * 0.3;
+                matrix[i][j] = Math.max(-1, Math.min(1, matrix[i][j]));
+            }
+        }
+        return matrix;
+    }
+    
+    createAsymmetricMatrixWithDistribution(edgeBias = 0.5) {
+        const matrix = [];
+        
+        // Helper function to generate edge-biased random values
+        const edgeBiasedRandom = (min, max, bias) => {
+            const range = max - min;
+            let random = Math.random();
+            
+            if (bias > 0.5) {
+                // Bias towards edges (extreme values)
+                const edgeStrength = (bias - 0.5) * 2; // Map 0.5-1.0 to 0.0-1.0
+                
+                // Use power function to push values towards edges
+                if (Math.random() < 0.5) {
+                    // Push towards minimum edge
+                    random = Math.pow(random, 1 + edgeStrength * 3);
+                } else {
+                    // Push towards maximum edge
+                    random = 1 - Math.pow(1 - random, 1 + edgeStrength * 3);
+                }
+            } else if (bias < 0.5) {
+                // Bias towards center (more uniform)
+                const centerStrength = (0.5 - bias) * 2; // Map 0.0-0.5 to 1.0-0.0
+                
+                // Use inverse power function to push values towards center
+                random = 0.5 + (random - 0.5) * Math.pow(Math.abs(random - 0.5) * 2, 1 - centerStrength * 0.8);
+            }
+            // If bias == 0.5, use uniform random (no modification needed)
+            
+            return min + random * range;
+        };
+        
+        // Dynamic pattern generation that works for any number of species
+        const generatePatternRow = (rowIndex, numSpecies, bias) => {
+            const row = new Array(numSpecies);
+            
+            // Create interesting predator-prey patterns that scale with species count
+            for (let j = 0; j < numSpecies; j++) {
+                if (rowIndex === j) {
+                    // Self-interaction: weak positive or neutral
+                    row[j] = edgeBiasedRandom(0.2, 0.5, bias);
+                } else {
+                    // Different pattern types based on relationship
+                    const relationship = (j - rowIndex + numSpecies) % numSpecies;
+                    
+                    if (relationship === 1) {
+                        // Chase next species (clockwise predator-prey)
+                        row[j] = edgeBiasedRandom(0.5, 0.9, bias);
+                    } else if (relationship === numSpecies - 1) {
+                        // Flee from previous species (avoid being prey)
+                        row[j] = edgeBiasedRandom(-0.7, -0.3, bias);
+                    } else if (relationship <= numSpecies / 3) {
+                        // Neutral to slight attraction for nearby species
+                        row[j] = edgeBiasedRandom(-0.1, 0.3, bias);
+                    } else if (relationship <= 2 * numSpecies / 3) {
+                        // Mixed interactions for middle-distance species
+                        row[j] = edgeBiasedRandom(-0.3, 0.3, bias);
+                    } else {
+                        // Weak interactions for distant species
+                        row[j] = edgeBiasedRandom(-0.2, 0.2, bias);
+                    }
+                }
+            }
+            return row;
+        };
+        
+        for (let i = 0; i < this.numSpecies; i++) {
+            matrix[i] = generatePatternRow(i, this.numSpecies, edgeBias);
+            
+            // Add some randomness and ensure values stay in valid range
+            for (let j = 0; j < this.numSpecies; j++) {
+                matrix[i][j] += edgeBiasedRandom(-0.15, 0.15, edgeBias);
                 matrix[i][j] = Math.max(-1, Math.min(1, matrix[i][j]));
             }
         }
@@ -1315,6 +1394,7 @@ export class SimpleParticleSystem {
         // Load VISUAL Section
         this.blur = preset.visual.blur;
         this.particleSize = preset.visual.particleSize;
+        this.perSpeciesSize = preset.visual.perSpeciesSize !== undefined ? preset.visual.perSpeciesSize : false;
         this.trailEnabled = preset.visual.trailEnabled;
         
         // Background color system
@@ -1527,6 +1607,7 @@ export class SimpleParticleSystem {
             visual: {
                 blur: this.blur,
                 particleSize: this.particleSize,
+                perSpeciesSize: this.perSpeciesSize,
                 trailEnabled: this.trailEnabled,
                 backgroundMode: this.backgroundMode,
                 backgroundColor: this.backgroundColor,
@@ -1591,6 +1672,7 @@ export class SimpleParticleSystem {
         this.numSpecies = 5;
         this.particlesPerSpecies = 150;
         this.particleSize = 3.0;
+        this.perSpeciesSize = false;
         this.blur = 0.97;
         this.trailEnabled = true;
         this.friction = 0.95; // Physics value (0.05 UI value)

@@ -16,6 +16,7 @@ export class MainUI {
         this.copiedSettings = null;
         this.currentEditingPreset = null;
         this.synthAssignments = generateDefaultSynthAssignments();
+        this.forceDistribution = 0.5; // 0 = uniform, 1 = edges
         
         this.init();
         this.setupKeyboardShortcuts();
@@ -51,9 +52,11 @@ export class MainUI {
             'species-glow-size-value', 'species-glow-intensity', 'species-glow-intensity-value',
             // Visual controls
             'background-mode', 'background-color', 'background-color1', 'background-color2', 
-            'background-cycle-time', 'background-cycle-time-value', 'particle-size', 'particle-size-value', 'species-colors-container',
+            'background-cycle-time', 'background-cycle-time-value', 'particle-size', 'particle-size-value', 
+            'per-species-size-enabled', 'per-species-size-controls', 'size-species-selector', 'species-size', 'species-size-value',
+            'species-colors-container',
             // Action buttons
-            'randomize-forces-btn', 'reset-defaults-btn'
+            'randomize-forces-btn', 'reset-defaults-btn', 'force-distribution', 'force-distribution-value'
         ];
         
         const missingIds = [];
@@ -102,6 +105,23 @@ export class MainUI {
                         <button class="btn btn-secondary" id="randomize-values-btn" style="width: 100%;">
                             🎲 Randomize Values (V)
                         </button>
+                    </div>
+                    <div class="control-group">
+                        <button class="btn btn-secondary" id="randomize-forces-btn" style="width: 100%;">
+                            🎲 Randomize Forces (R)
+                        </button>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            Force Distribution
+                            <span class="value-display" id="force-distribution-value">0.5</span>
+                        </label>
+                        <input type="range" class="range-slider" id="force-distribution" 
+                               min="0" max="1" step="0.1" value="0.5">
+                        <div class="slider-labels">
+                            <span class="slider-label-left">Uniform</span>
+                            <span class="slider-label-right">Edges</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -468,13 +488,39 @@ export class MainUI {
                             <span class="value-display" id="particle-size-value">${this.particleSystem.particleSize.toFixed(1)}</span>
                         </label>
                         <input type="range" class="range-slider" id="particle-size" 
-                               min="0.5" max="20" step="0.5" value="${this.particleSystem.particleSize}">
+                               min="0.5" max="30" step="0.5" value="${this.particleSystem.particleSize}">
                         <div class="synth-assignment">
                             <input type="text" class="synth-field" id="particle-size-synth" 
                                    placeholder="e.g. Note Size, Grain Size" 
                                    data-parameter="visual_particle_size">
                         </div>
                         <div class="info-text">Visual size only (doesn't affect physics)</div>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="per-species-size-enabled">
+                            Per Species Size
+                        </label>
+                    </div>
+                    <div class="control-group" id="per-species-size-controls" style="display: none;">
+                        <label>Species</label>
+                        <select class="select select-sm" id="size-species-selector">
+                            <option value="0">Red</option>
+                            <option value="1">Green</option>
+                            <option value="2">Blue</option>
+                            <option value="3">Yellow</option>
+                            <option value="4">Purple</option>
+                        </select>
+                        <label>Size
+                            <span class="value-display" id="species-size-value">3.0</span>
+                        </label>
+                        <input type="range" class="range-slider" id="species-size" 
+                               min="0.5" max="30" step="0.5" value="3.0">
+                        <div class="synth-assignment">
+                            <input type="text" class="synth-field" id="species-size-synth" 
+                                   placeholder="e.g. Note Size, Grain Size" 
+                                   data-parameter="visual_species_size">
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>Species Colors</label>
@@ -491,9 +537,6 @@ export class MainUI {
                         Configure Presets
                     </button>
                     <div class="quick-actions-row">
-                        <button class="btn btn-secondary btn-sm" id="randomize-forces-btn">
-                            🎲 Randomize Forces (R)
-                        </button>
                         <button class="btn btn-secondary btn-sm" id="reset-defaults-btn">
                             🔄 Reset to Defaults
                         </button>
@@ -887,6 +930,22 @@ export class MainUI {
                 flex: 1;
                 margin: 0 var(--space-sm);
             }
+            
+            .slider-labels {
+                display: flex;
+                justify-content: space-between;
+                margin-top: var(--space-xs);
+                font-size: var(--font-size-xs);
+                color: var(--text-tertiary);
+                opacity: 0.6;
+            }
+            
+            .slider-label-left,
+            .slider-label-right {
+                font-size: var(--font-size-xs);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
         `;
         document.head.appendChild(style);
         
@@ -951,6 +1010,9 @@ export class MainUI {
         this.updateSpeciesColors(this.particleSystem.numSpecies);
         this.updateGraph();
         
+        // Restore UI state from UI state manager if available
+        this.restoreUIState();
+        
         // Validate all UI elements are properly created
         this.validateUIElements();
     }
@@ -1008,7 +1070,7 @@ export class MainUI {
     
     
     randomizeForces() {
-        this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrix();
+        this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrixWithDistribution(this.forceDistribution);
         this.updateGraph();
         
         // Visual feedback
@@ -2349,8 +2411,8 @@ export class MainUI {
             const value = parseFloat(e.target.value);
             this.particleSystem.particleSize = value;
             
-            // Update all species sizes
-            if (this.particleSystem.species && this.particleSystem.species.length > 0) {
+            // Only update all species sizes if per-species mode is disabled
+            if (!this.particleSystem.perSpeciesSize && this.particleSystem.species && this.particleSystem.species.length > 0) {
                 for (let i = 0; i < this.particleSystem.species.length; i++) {
                     if (this.particleSystem.species[i]) {
                         this.particleSystem.species[i].size = value;
@@ -2359,6 +2421,49 @@ export class MainUI {
             }
             
             document.getElementById('particle-size-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
+        });
+        
+        // Per-species size controls
+        safeAddEventListener('per-species-size-enabled', 'change', (e) => {
+            const enabled = e.target.checked;
+            this.particleSystem.perSpeciesSize = enabled;
+            
+            // Show/hide per-species controls
+            document.getElementById('per-species-size-controls').style.display = enabled ? '' : 'none';
+            
+            // If disabling per-species mode, sync all species to global size
+            if (!enabled) {
+                const globalSize = this.particleSystem.particleSize;
+                for (let i = 0; i < this.particleSystem.species.length; i++) {
+                    if (this.particleSystem.species[i]) {
+                        this.particleSystem.species[i].size = globalSize;
+                    }
+                }
+            } else {
+                // If enabling per-species mode, update the current species selector display
+                this.updateSpeciesSizeDisplay();
+            }
+            
+            this.triggerAutoSave();
+        });
+        
+        // Species size selector
+        safeAddEventListener('size-species-selector', 'change', (e) => {
+            this.updateSpeciesSizeDisplay();
+        });
+        
+        // Individual species size slider
+        safeAddEventListener('species-size', 'input', (e) => {
+            const value = parseFloat(e.target.value);
+            const selectedSpecies = parseInt(document.getElementById('size-species-selector').value);
+            
+            // Update the selected species size
+            if (this.particleSystem.species[selectedSpecies]) {
+                this.particleSystem.species[selectedSpecies].size = value;
+            }
+            
+            document.getElementById('species-size-value').textContent = value.toFixed(1);
             this.triggerAutoSave();
         });
         
@@ -2372,6 +2477,20 @@ export class MainUI {
             this.particleSystem.loadDefaults();
             this.updateUIFromParticleSystem();
             this.updateGraph();
+        });
+        
+        // Force distribution slider
+        document.getElementById('force-distribution').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('force-distribution-value').textContent = value.toFixed(1);
+            this.forceDistribution = value;
+            
+            // Update UI state manager if available
+            if (window.uiStateManager) {
+                window.uiStateManager.updateParameter('forceDistribution', value, 'ui');
+            }
+            
+            this.triggerAutoSave();
         });
         
         // Synth assignment fields - save on change and provide immediate feedback
@@ -2398,7 +2517,7 @@ export class MainUI {
         const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
                        'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
-        const selectors = ['from-species', 'to-species', 'glow-species-selector'];
+        const selectors = ['from-species', 'to-species', 'glow-species-selector', 'size-species-selector'];
         
         selectors.forEach(selectorId => {
             const select = document.getElementById(selectorId);
@@ -2448,6 +2567,18 @@ export class MainUI {
         this.forceGraph.setInfo(`${fromName} → ${toName}: ${force.toFixed(2)}`);
     }
     
+    restoreUIState() {
+        // Restore UI-specific state from UI state manager if available
+        if (window.uiStateManager) {
+            const forceDistribution = window.uiStateManager.getParameter('forceDistribution', 'ui');
+            if (forceDistribution !== undefined) {
+                this.forceDistribution = forceDistribution;
+                document.getElementById('force-distribution').value = forceDistribution;
+                document.getElementById('force-distribution-value').textContent = forceDistribution.toFixed(1);
+            }
+        }
+    }
+    
     updateUIFromParticleSystem() {
         const ps = this.particleSystem;
         
@@ -2474,6 +2605,10 @@ export class MainUI {
         document.getElementById('collision-radius-value').textContent = ps.collisionRadius[0]?.[0] || 15;
         document.getElementById('social-radius').value = ps.socialRadius[0]?.[0] || 50;
         document.getElementById('social-radius-value').textContent = ps.socialRadius[0]?.[0] || 50;
+        
+        // Force distribution
+        document.getElementById('force-distribution').value = this.forceDistribution;
+        document.getElementById('force-distribution-value').textContent = this.forceDistribution.toFixed(1);
         
         // Shockwave controls
         document.getElementById('shockwave-enabled').checked = ps.shockwaveEnabled || false;
@@ -2519,6 +2654,15 @@ export class MainUI {
         
         document.getElementById('particle-size').value = ps.particleSize;
         document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
+        
+        // Per-species size controls
+        document.getElementById('per-species-size-enabled').checked = ps.perSpeciesSize || false;
+        document.getElementById('per-species-size-controls').style.display = ps.perSpeciesSize ? '' : 'none';
+        
+        // If per-species mode is enabled, update the species size display
+        if (ps.perSpeciesSize) {
+            this.updateSpeciesSizeDisplay();
+        }
         
         // Update species colors in UI
         this.updateSpeciesColors(ps.numSpecies);
@@ -2723,5 +2867,16 @@ export class MainUI {
             solidGroup.style.display = 'block';
             sinusoidalGroup.style.display = 'none';
         }
+    }
+    
+    updateSpeciesSizeDisplay() {
+        const selectedSpecies = parseInt(document.getElementById('size-species-selector').value);
+        
+        // Get the current size for the selected species
+        const currentSize = this.particleSystem.species[selectedSpecies]?.size || this.particleSystem.particleSize;
+        
+        // Update the slider and display
+        document.getElementById('species-size').value = currentSize;
+        document.getElementById('species-size-value').textContent = currentSize.toFixed(1);
     }
 }

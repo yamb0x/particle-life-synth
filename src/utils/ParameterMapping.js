@@ -117,9 +117,15 @@ export const PARAMETER_MAP = {
     },
     "visual_particle_size": {
         property: "particleSize",
-        range: [0.5, 20.0],
+        range: [0.5, 30.0],
         synthAssignment: "", // e.g. "Note Size", "Grain Size"
         description: "Visual size of particles (doesn't affect physics)"
+    },
+    "visual_species_size": {
+        property: "species.size",
+        range: [0.5, 30.0],
+        synthAssignment: "", // e.g. "Voice Size", "OSC Width"
+        description: "Individual size for selected species"
     },
     "visual_species_colors": {
         property: "species.colors",
@@ -181,6 +187,8 @@ export const PRESET_STRUCTURE = {
     visual: {
         background_color: "#000000",
         particle_size: 3.0,
+        per_species_size: false,
+        species_size: 3.0,
         species_colors: [], // Array of RGB objects
         species_amounts: [] // Individual particle counts
     },

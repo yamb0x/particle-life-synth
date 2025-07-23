@@ -117,7 +117,7 @@ export class PresetModal {
                 Particle Size
                 <span class="value-display" id="modal-particle-size-value">2</span>
               </label>
-              <input type="range" class="range-slider" id="modal-particle-size" min="0.5" max="20" step="0.5" value="2">
+              <input type="range" class="range-slider" id="modal-particle-size" min="0.5" max="30" step="0.5" value="2">
             </div>
             <div class="control-group">
               <label>
