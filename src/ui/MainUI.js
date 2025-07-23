@@ -4,10 +4,11 @@ import { PARAMETER_MAP, generateDefaultSynthAssignments } from '../utils/Paramet
 import { DOMHelpers } from '../utils/DOMHelpers.js';
 
 export class MainUI {
-    constructor(particleSystem, presetManager, autoSaveCallback = null) {
+    constructor(particleSystem, presetManager, autoSaveCallback = null, presetModal = null) {
         this.particleSystem = particleSystem;
         this.presetManager = presetManager;
         this.autoSaveCallback = autoSaveCallback;
+        this.presetModal = presetModal;
         this.isVisible = true;
         this.container = null;
         this.forceGraph = null;
@@ -1979,7 +1980,11 @@ export class MainUI {
         
         document.getElementById('configure-preset-btn').addEventListener('click', () => {
             const currentPresetKey = document.getElementById('preset-selector').value;
-            window.presetModal.open(currentPresetKey);
+            if (this.presetModal) {
+                this.presetModal.open(currentPresetKey);
+            } else {
+                console.warn('Preset modal not available');
+            }
         });
         
         // Particle controls

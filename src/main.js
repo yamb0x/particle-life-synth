@@ -154,7 +154,7 @@ async function init() {
     }
     
     // Create main UI with new design system
-    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene);
+    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene, presetModal);
     // Debug mode: Make main UI globally accessible
     if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
         window.mainUI = mainUI;
