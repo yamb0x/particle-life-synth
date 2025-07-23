@@ -1,6 +1,7 @@
 import { XYGraph } from './XYGraph.js';
 import { DistributionDrawer } from './DistributionDrawer.js';
 import { PARAMETER_MAP, generateDefaultSynthAssignments } from '../utils/ParameterMapping.js';
+import { DOMHelpers } from '../utils/DOMHelpers.js';
 
 export class MainUI {
     constructor(particleSystem, presetManager, autoSaveCallback = null) {
@@ -2446,8 +2447,8 @@ export class MainUI {
         const ps = this.particleSystem;
         
         // PARTICLES Section
-        window.DOMHelpers.safeUpdateElement('particles-per-species', 'value', ps.particlesPerSpecies);
-        window.DOMHelpers.safeUpdateElement('particles-per-species-value', 'textContent', ps.particlesPerSpecies);
+        DOMHelpers.safeUpdateElement('particles-per-species', 'value', ps.particlesPerSpecies);
+        DOMHelpers.safeUpdateElement('particles-per-species-value', 'textContent', ps.particlesPerSpecies);
         document.getElementById('species-count').value = ps.numSpecies;
         document.getElementById('species-count-value').textContent = ps.numSpecies;
         
