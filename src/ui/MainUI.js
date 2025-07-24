@@ -110,10 +110,10 @@ export class MainUI {
                     <div class="control-group">
                         <div class="randomize-buttons-row">
                             <button class="btn btn-secondary" id="randomize-values-btn">
-                                Randomize Values (V)
+                                Randomize Values
                             </button>
                             <button class="btn btn-secondary" id="randomize-forces-btn">
-                                Randomize Forces (R)
+                                Randomize Forces
                             </button>
                         </div>
                     </div>
@@ -1024,16 +1024,27 @@ export class MainUI {
                 return;
             }
             
-            // Skip shortcuts if modifier keys are pressed
+            // Handle Shift+Plus and Shift+Minus for preset navigation
+            if (e.shiftKey) {
+                // Plus key can be '=' with shift or '+' depending on keyboard
+                // Minus key is usually '-' even with shift
+                if (e.key === '+' || e.key === '=' || e.code === 'Equal') {
+                    this.loadNextPreset();
+                    e.preventDefault();
+                    return;
+                } else if (e.key === '-' || e.key === '_' || e.code === 'Minus') {
+                    this.loadPreviousPreset();
+                    e.preventDefault();
+                    return;
+                }
+            }
+            
+            // Skip shortcuts if other modifier keys are pressed
             if (e.ctrlKey || e.metaKey || e.altKey) return;
             
             switch(e.key.toLowerCase()) {
                 case 'c':
                     this.toggleVisibility();
-                    e.preventDefault();
-                    break;
-                case 'x':
-                    this.copySettings();
                     e.preventDefault();
                     break;
                 case 'r':
@@ -1059,6 +1070,12 @@ export class MainUI {
         const perfOverlay = document.getElementById('performance-overlay');
         if (perfOverlay) {
             perfOverlay.style.display = this.isVisible ? 'block' : 'none';
+        }
+        
+        // Also toggle shortcuts overlay visibility
+        const shortcutsOverlay = document.getElementById('shortcuts-overlay');
+        if (shortcutsOverlay) {
+            shortcutsOverlay.style.display = this.isVisible ? 'block' : 'none';
         }
     }
     
@@ -1108,6 +1125,66 @@ export class MainUI {
         setTimeout(() => {
             btn.innerHTML = originalText;
         }, 2000);
+    }
+    
+    loadNextPreset() {
+        const selector = document.getElementById('preset-selector');
+        if (!selector) return;
+        
+        const options = Array.from(selector.options);
+        if (options.length <= 1) return;
+        
+        const currentIndex = selector.selectedIndex;
+        
+        // Skip the first option (Custom) and wrap around if at the end
+        let nextIndex = currentIndex + 1;
+        if (nextIndex >= options.length) {
+            nextIndex = 1; // Skip index 0 (Custom)
+        }
+        
+        if (nextIndex < options.length && options[nextIndex]) {
+            selector.selectedIndex = nextIndex;
+            const presetKey = options[nextIndex].value;
+            
+            if (presetKey) {
+                const preset = this.presetManager.getPreset(presetKey);
+                if (preset) {
+                    this.particleSystem.loadFullPreset(preset);
+                    this.updateUIFromParticleSystem();
+                    this.updateGraph();
+                    this.currentEditingPreset = presetKey;
+                }
+            }
+        }
+    }
+    
+    loadPreviousPreset() {
+        const selector = document.getElementById('preset-selector');
+        if (!selector) return;
+        
+        const options = Array.from(selector.options);
+        const currentIndex = selector.selectedIndex;
+        
+        // Skip the first option (Custom) and wrap around if at the beginning
+        let prevIndex = currentIndex - 1;
+        if (prevIndex <= 0) {
+            prevIndex = options.length - 1; // Go to last preset
+        }
+        
+        if (prevIndex > 0 && options[prevIndex]) {
+            selector.selectedIndex = prevIndex;
+            const presetKey = options[prevIndex].value;
+            
+            if (presetKey) {
+                const preset = this.presetManager.getPreset(presetKey);
+                if (preset) {
+                    this.particleSystem.loadFullPreset(preset);
+                    this.updateUIFromParticleSystem();
+                    this.updateGraph();
+                    this.currentEditingPreset = presetKey;
+                }
+            }
+        }
     }
     
     generateRandomParams(scenario) {

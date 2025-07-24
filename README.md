@@ -31,9 +31,9 @@ python3 serve.py
 ## Controls & Features
 
 ### Keyboard Shortcuts
-- **C** - Toggle UI visibility
-- **X** - Copy settings | **V** - Randomize values | **R** - Randomize forces
-- **Space** - Pause/Resume simulation
+- **C** - Toggle UI and overlay visibility
+- **V** - Randomize particle values | **R** - Randomize force relationships
+- **Shift + Plus** - Next preset | **Shift + Minus** - Previous preset
 
 ### Core Features
 - **Visual Distribution Editor** - Paint particle starting positions with brush, circle, lightning, and eraser modes

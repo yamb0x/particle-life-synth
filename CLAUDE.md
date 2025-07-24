@@ -99,6 +99,27 @@ The particle system is designed to map behaviors to synthesis parameters:
 }
 ```
 
+## User Interface Controls
+
+### Keyboard Shortcuts
+- **C**: Toggle control panel and info overlays visibility
+- **V**: Randomize particle values (physics parameters)
+- **R**: Randomize force relationships between species
+- **Shift + Plus**: Navigate to next preset and load it automatically
+- **Shift + Minus**: Navigate to previous preset and load it automatically
+
+### Info Overlays
+- **Performance Overlay** (top-left): Shows FPS, particle count, organisms, and cloud status
+- **Shortcuts Overlay** (bottom-left): Displays available keyboard shortcuts
+- Both overlays use white text with difference blend mode for optimal visibility
+
+### Preset Navigation
+The Shift+Plus/Minus shortcuts enable quick exploration of different presets:
+- Automatically cycles through available presets (skips "Custom" option)
+- Wraps around at beginning/end of preset list
+- Instantly loads and applies the selected preset
+- Updates UI controls to reflect new preset values
+
 ## Development Workflow
 
 1. **Start server**: `python3 serve.py`

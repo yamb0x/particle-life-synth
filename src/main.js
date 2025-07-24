@@ -210,19 +210,49 @@ async function init() {
             position: fixed;
             top: 10px;
             left: 10px;
-            color: #ff6666;
+            color: white;
             font-family: monospace;
             font-size: 11px;
             text-align: left;
             pointer-events: none;
             z-index: 1000;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            mix-blend-mode: difference;
         `;
         document.body.appendChild(overlay);
         return overlay;
     }
     
     const perfOverlay = createPerformanceOverlay();
+    
+    // Create shortcuts overlay
+    function createShortcutsOverlay() {
+        const overlay = document.createElement('div');
+        overlay.id = 'shortcuts-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            font-size: 11px;
+            text-align: left;
+            pointer-events: none;
+            z-index: 1000;
+            mix-blend-mode: difference;
+            line-height: 1.4;
+        `;
+        overlay.innerHTML = `
+            C - Toggle controls<br>
+            V - Randomize values<br>
+            R - Randomize forces<br>
+            Shift + - Next preset<br>
+            Shift - - Previous preset
+        `;
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+    
+    const shortcutsOverlay = createShortcutsOverlay();
     
     // Animation loop
     let lastTime = 0;

@@ -625,9 +625,15 @@ export class PresetModal {
     });
     
     if (tabName === 'layout' && this.currentPreset && this.distributionDrawer) {
-      // Convert species definitions to distribution data and apply
-      this.updateDistributionFromPreset(this.currentPreset.species.definitions);
-      // Also update from current particle system state to ensure we have the latest
+      // Preserve current distribution when switching to layout tab
+      const currentDistribution = this.distributionDrawer.exportDistribution();
+      
+      // Only load preset distribution if there's no current user work to preserve
+      if (Object.keys(currentDistribution).length === 0) {
+        this.updateDistributionFromPreset(this.currentPreset.species.definitions);
+      }
+      
+      // Always update from current particle system state to ensure we have the latest
       this.distributionDrawer.updateFromParticleSystem();
     }
     
@@ -1138,7 +1144,7 @@ export class PresetModal {
     }
   }
 
-  loadPresetToUI() {
+  loadPresetToUI(preserveCurrentDistribution = true) {
     this.modal.querySelector('.preset-name-input').value = this.currentPreset.name;
     
     this.modal.querySelector('#modal-species-count').value = this.currentPreset.species.count;
@@ -1163,8 +1169,17 @@ export class PresetModal {
     this.modal.querySelector('#modal-social-radius-value').textContent = this.currentPreset.physics.socialRadius;
     
     this.updateSpeciesList();
-    if (this.distributionDrawer) {
-      this.updateDistributionFromPreset(this.currentPreset.species.definitions);
+    
+    // Preserve current scene distribution when switching presets in modal
+    if (this.distributionDrawer && preserveCurrentDistribution) {
+      // Store current distribution before any preset changes
+      const currentDistribution = this.distributionDrawer.exportDistribution();
+      
+      // Only load preset distribution if there's no current user work to preserve
+      if (Object.keys(currentDistribution).length === 0) {
+        this.updateDistributionFromPreset(this.currentPreset.species.definitions);
+      }
+      // Otherwise keep the current distribution intact
     }
     
     // Load force matrix
@@ -1548,7 +1563,7 @@ export class PresetModal {
       this.currentPreset = currentState;
       
       // Update all UI elements to reflect the current scene
-      this.loadPresetToUI();
+      this.loadPresetToUI(false); // Don't preserve distribution when fetching scene data
       
       // Force update the distribution drawer with current particle system state
       if (this.distributionDrawer) {
