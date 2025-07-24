@@ -189,43 +189,62 @@ export class DistributionDrawer {
     generateCirclePattern() {
         if (!this.circleCenter || this.circleRadius < 10) return;
         
-        if (!this.distributions.has(this.currentSpecies)) {
-            this.distributions.set(this.currentSpecies, []);
-        }
+        // Clear all distributions for new mathematical pattern
+        this.distributions.clear();
         
-        const points = this.distributions.get(this.currentSpecies);
-        const numPoints = Math.floor(this.circleRadius / 5) + 8;
+        // Generate a mathematical circle pattern for ALL species
+        const numSpecies = this.particleSystem.numSpecies;
+        const patterns = ['fibonacci', 'fractal', 'sinusoidal', 'golden', 'phyllotaxis'];
+        const patternIndex = Math.floor(Math.random() * patterns.length);
+        const pattern = patterns[patternIndex];
         
-        for (let i = 0; i < numPoints; i++) {
-            const angle = (i / numPoints) * Math.PI * 2;
-            const r = this.circleRadius * (0.8 + Math.random() * 0.4);
-            const x = this.circleCenter.x + Math.cos(angle) * r;
-            const y = this.circleCenter.y + Math.sin(angle) * r;
-            
-            if (x >= 0 && x <= this.width && y >= 0 && y <= this.height) {
-                points.push({
-                    x: x / this.width,
-                    y: y / this.height,
-                    size: (this.brushSize / Math.min(this.width, this.height)) * 0.3,
-                    opacity: 0.7 + Math.random() * 0.3
-                });
-            }
+        switch (pattern) {
+            case 'fibonacci':
+                this.generateFibonacciCircles();
+                break;
+            case 'fractal':
+                this.generateFractalCircles();
+                break;
+            case 'sinusoidal':
+                this.generateSinusoidalCircles();
+                break;
+            case 'golden':
+                this.generateGoldenRatioCircles();
+                break;
+            case 'phyllotaxis':
+                this.generatePhyllotaxisCircles();
+                break;
         }
     }
     
     generateSpeciesResponsivePattern(pos) {
-        if (!this.distributions.has(this.currentSpecies)) {
-            this.distributions.set(this.currentSpecies, []);
+        // Clear all distributions first
+        this.distributions.clear();
+        
+        // Generate random areas for EACH species based on current species count
+        const numSpecies = this.particleSystem.numSpecies;
+        
+        for (let speciesId = 0; speciesId < numSpecies; speciesId++) {
+            if (!this.distributions.has(speciesId)) {
+                this.distributions.set(speciesId, []);
+            }
+            
+            const points = this.distributions.get(speciesId);
+            
+            // Generate 1-3 random areas per species
+            const numAreas = 1 + Math.floor(Math.random() * 3);
+            
+            for (let area = 0; area < numAreas; area++) {
+                // Random position for each area
+                const centerX = 0.1 + Math.random() * 0.8;
+                const centerY = 0.1 + Math.random() * 0.8;
+                const radius = (0.05 + Math.random() * 0.15);
+                
+                // Get pattern type based on species ID
+                const patternType = this.randomPatterns[speciesId % 5] || 'neural_noise';
+                this.generateAdvancedPattern(patternType, centerX, centerY, radius, points);
+            }
         }
-        
-        const points = this.distributions.get(this.currentSpecies);
-        const centerX = pos.x / this.width;
-        const centerY = pos.y / this.height;
-        const radius = (this.brushSize * 3) / Math.min(this.width, this.height);
-        
-        // Get pattern type based on selected species
-        const patternType = this.randomPatterns[this.currentSpecies] || 'neural_noise';
-        this.generateAdvancedPattern(patternType, centerX, centerY, radius, points);
         
         if (this.onChange) {
             this.onChange(this.exportDistribution());
@@ -1154,6 +1173,199 @@ export class DistributionDrawer {
                         x, y,
                         size: (this.brushSize / Math.min(this.width, this.height)) * (0.1 + Math.abs(pulse) * 0.2),
                         opacity: Math.abs(pulse)
+                    });
+                }
+            }
+        }
+    }
+    
+    // New mathematical circle pattern generators
+    generateFibonacciCircles() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const centerX = this.circleCenter.x / this.width;
+        const centerY = this.circleCenter.y / this.height;
+        const baseRadius = this.circleRadius / Math.min(this.width, this.height);
+        
+        // Fibonacci sequence
+        const fib = [1, 1];
+        for (let i = 2; i < numSpecies + 10; i++) {
+            fib.push(fib[i-1] + fib[i-2]);
+        }
+        
+        for (let speciesId = 0; speciesId < numSpecies; speciesId++) {
+            if (!this.distributions.has(speciesId)) {
+                this.distributions.set(speciesId, []);
+            }
+            const points = this.distributions.get(speciesId);
+            
+            // Create circles based on Fibonacci ratios
+            const fibIndex = speciesId % fib.length;
+            const radius = baseRadius * (fib[fibIndex] / fib[Math.min(fibIndex + 3, fib.length - 1)]);
+            const numPoints = fib[fibIndex % 5] + 8;
+            
+            for (let i = 0; i < numPoints; i++) {
+                const angle = (i / numPoints) * Math.PI * 2 + speciesId * 0.5;
+                const x = Math.max(0, Math.min(1, centerX + Math.cos(angle) * radius));
+                const y = Math.max(0, Math.min(1, centerY + Math.sin(angle) * radius));
+                
+                points.push({
+                    x, y,
+                    size: (this.brushSize / Math.min(this.width, this.height)) * 0.2,
+                    opacity: 0.8
+                });
+            }
+        }
+    }
+    
+    generateFractalCircles() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const centerX = this.circleCenter.x / this.width;
+        const centerY = this.circleCenter.y / this.height;
+        const baseRadius = this.circleRadius / Math.min(this.width, this.height);
+        
+        // Fractal recursion depth based on species count
+        const maxDepth = Math.min(3, Math.ceil(Math.log2(numSpecies)));
+        
+        for (let speciesId = 0; speciesId < numSpecies; speciesId++) {
+            if (!this.distributions.has(speciesId)) {
+                this.distributions.set(speciesId, []);
+            }
+            const points = this.distributions.get(speciesId);
+            
+            // Recursive fractal circles
+            this.addFractalCircle(centerX, centerY, baseRadius, speciesId, numSpecies, 0, maxDepth, points);
+        }
+    }
+    
+    addFractalCircle(x, y, radius, speciesId, totalSpecies, depth, maxDepth, points) {
+        if (depth > maxDepth || radius < 0.02) return;
+        
+        // Add circle points
+        const numPoints = Math.max(8, Math.floor(20 - depth * 4));
+        for (let i = 0; i < numPoints; i++) {
+            const angle = (i / numPoints) * Math.PI * 2;
+            const px = Math.max(0, Math.min(1, x + Math.cos(angle) * radius));
+            const py = Math.max(0, Math.min(1, y + Math.sin(angle) * radius));
+            
+            points.push({
+                x: px, y: py,
+                size: (this.brushSize / Math.min(this.width, this.height)) * (0.3 - depth * 0.1),
+                opacity: 0.9 - depth * 0.2
+            });
+        }
+        
+        // Recursively add smaller circles
+        if (depth < maxDepth) {
+            const numSubCircles = 3 + (speciesId % 3);
+            for (let i = 0; i < numSubCircles; i++) {
+                const angle = (i / numSubCircles) * Math.PI * 2 + speciesId * 0.7;
+                const subX = x + Math.cos(angle) * radius * 0.6;
+                const subY = y + Math.sin(angle) * radius * 0.6;
+                this.addFractalCircle(subX, subY, radius * 0.4, speciesId, totalSpecies, depth + 1, maxDepth, points);
+            }
+        }
+    }
+    
+    generateSinusoidalCircles() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const centerX = this.circleCenter.x / this.width;
+        const centerY = this.circleCenter.y / this.height;
+        const baseRadius = this.circleRadius / Math.min(this.width, this.height);
+        
+        for (let speciesId = 0; speciesId < numSpecies; speciesId++) {
+            if (!this.distributions.has(speciesId)) {
+                this.distributions.set(speciesId, []);
+            }
+            const points = this.distributions.get(speciesId);
+            
+            // Sinusoidal wave circles
+            const frequency = 2 + (speciesId % 5);
+            const amplitude = 0.1 + (speciesId % 3) * 0.05;
+            const phase = (speciesId / numSpecies) * Math.PI * 2;
+            const numPoints = 30 + speciesId * 2;
+            
+            for (let i = 0; i < numPoints; i++) {
+                const t = i / numPoints;
+                const angle = t * Math.PI * 2;
+                const r = baseRadius * (1 + Math.sin(angle * frequency + phase) * amplitude);
+                
+                const x = Math.max(0, Math.min(1, centerX + Math.cos(angle) * r));
+                const y = Math.max(0, Math.min(1, centerY + Math.sin(angle) * r));
+                
+                points.push({
+                    x, y,
+                    size: (this.brushSize / Math.min(this.width, this.height)) * 0.2,
+                    opacity: 0.7 + Math.sin(angle * frequency) * 0.3
+                });
+            }
+        }
+    }
+    
+    generateGoldenRatioCircles() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const centerX = this.circleCenter.x / this.width;
+        const centerY = this.circleCenter.y / this.height;
+        const baseRadius = this.circleRadius / Math.min(this.width, this.height);
+        
+        const goldenRatio = (1 + Math.sqrt(5)) / 2;
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // Golden angle in radians
+        
+        for (let speciesId = 0; speciesId < numSpecies; speciesId++) {
+            if (!this.distributions.has(speciesId)) {
+                this.distributions.set(speciesId, []);
+            }
+            const points = this.distributions.get(speciesId);
+            
+            // Golden spiral distribution
+            const numPoints = 13 + speciesId * 5;
+            const offset = speciesId * goldenAngle;
+            
+            for (let i = 0; i < numPoints; i++) {
+                const angle = i * goldenAngle + offset;
+                const r = baseRadius * Math.sqrt(i / numPoints) * 0.8;
+                
+                const x = Math.max(0, Math.min(1, centerX + Math.cos(angle) * r));
+                const y = Math.max(0, Math.min(1, centerY + Math.sin(angle) * r));
+                
+                points.push({
+                    x, y,
+                    size: (this.brushSize / Math.min(this.width, this.height)) * (0.15 + (1 - i/numPoints) * 0.1),
+                    opacity: 0.6 + (1 - i/numPoints) * 0.4
+                });
+            }
+        }
+    }
+    
+    generatePhyllotaxisCircles() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const centerX = this.circleCenter.x / this.width;
+        const centerY = this.circleCenter.y / this.height;
+        const baseRadius = this.circleRadius / Math.min(this.width, this.height);
+        
+        // Phyllotaxis pattern (sunflower seed arrangement)
+        const c = 0.5; // Scaling constant
+        
+        for (let speciesId = 0; speciesId < numSpecies; speciesId++) {
+            if (!this.distributions.has(speciesId)) {
+                this.distributions.set(speciesId, []);
+            }
+            const points = this.distributions.get(speciesId);
+            
+            const numSeeds = 20 + speciesId * 8;
+            const angleOffset = (speciesId / numSpecies) * Math.PI * 2;
+            
+            for (let i = 0; i < numSeeds; i++) {
+                const angle = i * 137.5 * Math.PI / 180 + angleOffset; // 137.5 degrees is golden angle
+                const r = c * Math.sqrt(i) * baseRadius / Math.sqrt(numSeeds);
+                
+                if (r <= baseRadius) {
+                    const x = Math.max(0, Math.min(1, centerX + Math.cos(angle) * r));
+                    const y = Math.max(0, Math.min(1, centerY + Math.sin(angle) * r));
+                    
+                    points.push({
+                        x, y,
+                        size: (this.brushSize / Math.min(this.width, this.height)) * 0.15,
+                        opacity: 0.8
                     });
                 }
             }
