@@ -1057,6 +1057,10 @@ export class MainUI {
                     this.triggerAutoSave();
                     e.preventDefault();
                     break;
+                case 'm':
+                    this.toggleMute();
+                    e.preventDefault();
+                    break;
             }
         });
     }
@@ -1076,6 +1080,26 @@ export class MainUI {
         const shortcutsOverlay = document.getElementById('shortcuts-overlay');
         if (shortcutsOverlay) {
             shortcutsOverlay.style.display = this.isVisible ? 'block' : 'none';
+        }
+    }
+    
+    toggleMute() {
+        const isMuted = this.particleSystem.toggleMute();
+        
+        // Visual feedback - show mute state in console for debugging
+        console.log(isMuted ? 'Simulation muted (frozen for performance)' : 'Simulation unmuted (running)');
+        
+        // Optional: Add visual indicator to performance overlay
+        const perfOverlay = document.getElementById('performance-overlay');
+        if (perfOverlay && isMuted) {
+            // Add a muted indicator to the performance overlay
+            const originalHTML = perfOverlay.innerHTML;
+            if (!originalHTML.includes('MUTED')) {
+                perfOverlay.innerHTML = originalHTML.replace('FPS:', 'MUTED | FPS:');
+            }
+        } else if (perfOverlay && !isMuted) {
+            // Remove muted indicator
+            perfOverlay.innerHTML = perfOverlay.innerHTML.replace('MUTED | ', '');
         }
     }
     

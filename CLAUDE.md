@@ -105,6 +105,7 @@ The particle system is designed to map behaviors to synthesis parameters:
 - **C**: Toggle control panel and info overlays visibility
 - **V**: Randomize particle values (physics parameters)
 - **R**: Randomize force relationships between species
+- **M**: Mute/freeze simulation (freeze all physics for performance/battery saving)
 - **Shift + Plus**: Navigate to next preset and load it automatically
 - **Shift + Minus**: Navigate to previous preset and load it automatically
 

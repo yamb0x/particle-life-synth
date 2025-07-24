@@ -245,6 +245,7 @@ async function init() {
             C - Toggle controls<br>
             V - Randomize values<br>
             R - Randomize forces<br>
+            M - Mute/freeze<br>
             Shift + - Next preset<br>
             Shift - - Previous preset
         `;

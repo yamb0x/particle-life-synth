@@ -87,6 +87,9 @@ export class SimpleParticleSystem {
         // Object pools for memory optimization
         this.tempArrayPool = [];
         this.poolIndex = 0;
+        
+        // Mute/freeze functionality for performance saving
+        this.muted = false;
     }
     
     initSpatialGrid() {
@@ -934,6 +937,13 @@ export class SimpleParticleSystem {
     
     update(dt) {
         const startTime = performance.now();
+        
+        // If muted, skip all physics updates but still render current state
+        if (this.muted) {
+            this.renderCurrentState();
+            return;
+        }
+        
         this.time += dt;
         
         // Update shockwaves
@@ -1111,6 +1121,30 @@ export class SimpleParticleSystem {
         }
         
         return this.gradientCache.get(cacheKey);
+    }
+    
+    renderCurrentState() {
+        // Render the current static state without any updates
+        // Simply apply the background and render particles as they are
+        if (!this.ctx) {
+            console.error('Canvas context not set');
+            return;
+        }
+        
+        // Apply background
+        if (this.trailEnabled) {
+            this.applyTrailDecay();
+        } else {
+            // Clear canvas completely
+            this.ctx.fillStyle = this.getCurrentBackgroundColor();
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        }
+        
+        // Ensure alpha is reset
+        this.ctx.globalAlpha = 1.0;
+        
+        // Render particles in their current positions
+        this.render();
     }
     
     render() {
@@ -1733,6 +1767,20 @@ export class SimpleParticleSystem {
         if (this.socialForce[i] && j < this.socialForce[i].length) {
             this.socialForce[i][j] = value;
         }
+    }
+    
+    // Mute/freeze functionality
+    toggleMute() {
+        this.muted = !this.muted;
+        return this.muted;
+    }
+    
+    setMuted(muted) {
+        this.muted = muted;
+    }
+    
+    isMuted() {
+        return this.muted;
     }
     
 }
