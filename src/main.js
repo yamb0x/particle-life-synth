@@ -6,6 +6,7 @@ import { UIStateManager } from './utils/UIStateManager.js';
 import { DOMHelpers } from './utils/DOMHelpers.js';
 import { CloudSyncUI } from './ui/CloudSyncUI.js';
 import { Logger } from './utils/Logger.js';
+import { AspectRatioManager } from './utils/AspectRatioManager.js';
 
 // Initialize the simple particle life system
 async function init() {
@@ -15,9 +16,11 @@ async function init() {
         return;
     }
     
-    // Set canvas size
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // Create aspect ratio manager
+    const aspectRatioManager = new AspectRatioManager(canvas);
+    
+    // Set initial canvas size
+    aspectRatioManager.updateCanvas();
     
     // Create hybrid preset manager (local + cloud)
     const presetManager = new HybridPresetManager();
@@ -62,11 +65,12 @@ async function init() {
     }
     
     // Create particle system
-    const particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
+    const particleSystem = new SimpleParticleSystem(aspectRatioManager.canvas.width, aspectRatioManager.canvas.height);
     particleSystem.setCanvas(canvas);
     // Debug mode: Make particle system globally accessible for testing
     if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
         window.particleSystem = particleSystem;
+        window.aspectRatioManager = aspectRatioManager;
     }
     
     // Sync initial state
@@ -154,7 +158,7 @@ async function init() {
     }
     
     // Create main UI with new design system
-    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene, presetModal);
+    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene, presetModal, aspectRatioManager);
     // Debug mode: Make main UI globally accessible
     if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
         window.mainUI = mainUI;
@@ -197,9 +201,8 @@ async function init() {
     
     // Handle resize
     window.addEventListener('resize', () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        particleSystem.resize(canvas.width, canvas.height);
+        aspectRatioManager.updateCanvas();
+        particleSystem.resize(aspectRatioManager.canvas.width, aspectRatioManager.canvas.height);
     });
     
     // Create performance overlay

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspect Ratio Test - Particle Life Synth</title>
+    <link rel="stylesheet" href="src/styles/design-system.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #222;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Courier New', monospace;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Canvas container for aspect ratio */
+        #canvas-container {
+            position: relative;
+            background: #000;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        #canvas-container.with-stroke {
+            border: 1px solid white;
+        }
+        
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 0;
+        }
+        
+        /* Aspect ratio section styles */
+        .aspect-ratio-section {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: 0;
+            margin: 0;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            color: #ccc;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .aspect-ratio-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .ratio-btn {
+            padding: 8px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: var(--font-size-xs);
+            text-align: center;
+            transition: all 0.2s;
+            border-radius: var(--radius-sm);
+        }
+        
+        .ratio-btn:hover {
+            background: var(--bg-interactive-hover);
+            color: var(--text-primary);
+            border-color: var(--border-subtle);
+        }
+        
+        .ratio-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        
+        .custom-ratio-input {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        
+        
+        /* Main UI container (from particle system) */
+        .main-ui-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <!-- Aspect ratio controls will be injected into MainUI -->
+    
+    <script type="module">
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        import { MainUI } from './src/ui/MainUI.js';
+        import { HybridPresetManager } from './src/utils/HybridPresetManager.js';
+        
+        // Aspect ratio management
+        class AspectRatioManager {
+            constructor() {
+                this.enabled = false;
+                this.strokeEnabled = false;
+                this.ratioWidth = 16;
+                this.ratioHeight = 9;
+                this.canvasSize = 'fit';
+                this.customWidth = 1280;
+                this.customHeight = 720;
+                this.container = document.getElementById('canvas-container');
+                this.canvas = document.getElementById('canvas');
+            }
+            
+            setEnabled(enabled) {
+                this.enabled = enabled;
+                this.updateCanvas();
+                this.updateStroke();
+            }
+            
+            setStrokeEnabled(enabled) {
+                this.strokeEnabled = enabled;
+                this.updateStroke();
+            }
+            
+            updateStroke() {
+                if (this.enabled && this.strokeEnabled) {
+                    this.container.classList.add('with-stroke');
+                } else {
+                    this.container.classList.remove('with-stroke');
+                }
+            }
+            
+            setRatio(width, height) {
+                this.ratioWidth = width;
+                this.ratioHeight = height;
+                this.updateCanvas();
+            }
+            
+            setCanvasSize(size) {
+                this.canvasSize = size;
+                this.updateCanvas();
+            }
+            
+            setCustomSize(width, height) {
+                this.customWidth = width;
+                this.customHeight = height;
+                if (this.canvasSize === 'custom-size') {
+                    this.updateCanvas();
+                }
+            }
+            
+            updateCanvas() {
+                if (!this.enabled) {
+                    // Full window mode
+                    this.container.style.width = '100vw';
+                    this.container.style.height = '100vh';
+                    this.canvas.width = window.innerWidth;
+                    this.canvas.height = window.innerHeight;
+                } else {
+                    // Calculate dimensions based on settings
+                    let targetWidth, targetHeight;
+                    
+                    // Determine target size
+                    switch (this.canvasSize) {
+                        case '720p':
+                            targetWidth = 1280;
+                            targetHeight = 720;
+                            break;
+                        case '1080p':
+                            targetWidth = 1920;
+                            targetHeight = 1080;
+                            break;
+                        case 'custom-size':
+                            targetWidth = this.customWidth;
+                            targetHeight = this.customHeight;
+                            break;
+                        case 'fit':
+                        default:
+                            // Fit to window while maintaining aspect ratio
+                            const windowRatio = window.innerWidth / window.innerHeight;
+                            const targetRatio = this.ratioWidth / this.ratioHeight;
+                            
+                            if (windowRatio > targetRatio) {
+                                // Window is wider than target ratio
+                                targetHeight = window.innerHeight * 0.9;
+                                targetWidth = targetHeight * targetRatio;
+                            } else {
+                                // Window is taller than target ratio
+                                targetWidth = window.innerWidth * 0.9;
+                                targetHeight = targetWidth / targetRatio;
+                            }
+                            break;
+                    }
+                    
+                    // Apply aspect ratio constraint
+                    const targetRatio = this.ratioWidth / this.ratioHeight;
+                    const currentRatio = targetWidth / targetHeight;
+                    
+                    if (currentRatio > targetRatio) {
+                        // Width is too large, adjust it
+                        targetWidth = targetHeight * targetRatio;
+                    } else if (currentRatio < targetRatio) {
+                        // Height is too large, adjust it
+                        targetHeight = targetWidth / targetRatio;
+                    }
+                    
+                    // Set container and canvas dimensions
+                    this.container.style.width = `${targetWidth}px`;
+                    this.container.style.height = `${targetHeight}px`;
+                    this.canvas.width = targetWidth;
+                    this.canvas.height = targetHeight;
+                }
+                
+            }
+        }
+        
+        // Initialize
+        const aspectRatioManager = new AspectRatioManager();
+        let particleSystem;
+        let mainUI;
+        let animationId;
+        
+        async function init() {
+            // Initial canvas setup with default dimensions
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Create particle system
+            particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
+            particleSystem.setCanvas(canvas);
+            
+            // Override resize method to respect aspect ratio
+            const originalResize = particleSystem.resize.bind(particleSystem);
+            particleSystem.resize = function(width, height) {
+                if (aspectRatioManager.enabled) {
+                    // Use the constrained dimensions
+                    width = canvas.width;
+                    height = canvas.height;
+                }
+                originalResize(width, height);
+            };
+            
+            // Create preset manager and UI
+            const presetManager = new HybridPresetManager();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            mainUI = new MainUI(particleSystem, presetManager);
+            
+            // Inject aspect ratio controls into MainUI
+            injectAspectRatioControls();
+            
+            // Setup controls
+            setupControls();
+            
+            // Now update canvas with aspect ratio manager
+            aspectRatioManager.updateCanvas();
+            
+            // Load a simple preset
+            particleSystem.numSpecies = 3;
+            particleSystem.particlesPerSpecies = 100;
+            particleSystem.initializeSpecies();
+            particleSystem.initializeParticlesWithPositions();
+            
+            // Start animation
+            animate();
+        }
+        
+        function injectAspectRatioControls() {
+            // Find the colors section and actions section
+            const sections = document.querySelectorAll('.panel.ui-section');
+            let colorsSection = null;
+            let actionsSection = null;
+            
+            sections.forEach(section => {
+                const title = section.querySelector('.section-title');
+                if (title && title.textContent.trim() === 'Colors') {
+                    colorsSection = section;
+                }
+                if (title && title.textContent.trim() === 'Actions') {
+                    actionsSection = section;
+                }
+            });
+            
+            const targetSection = colorsSection;
+            const referenceSection = actionsSection;
+            
+            if (!targetSection || !referenceSection) {
+                console.error('Could not find target sections');
+                return;
+            }
+            
+            // Create aspect ratio section HTML
+            const aspectRatioSection = document.createElement('div');
+            aspectRatioSection.className = 'panel ui-section';
+            aspectRatioSection.innerHTML = `
+                <div class="panel-header">
+                    <h4 class="section-title">Aspect Ratio</h4>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="aspect-ratio-enabled">
+                            Enable Aspect Ratio
+                        </label>
+                    </div>
+                    
+                    <div id="aspect-ratio-controls" style="display: none;">
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="aspect-ratio-stroke">
+                                Show Border
+                            </label>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>Common Ratios</label>
+                            <div class="aspect-ratio-buttons">
+                                <button class="ratio-btn" data-ratio="16:9">16:9</button>
+                                <button class="ratio-btn" data-ratio="4:3">4:3</button>
+                                <button class="ratio-btn" data-ratio="1:1">1:1</button>
+                                <button class="ratio-btn" data-ratio="21:9">21:9</button>
+                                <button class="ratio-btn" data-ratio="9:16">9:16</button>
+                                <button class="ratio-btn" data-ratio="custom">Custom</button>
+                            </div>
+                        </div>
+                        
+                        <div class="control-group" id="custom-ratio-controls" style="display: none;">
+                            <label>Custom Ratio</label>
+                            <div class="custom-ratio-input">
+                                <input type="number" id="custom-width" value="16" min="1" max="100" class="input input-sm" style="width: 60px;">
+                                <span style="color: var(--text-tertiary);">:</span>
+                                <input type="number" id="custom-height" value="9" min="1" max="100" class="input input-sm" style="width: 60px;">
+                            </div>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>Canvas Size</label>
+                            <select id="canvas-size" class="select select-sm" style="width: 100%;">
+                                <option value="fit">Fit to Window</option>
+                                <option value="720p">720p (1280×720)</option>
+                                <option value="1080p">1080p (1920×1080)</option>
+                                <option value="custom-size">Custom Size</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group" id="custom-size-controls" style="display: none;">
+                            <label>Custom Size (pixels)</label>
+                            <div class="custom-ratio-input">
+                                <input type="number" id="custom-canvas-width" value="1280" min="100" max="4000" class="input input-sm" style="width: 80px;">
+                                <span style="color: var(--text-tertiary);">×</span>
+                                <input type="number" id="custom-canvas-height" value="720" min="100" max="4000" class="input input-sm" style="width: 80px;">
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            `;
+            
+            // Insert the section before Actions section
+            referenceSection.parentNode.insertBefore(aspectRatioSection, referenceSection);
+        }
+        
+        function setupControls() {
+            const enableCheckbox = document.getElementById('aspect-ratio-enabled');
+            const strokeCheckbox = document.getElementById('aspect-ratio-stroke');
+            const controls = document.getElementById('aspect-ratio-controls');
+            const ratioButtons = document.querySelectorAll('.ratio-btn');
+            const customRatioControls = document.getElementById('custom-ratio-controls');
+            const customWidth = document.getElementById('custom-width');
+            const customHeight = document.getElementById('custom-height');
+            const canvasSize = document.getElementById('canvas-size');
+            const customSizeControls = document.getElementById('custom-size-controls');
+            const customCanvasWidth = document.getElementById('custom-canvas-width');
+            const customCanvasHeight = document.getElementById('custom-canvas-height');
+            
+            // Enable/disable aspect ratio
+            enableCheckbox.addEventListener('change', (e) => {
+                aspectRatioManager.setEnabled(e.target.checked);
+                controls.style.display = e.target.checked ? 'block' : 'none';
+                
+                // Resize particle system
+                particleSystem.resize(canvas.width, canvas.height);
+            });
+            
+            // Enable/disable stroke
+            strokeCheckbox.addEventListener('change', (e) => {
+                aspectRatioManager.setStrokeEnabled(e.target.checked);
+            });
+            
+            // Ratio buttons
+            ratioButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    ratioButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const ratio = btn.dataset.ratio;
+                    if (ratio === 'custom') {
+                        customRatioControls.style.display = 'block';
+                        const w = parseInt(customWidth.value);
+                        const h = parseInt(customHeight.value);
+                        aspectRatioManager.setRatio(w, h);
+                    } else {
+                        customRatioControls.style.display = 'none';
+                        const [w, h] = ratio.split(':').map(Number);
+                        aspectRatioManager.setRatio(w, h);
+                    }
+                    
+                    particleSystem.resize(canvas.width, canvas.height);
+                });
+            });
+            
+            // Custom ratio inputs
+            customWidth.addEventListener('input', () => {
+                if (document.querySelector('.ratio-btn[data-ratio="custom"]').classList.contains('active')) {
+                    aspectRatioManager.setRatio(parseInt(customWidth.value), parseInt(customHeight.value));
+                    particleSystem.resize(canvas.width, canvas.height);
+                }
+            });
+            
+            customHeight.addEventListener('input', () => {
+                if (document.querySelector('.ratio-btn[data-ratio="custom"]').classList.contains('active')) {
+                    aspectRatioManager.setRatio(parseInt(customWidth.value), parseInt(customHeight.value));
+                    particleSystem.resize(canvas.width, canvas.height);
+                }
+            });
+            
+            // Canvas size selector
+            canvasSize.addEventListener('change', (e) => {
+                aspectRatioManager.setCanvasSize(e.target.value);
+                customSizeControls.style.display = e.target.value === 'custom-size' ? 'block' : 'none';
+                particleSystem.resize(canvas.width, canvas.height);
+            });
+            
+            // Custom canvas size
+            customCanvasWidth.addEventListener('input', () => {
+                aspectRatioManager.setCustomSize(parseInt(customCanvasWidth.value), parseInt(customCanvasHeight.value));
+                particleSystem.resize(canvas.width, canvas.height);
+            });
+            
+            customCanvasHeight.addEventListener('input', () => {
+                aspectRatioManager.setCustomSize(parseInt(customCanvasWidth.value), parseInt(customCanvasHeight.value));
+                particleSystem.resize(canvas.width, canvas.height);
+            });
+            
+            // Set default ratio button
+            setTimeout(() => {
+                const firstRatioBtn = ratioButtons[0];
+                if (firstRatioBtn) {
+                    firstRatioBtn.click();
+                }
+            }, 100);
+        }
+        
+        function animate() {
+            const dt = 1/60;
+            particleSystem.update(dt);
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            aspectRatioManager.updateCanvas();
+            particleSystem.resize(canvas.width, canvas.height);
+        });
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

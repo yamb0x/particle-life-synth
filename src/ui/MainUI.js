@@ -4,11 +4,12 @@ import { PARAMETER_MAP, generateDefaultSynthAssignments } from '../utils/Paramet
 import { DOMHelpers } from '../utils/DOMHelpers.js';
 
 export class MainUI {
-    constructor(particleSystem, presetManager, autoSaveCallback = null, presetModal = null) {
+    constructor(particleSystem, presetManager, autoSaveCallback = null, presetModal = null, aspectRatioManager = null) {
         this.particleSystem = particleSystem;
         this.presetManager = presetManager;
         this.autoSaveCallback = autoSaveCallback;
         this.presetModal = presetModal;
+        this.aspectRatioManager = aspectRatioManager;
         this.isVisible = true;
         this.container = null;
         this.forceGraph = null;
@@ -462,7 +463,71 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 7. ACTIONS Section -->
+            <!-- 7. ASPECT RATIO Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
+                    <h4 class="section-title">Aspect Ratio</h4>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="aspect-ratio-enabled">
+                            Enable Aspect Ratio
+                        </label>
+                    </div>
+                    
+                    <div id="aspect-ratio-controls" style="display: none;">
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="aspect-ratio-stroke">
+                                Show Border
+                            </label>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>Common Ratios</label>
+                            <div class="aspect-ratio-buttons">
+                                <button class="ratio-btn" data-ratio="16:9">16:9</button>
+                                <button class="ratio-btn" data-ratio="4:3">4:3</button>
+                                <button class="ratio-btn" data-ratio="1:1">1:1</button>
+                                <button class="ratio-btn" data-ratio="21:9">21:9</button>
+                                <button class="ratio-btn" data-ratio="9:16">9:16</button>
+                                <button class="ratio-btn" data-ratio="custom">Custom</button>
+                            </div>
+                        </div>
+                        
+                        <div class="control-group" id="custom-ratio-controls" style="display: none;">
+                            <label>Custom Ratio</label>
+                            <div class="custom-ratio-input">
+                                <input type="number" id="custom-width" value="16" min="1" max="100" class="input input-sm" style="width: 60px;">
+                                <span style="color: var(--text-tertiary);">:</span>
+                                <input type="number" id="custom-height" value="9" min="1" max="100" class="input input-sm" style="width: 60px;">
+                            </div>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>Canvas Size</label>
+                            <select id="canvas-size" class="select select-sm" style="width: 100%;">
+                                <option value="fit">Fit to Window</option>
+                                <option value="720p">720p (1280×720)</option>
+                                <option value="1080p">1080p (1920×1080)</option>
+                                <option value="custom-size">Custom Size</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group" id="custom-size-controls" style="display: none;">
+                            <label>Custom Size (pixels)</label>
+                            <div class="custom-ratio-input">
+                                <input type="number" id="custom-canvas-width" value="1280" min="100" max="4000" class="input input-sm" style="width: 80px;">
+                                <span style="color: var(--text-tertiary);">×</span>
+                                <input type="number" id="custom-canvas-height" value="720" min="100" max="4000" class="input input-sm" style="width: 80px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 8. ACTIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Actions</h4>
@@ -482,6 +547,46 @@ export class MainUI {
         // Add enhanced styles
         const style = document.createElement('style');
         style.textContent = `
+            /* Aspect ratio specific styles */
+            .aspect-ratio-buttons {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
+                margin-top: 10px;
+            }
+            
+            .ratio-btn {
+                padding: 8px;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                color: var(--text-secondary);
+                cursor: pointer;
+                font-family: var(--font-mono);
+                font-size: var(--font-size-xs);
+                text-align: center;
+                transition: all 0.2s;
+                border-radius: var(--radius-sm);
+            }
+            
+            .ratio-btn:hover {
+                background: var(--bg-interactive-hover);
+                color: var(--text-primary);
+                border-color: var(--border-subtle);
+            }
+            
+            .ratio-btn.active {
+                background: var(--accent-primary);
+                color: white;
+                border-color: var(--accent-primary);
+            }
+            
+            .custom-ratio-input {
+                display: flex;
+                gap: 5px;
+                margin-top: 10px;
+                align-items: center;
+            }
+            
             .main-ui-container {
                 position: fixed;
                 top: 10px;
@@ -2588,6 +2693,109 @@ export class MainUI {
             this.triggerAutoSave();
         });
         
+        // Aspect ratio controls
+        if (this.aspectRatioManager) {
+            this.setupAspectRatioControls();
+        }
+    }
+    
+    setupAspectRatioControls() {
+        const enableCheckbox = document.getElementById('aspect-ratio-enabled');
+        const strokeCheckbox = document.getElementById('aspect-ratio-stroke');
+        const controls = document.getElementById('aspect-ratio-controls');
+        const ratioButtons = document.querySelectorAll('.ratio-btn');
+        const customRatioControls = document.getElementById('custom-ratio-controls');
+        const customWidth = document.getElementById('custom-width');
+        const customHeight = document.getElementById('custom-height');
+        const canvasSize = document.getElementById('canvas-size');
+        const customSizeControls = document.getElementById('custom-size-controls');
+        const customCanvasWidth = document.getElementById('custom-canvas-width');
+        const customCanvasHeight = document.getElementById('custom-canvas-height');
+        
+        // Enable/disable aspect ratio
+        enableCheckbox.addEventListener('change', (e) => {
+            this.aspectRatioManager.setEnabled(e.target.checked);
+            controls.style.display = e.target.checked ? 'block' : 'none';
+            
+            // Resize particle system
+            this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+            this.triggerAutoSave();
+        });
+        
+        // Enable/disable stroke
+        strokeCheckbox.addEventListener('change', (e) => {
+            this.aspectRatioManager.setStrokeEnabled(e.target.checked);
+            this.triggerAutoSave();
+        });
+        
+        // Ratio buttons
+        ratioButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                ratioButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const ratio = btn.dataset.ratio;
+                if (ratio === 'custom') {
+                    customRatioControls.style.display = 'block';
+                    const w = parseInt(customWidth.value);
+                    const h = parseInt(customHeight.value);
+                    this.aspectRatioManager.setRatio(w, h);
+                } else {
+                    customRatioControls.style.display = 'none';
+                    const [w, h] = ratio.split(':').map(Number);
+                    this.aspectRatioManager.setRatio(w, h);
+                }
+                
+                this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+                this.triggerAutoSave();
+            });
+        });
+        
+        // Custom ratio inputs
+        customWidth.addEventListener('input', () => {
+            if (document.querySelector('.ratio-btn[data-ratio="custom"]').classList.contains('active')) {
+                this.aspectRatioManager.setRatio(parseInt(customWidth.value), parseInt(customHeight.value));
+                this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+                this.triggerAutoSave();
+            }
+        });
+        
+        customHeight.addEventListener('input', () => {
+            if (document.querySelector('.ratio-btn[data-ratio="custom"]').classList.contains('active')) {
+                this.aspectRatioManager.setRatio(parseInt(customWidth.value), parseInt(customHeight.value));
+                this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+                this.triggerAutoSave();
+            }
+        });
+        
+        // Canvas size selector
+        canvasSize.addEventListener('change', (e) => {
+            this.aspectRatioManager.setCanvasSize(e.target.value);
+            customSizeControls.style.display = e.target.value === 'custom-size' ? 'block' : 'none';
+            this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+            this.triggerAutoSave();
+        });
+        
+        // Custom canvas size
+        customCanvasWidth.addEventListener('input', () => {
+            this.aspectRatioManager.setCustomSize(parseInt(customCanvasWidth.value), parseInt(customCanvasHeight.value));
+            this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+            this.triggerAutoSave();
+        });
+        
+        customCanvasHeight.addEventListener('input', () => {
+            this.aspectRatioManager.setCustomSize(parseInt(customCanvasWidth.value), parseInt(customCanvasHeight.value));
+            this.particleSystem.resize(this.aspectRatioManager.canvas.width, this.aspectRatioManager.canvas.height);
+            this.triggerAutoSave();
+        });
+        
+        // Set default ratio button
+        setTimeout(() => {
+            const firstRatioBtn = ratioButtons[0];
+            if (firstRatioBtn) {
+                firstRatioBtn.click();
+            }
+        }, 100);
     }
     
     updateSpeciesSelectors(numSpecies) {
