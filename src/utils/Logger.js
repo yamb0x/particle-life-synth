@@ -10,13 +10,13 @@ export class Logger {
     static currentLevel = this.detectLogLevel();
     
     static detectLogLevel() {
-        // Production environment (hosted): ERROR only
-        if (window.location.hostname !== 'localhost' && !window.location.search.includes('debug=true')) {
-            return this.LOG_LEVELS.ERROR;
+        // Check for explicit debug mode
+        if (window.location.search.includes('debug=true')) {
+            return this.LOG_LEVELS.DEBUG;
         }
         
-        // Development environment: DEBUG level
-        return this.LOG_LEVELS.DEBUG;
+        // Default to WARN level for cleaner console
+        return this.LOG_LEVELS.WARN;
     }
     
     static error(...args) {

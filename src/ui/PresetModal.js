@@ -1264,7 +1264,7 @@ export class PresetModal {
     // Update start positions from distribution drawer if available
     if (this.distributionDrawer) {
       const distribution = this.distributionDrawer.exportDistribution();
-      console.log('Distribution data being saved:', distribution);
+      // Distribution data being saved
       
       Object.entries(distribution).forEach(([speciesId, points]) => {
         const index = parseInt(speciesId);
@@ -1297,7 +1297,7 @@ export class PresetModal {
                 customPoints: points
               };
               
-              console.log(`Saved custom distribution for species ${index}:`, preset.species.definitions[index].startPosition);
+              // Custom distribution saved
             }
           } else {
             // If no custom points, keep existing startPosition or use default
@@ -1390,16 +1390,7 @@ export class PresetModal {
   }
   
   updateEffectsFromUI(preset) {
-    // Update halo effects
-    const haloEnabled = this.modal.querySelector('#halo-enabled');
-    if (haloEnabled) {
-      preset.effects.haloEnabled = haloEnabled.checked;
-    }
-    
-    const haloIntensity = this.modal.querySelector('#halo-intensity');
-    if (haloIntensity) {
-      preset.effects.haloIntensity = parseFloat(haloIntensity.value);
-    }
+    // Per-species halo effects (handled in per-species arrays, not individual halo settings)
     
     const haloRadius = this.modal.querySelector('#halo-radius');
     if (haloRadius) {
@@ -1476,7 +1467,7 @@ export class PresetModal {
         if (currentPreset && currentPreset.name !== preset.name) {
           // Name changed - create new preset with new name
           saveKey = this.presetManager.generateUniqueKey(preset.name);
-          console.log(`Name changed from '${currentPreset.name}' to '${preset.name}' - creating new preset`);
+          // Creating new preset due to name change
         }
       } else {
         // No current preset - definitely new
@@ -1562,6 +1553,12 @@ export class PresetModal {
       // Update the current preset object
       this.currentPreset = currentState;
       
+      // Fix trail/blur value: convert mapped blur back to original slider value
+      if (this.mainUI && typeof this.mainUI.unmapTrailValue === 'function') {
+        const originalSliderValue = this.mainUI.unmapTrailValue(currentState.visual.blur);
+        this.currentPreset.visual.blur = originalSliderValue;
+      }
+      
       // Update all UI elements to reflect the current scene
       this.loadPresetToUI(false); // Don't preserve distribution when fetching scene data
       
@@ -1605,17 +1602,17 @@ export class PresetModal {
         const startPos = this.particleSystem.species[i].startPosition;
         if (startPos.type === 'custom' && startPos.customPoints) {
           distributionData[i] = startPos.customPoints;
-          console.log(`Found custom distribution for species ${i}:`, startPos.customPoints.length, 'points');
+          // Custom distribution found
         }
       }
     }
     
     // Import the distribution data if we have any
     if (Object.keys(distributionData).length > 0 && this.distributionDrawer) {
-      console.log('Importing distribution data for', Object.keys(distributionData).length, 'species');
+      // Importing distribution data
       this.distributionDrawer.importDistribution(distributionData);
     } else {
-      console.log('No custom distribution data found in particle system');
+      // No custom distribution data
     }
   }
 

@@ -9,22 +9,55 @@ class CloudStorage {
     this.initialized = false;
     this.currentUser = null;
     this.listeners = new Map();
+    this.initializationPromise = null;
   }
+
+  // Retry function with exponential backoff
+  async retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (attempt === maxRetries) throw error;
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  // Check connection status
+  isConnected() {
+    return this.initialized && this.currentUser;
+  }
+
+  // Get connection status for UI
+  getConnectionStatus() {
+    if (!this.initialized) return { connected: false, status: 'offline' };
+    if (!this.currentUser) return { connected: false, status: 'connecting' };
+    return { connected: true, status: 'online' };
+  }
+
 
   async initialize() {
     if (this.initialized) return;
+    if (this.initializationPromise) return this.initializationPromise;
 
-    console.log('Initializing Firebase...');
+    this.initializationPromise = this.doInitialize();
+    return this.initializationPromise;
+  }
+
+  async doInitialize() {
     try {
-      // Dynamic import of Firebase
-      console.log('Loading Firebase modules...');
-      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+      // Dynamic import of Firebase modules
+      const { initializeApp, setLogLevel } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
       const { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, where, orderBy, limit, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
       const { getAuth, signInAnonymously, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
       const { getStorage, ref, uploadBytes, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js');
+      
+      // Suppress Firebase internal logging
+      setLogLevel('silent');
 
-      // Initialize Firebase
-      console.log('Initializing Firebase app with config:', firebaseConfig.projectId);
+      // Initialize Firebase app
       const app = initializeApp(firebaseConfig);
       this.db = getFirestore(app);
       this.auth = getAuth(app);
@@ -39,25 +72,21 @@ class CloudStorage {
       };
 
       // Set up auth listener
-      console.log('Setting up auth listener...');
       this.firebase.onAuthStateChanged(this.auth, (user) => {
-        console.log('Auth state changed:', user ? `User ${user.uid}` : 'No user');
         this.currentUser = user;
         this.notifyListeners('auth', user);
       });
 
-      // Sign in anonymously by default
-      console.log('Signing in anonymously...');
-      await this.firebase.signInAnonymously(this.auth);
-      console.log('Anonymous sign-in complete');
+      // Sign in anonymously with retry logic
+      await this.retryWithBackoff(async () => {
+        await this.firebase.signInAnonymously(this.auth);
+      }, 2, 2000); // Reduced retries, longer delay
 
       this.initialized = true;
-      console.log('Firebase initialized successfully');
+      console.log('✓ Cloud storage connected');
     } catch (error) {
-      console.error('Failed to initialize Firebase:', error);
-      console.error('Error details:', error.message);
-      console.error('Error code:', error.code);
-      throw error;
+      console.warn('⚠️ Working offline - cloud features unavailable');
+      this.initialized = false;
     }
   }
 
@@ -66,7 +95,7 @@ class CloudStorage {
     
     // Skip saving invalid preset names (test artifacts, etc.)
     if (this.isInvalidPresetName(preset.name)) {
-      console.log('Skipping invalid preset name for Firebase:', preset.name);
+      // Skipping invalid preset name
       throw new Error(`Invalid preset name "${preset.name}" not allowed in cloud storage`);
     }
     
@@ -109,7 +138,7 @@ class CloudStorage {
       );
       return { ...presetData, id };
     } catch (error) {
-      console.error('Failed to save preset:', error);
+      console.error('Failed to save preset to cloud:', error.message);
       throw error;
     }
   }
@@ -130,7 +159,11 @@ class CloudStorage {
       'test preset',
       'temp',
       'temporary',
-      'workflowvalidation' // Block test suite workflow validation presets
+      'workflowvalidation', // Block test suite workflow validation presets
+      'simplifiedworkflowtest', // Block test suite workflow presets
+      'conf_02',
+      'confett',
+      'confetty'
     ];
     
     // Check for exact matches
@@ -139,8 +172,14 @@ class CloudStorage {
     }
     
     // Block names that start with test patterns
-    const invalidPatterns = ['test_', 'temp_', 'auto_'];
+    const invalidPatterns = ['test_', 'temp_', 'auto_', 'conf_'];
     if (invalidPatterns.some(pattern => normalizedName.startsWith(pattern))) {
+      return true;
+    }
+    
+    // Block names that contain test indicators
+    const testIndicators = ['test', 'workflow', 'debug', 'validation'];
+    if (testIndicators.some(indicator => normalizedName.includes(indicator))) {
       return true;
     }
     
@@ -237,7 +276,7 @@ class CloudStorage {
       }
       return null;
     } catch (error) {
-      console.error('Failed to get preset:', error);
+      console.error('Failed to get preset from cloud:', error.message);
       throw error;
     }
   }
@@ -288,8 +327,8 @@ class CloudStorage {
       
       return presets;
     } catch (error) {
-      console.error('Failed to get presets:', error);
-      throw error;
+      console.error('Failed to get presets from cloud:', error.message);
+      return [];
     }
   }
 
@@ -302,7 +341,7 @@ class CloudStorage {
       );
       return true;
     } catch (error) {
-      console.error('Failed to delete preset:', error);
+      console.error('Failed to delete preset from cloud:', error.message);
       throw error;
     }
   }
@@ -318,7 +357,7 @@ class CloudStorage {
       );
       return true;
     } catch (error) {
-      console.error('Failed to update preset status:', error);
+      console.error('Failed to update preset status:', error.message);
       throw error;
     }
   }
@@ -347,7 +386,7 @@ class CloudStorage {
         url: `${window.location.origin}?preset=${shareId}`
       };
     } catch (error) {
-      console.error('Failed to create share link:', error);
+      console.error('Failed to create share link:', error.message);
       throw error;
     }
   }
@@ -382,7 +421,7 @@ class CloudStorage {
       // Get the actual preset
       return await this.getPreset(shareData.presetId);
     } catch (error) {
-      console.error('Failed to get shared preset:', error);
+      console.error('Failed to get shared preset:', error.message);
       throw error;
     }
   }
@@ -391,34 +430,35 @@ class CloudStorage {
     const { userId = null, status = PRESET_STATUS.PUBLIC } = options;
     
     this.initialize().then(() => {
-      let q = this.firebase.collection(this.db, COLLECTIONS.PRESETS);
-      
-      const constraints = [];
-      if (userId) {
-        constraints.push(this.firebase.where('userId', '==', userId));
+      if (!this.initialized || !this.currentUser) {
+        // Silently skip subscription if not connected
+        return null;
       }
-      if (status) {
-        constraints.push(this.firebase.where('status', '==', status));
-      }
-      constraints.push(this.firebase.orderBy('updatedAt', 'desc'));
       
-      q = this.firebase.query(q, ...constraints);
+      // Use polling instead of real-time subscription to avoid WebChannel errors
+      const pollPresets = async () => {
+        try {
+          const presets = await this.getAllPresets({ userId, status });
+          callback(presets);
+        } catch (error) {
+          // Silently handle polling errors
+        }
+      };
       
-      const unsubscribe = this.firebase.onSnapshot(q, (snapshot) => {
-        const presets = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          const parsed = this.parseFromFirestore(data);
-          presets.push({ id: doc.id, ...parsed });
-        });
-        callback(presets);
-      });
+      // Initial load
+      pollPresets();
       
-      // Store unsubscribe function
+      // Poll every 30 seconds instead of real-time updates
+      const intervalId = setInterval(pollPresets, 30000);
+      
+      // Store cleanup function
       const listenerId = `presets_${Date.now()}`;
-      this.listeners.set(listenerId, unsubscribe);
+      this.listeners.set(listenerId, () => clearInterval(intervalId));
       
       return listenerId;
+    }).catch(() => {
+      // Silently handle initialization errors
+      return null;
     });
   }
 
@@ -455,12 +495,10 @@ class CloudStorage {
   // Clean up test presets and duplicates
   async cleanupTestPresets() {
     if (!this.initialized || !this.currentUser) {
-      console.log('Cannot cleanup - not authenticated');
-      return;
+      return 0;
     }
 
     try {
-      console.log('Starting cleanup of test presets...');
       const userId = this.currentUser.uid;
       
       // Use a simpler query that doesn't require composite index
@@ -520,17 +558,19 @@ class CloudStorage {
       // Delete marked presets
       for (const preset of toDelete) {
         try {
-          console.log(`Deleting ${this.isInvalidPresetName(preset.name) ? 'invalid' : 'duplicate'} preset:`, preset.name, preset.id);
+          // Delete invalid or duplicate preset
           await this.deletePreset(preset.id);
         } catch (error) {
           console.warn(`Failed to delete preset ${preset.id}:`, error);
         }
       }
       
-      console.log(`Cleanup completed: deleted ${toDelete.length} presets`);
+      if (toDelete.length > 0) {
+        console.log(`Cleaned up ${toDelete.length} invalid presets`);
+      }
       return toDelete.length;
     } catch (error) {
-      console.error('Cleanup failed:', error);
+      console.error('Cleanup failed:', error.message);
       throw error;
     }
   }

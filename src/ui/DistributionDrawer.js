@@ -57,7 +57,7 @@ export class DistributionDrawer {
             const rect = this.canvas.getBoundingClientRect();
             
             if (rect.width <= 0 || rect.height <= 0) {
-                console.warn('DistributionDrawer: Invalid canvas dimensions, using defaults');
+                // Canvas not yet laid out, using default dimensions
                 this.width = 200;
                 this.height = 120;
                 this.canvas.width = this.width * dpr;

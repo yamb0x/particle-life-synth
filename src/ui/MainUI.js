@@ -18,6 +18,16 @@ export class MainUI {
         this.currentEditingPreset = null;
         this.synthAssignments = generateDefaultSynthAssignments();
         this.forceDistribution = 0.5; // 0 = uniform, 1 = edges
+        this.selectedSpeciesForSize = 0; // Track selected species for size control
+        this.patternParameterStates = {}; // Store parameter values for each pattern
+        
+        // Ensure new wall properties are initialized
+        if (this.particleSystem.repulsiveForce === undefined) {
+            this.particleSystem.repulsiveForce = 0.3;
+        }
+        if (this.particleSystem.wrapAroundWalls === undefined) {
+            this.particleSystem.wrapAroundWalls = false;
+        }
         
         this.init();
         this.setupKeyboardShortcuts();
@@ -34,30 +44,38 @@ export class MainUI {
             'minimize-btn', 'preset-selector', 'load-preset-btn', 'randomize-values-btn', 'configure-preset-btn',
             // Particle controls
             'particles-per-species', 'particles-per-species-value', 'species-count', 'species-count-value',
-            'distribution-canvas', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear', 'total-particles',
+            'distribution-canvas', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear',
             // Physics controls
             'force-strength', 'force-strength-value', 'friction', 'friction-value',
-            'wall-bounce', 'wall-bounce-value', 'collision-radius', 'collision-radius-value',
+            'collision-strength', 'collision-strength-value', 'collision-offset', 'collision-offset-value', 'link-all-sizes',
             'social-radius', 'social-radius-value',
+            // Advanced Physics controls
+            'environmental-pressure', 'environmental-pressure-value', 'chaos-level', 'chaos-level-value',
             // Shockwave controls
             'shockwave-enabled', 'shockwave-controls', 'shockwave-strength', 'shockwave-strength-value',
             'shockwave-size', 'shockwave-size-value', 'shockwave-falloff', 'shockwave-falloff-value',
+            // Walls controls
+            'wall-bounce', 'wall-bounce-value', 'repulsive-force', 'repulsive-force-value', 'wrap-around-walls',
             // Force controls
             'from-species', 'to-species', 'force-graph-container', 'clear-forces-btn',
             // Effects controls
             'trails-enabled', 'trail-controls', 'trail-length', 'trail-length-value',
-            'halo-enabled', 'halo-controls', 'halo-radius-control', 'halo-intensity', 'halo-intensity-value',
-            'halo-radius', 'halo-radius-value',
+            // Trail mode controls
+            'link-all-species-trails', 'trail-species-selector-container', 'trail-species-selector',
+            // Per-species halo controls
+            'per-species-halo-enabled', 'per-species-halo-controls', 'per-species-halo-intensity-control',
+            'per-species-halo-radius-control', 'halo-species-selector', 'per-species-halo-intensity',
+            'per-species-halo-intensity-value', 'per-species-halo-radius', 'per-species-halo-radius-value',
             'species-glow-enabled', 'species-glow-controls', 'species-glow-size-control', 
             'species-glow-intensity-control', 'glow-species-selector', 'species-glow-size',
             'species-glow-size-value', 'species-glow-intensity', 'species-glow-intensity-value',
             // Visual controls
             'background-mode', 'background-color', 'background-color1', 'background-color2', 
-            'background-cycle-time', 'background-cycle-time-value', 'particle-size', 'particle-size-value', 
-            'per-species-size-enabled', 'per-species-size-controls', 'size-species-selector', 'species-size', 'species-size-value',
+            'background-cycle-time', 'background-cycle-time-value', 
+            'selected-species-name', 'species-size', 'species-size-value',
             'species-colors-container',
             // Action buttons
-            'randomize-forces-btn', 'reset-defaults-btn', 'force-distribution', 'force-distribution-value'
+            'randomize-forces-btn', 'reset-defaults-btn', 'force-distribution', 'force-distribution-value', 'force-pattern-selector'
         ];
         
         const missingIds = [];
@@ -70,7 +88,7 @@ export class MainUI {
         if (missingIds.length > 0) {
             console.error('Missing UI elements:', missingIds);
         } else {
-            console.log('All UI elements validated successfully');
+            // UI elements validated
         }
         
         return missingIds.length === 0;
@@ -109,26 +127,9 @@ export class MainUI {
                         <button class="btn btn-primary" id="load-preset-btn" style="width: 100%;">Load Preset</button>
                     </div>
                     <div class="control-group">
-                        <div class="randomize-buttons-row">
-                            <button class="btn btn-secondary" id="randomize-values-btn">
-                                Randomize Values
-                            </button>
-                            <button class="btn btn-secondary" id="randomize-forces-btn">
-                                Randomize Forces
-                            </button>
-                        </div>
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            Force Distribution
-                            <span class="value-display" id="force-distribution-value">0.5</span>
-                        </label>
-                        <input type="range" class="range-slider" id="force-distribution" 
-                               min="0" max="1" step="0.1" value="0.5">
-                        <div class="slider-labels">
-                            <span class="slider-label-left">Uniform</span>
-                            <span class="slider-label-right">Edges</span>
-                        </div>
+                        <button class="btn btn-secondary" id="randomize-values-btn" style="width: 100%;">
+                            Randomize Values
+                        </button>
                     </div>
                 </div>
             </div>
@@ -185,8 +186,42 @@ export class MainUI {
                             </div>
                         </div>
                     </div>
-                    <div class="info-text">
-                        Total: <span id="total-particles">${this.particleSystem.numSpecies * this.particleSystem.particlesPerSpecies}</span> particles
+                    
+                    <!-- Per-Species Size Controls -->
+                    <div class="control-group">
+                        <label>Per-Species Size</label>
+                        <div class="species-size-display">
+                            <span id="selected-species-name">Select a species above</span>
+                            <span class="value-display" id="species-size-value">-</span>
+                        </div>
+                        <input type="range" class="range-slider" id="species-size" 
+                               min="0.5" max="30" step="0.5" value="3.0" disabled>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="link-all-sizes">
+                            Link All Sizes
+                        </label>
+                    </div>
+                    
+                    <!-- Collision Settings -->
+                    <div class="control-group">
+                        <label>
+                            Collision Strength
+                            <span class="value-display" id="collision-strength-value">1.0</span>
+                        </label>
+                        <input type="range" class="range-slider" id="collision-strength" 
+                               min="0.5" max="5.0" step="0.1" value="1.0">
+                        <span class="info-text">1.0 = particles touch when colliding, >1.0 = maintain distance</span>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            Collision Offset
+                            <span class="value-display" id="collision-offset-value">0.0</span>
+                        </label>
+                        <input type="range" class="range-slider" id="collision-offset" 
+                               min="0" max="10" step="0.5" value="0.0">
+                        <span class="info-text">Extra spacing between particles (independent of size)</span>
                     </div>
                 </div>
             </div>
@@ -211,23 +246,7 @@ export class MainUI {
                             <span class="value-display" id="friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="friction" 
-                               min="0" max="0.2" step="0.01" value="${1.0 - this.particleSystem.friction}">
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            Wall Bounce
-                            <span class="value-display" id="wall-bounce-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
-                        </label>
-                        <input type="range" class="range-slider" id="wall-bounce" 
-                               min="0" max="2.0" step="0.05" value="${this.particleSystem.wallDamping}">
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            Collision Radius
-                            <span class="value-display" id="collision-radius-value">${this.particleSystem.collisionRadius[0][0]}</span>
-                        </label>
-                        <input type="range" class="range-slider" id="collision-radius" 
-                               min="1" max="100" step="1" value="${this.particleSystem.collisionRadius[0][0]}">
+                               min="0" max="0.5" step="0.01" value="${1.0 - this.particleSystem.friction}">
                     </div>
                     <div class="control-group">
                         <label>
@@ -235,7 +254,33 @@ export class MainUI {
                             <span class="value-display" id="social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
                         </label>
                         <input type="range" class="range-slider" id="social-radius" 
-                               min="1" max="500" step="5" value="${this.particleSystem.socialRadius[0][0]}">
+                               min="20" max="300" step="5" value="${this.particleSystem.socialRadius[0][0]}">
+                    </div>
+                    
+                    <!-- Advanced Physics Controls -->
+                    <div class="control-group">
+                        <label>
+                            Environmental Pressure
+                            <span class="value-display" id="environmental-pressure-value">0.0</span>
+                        </label>
+                        <input type="range" class="range-slider" id="environmental-pressure" 
+                               min="-0.8" max="0.8" step="0.05" value="0.0">
+                        <div class="slider-labels">
+                            <span class="slider-label-left">Repel</span>
+                            <span class="slider-label-right">Attract</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            Chaos Level
+                            <span class="value-display" id="chaos-level-value">0.0</span>
+                        </label>
+                        <input type="range" class="range-slider" id="chaos-level" 
+                               min="0.0" max="0.5" step="0.02" value="0.0">
+                        <div class="slider-labels">
+                            <span class="slider-label-left">Stable</span>
+                            <span class="slider-label-right">Chaotic</span>
+                        </div>
                     </div>
                     
                     <!-- Shockwave Controls -->
@@ -274,12 +319,81 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 4. FORCE RELATIONSHIPS Section -->
+            <!-- 4. WALLS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
+                    <h4 class="section-title">Walls</h4>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <label>
+                            Wall Bounce
+                            <span class="value-display" id="wall-bounce-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
+                        </label>
+                        <input type="range" class="range-slider" id="wall-bounce" 
+                               min="-1.0" max="3.0" step="0.05" value="${this.particleSystem.wallDamping}">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            Repulsive Force
+                            <span class="value-display" id="repulsive-force-value">${(this.particleSystem.repulsiveForce || 0.3).toFixed(2)}</span>
+                        </label>
+                        <input type="range" class="range-slider" id="repulsive-force" 
+                               min="0" max="1.0" step="0.05" value="${this.particleSystem.repulsiveForce || 0.3}">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="wrap-around-walls" ${(this.particleSystem.wrapAroundWalls || false) ? 'checked' : ''}>
+                            Remove Walls (Wrap-Around)
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 5. FORCE RELATIONSHIPS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Force Relationships</h4>
                 </div>
                 <div class="panel-content">
+                    <!-- Force Pattern Controls -->
+                    <div class="control-group">
+                        <div class="randomize-buttons-row">
+                            <button class="btn btn-secondary btn-sm" id="randomize-forces-btn">
+                                Randomize Forces
+                            </button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            Force Distribution
+                            <span class="value-display" id="force-distribution-value">0.5</span>
+                        </label>
+                        <input type="range" class="range-slider" id="force-distribution" 
+                               min="0" max="1" step="0.1" value="0.5">
+                        <div class="slider-labels">
+                            <span class="slider-label-left">Uniform</span>
+                            <span class="slider-label-right">Edges</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Force Pattern</label>
+                        <select class="select" id="force-pattern-selector">
+                            <option value="clusters">Clusters</option>
+                            <option value="random">Random</option>
+                            <option value="predator-prey">Predator-Prey</option>
+                            <option value="territorial">Territorial</option>
+                            <option value="symbiotic">Symbiotic</option>
+                            <option value="cyclic">Cyclic</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Dynamic Pattern Parameters Panel (Task 5) -->
+                    <div id="pattern-parameters-panel" class="pattern-parameters-panel">
+                        <!-- Dynamic parameters will be inserted here -->
+                    </div>
+                    
+                    <!-- Manual Force Adjustment -->
                     <div class="species-selectors">
                         <div class="selector-group">
                             <label>From</label>
@@ -323,39 +437,70 @@ export class MainUI {
                             </label>
                         </div>
                         <div class="control-group" id="trail-controls" style="${!this.particleSystem.trailEnabled ? 'display: none;' : ''}">
-                            <label>
-                                Trail Length
-                                <span class="value-display" id="trail-length-value">${this.particleSystem.blur.toFixed(2)}</span>
-                            </label>
-                            <input type="range" class="range-slider" id="trail-length" 
-                                   min="0.0" max="0.99" step="0.01" value="${this.particleSystem.blur}">
-                            <span class="info-text">Lower = longer trails</span>
+                            <div class="control-group">
+                                <label>
+                                    <input type="checkbox" id="link-all-species-trails" ${this.particleSystem.linkAllSpeciesTrails ? 'checked' : ''}>
+                                    Link All Species
+                                </label>
+                                <span class="info-text">When unchecked, control trails per species</span>
+                            </div>
+                            
+                            <div class="control-group" id="trail-species-selector-container" style="${this.particleSystem.linkAllSpeciesTrails ? 'display: none;' : ''}">
+                                <label>Species</label>
+                                <select class="select select-sm" id="trail-species-selector">
+                                    <option value="0">Red</option>
+                                    <option value="1">Green</option>
+                                    <option value="2">Blue</option>
+                                    <option value="3">Yellow</option>
+                                    <option value="4">Purple</option>
+                                </select>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>
+                                    <span id="trail-length-label">${this.particleSystem.linkAllSpeciesTrails ? 'Trail Length (All Species)' : 'Trail Length (Selected Species)'}</span>
+                                    <span class="value-display" id="trail-length-value">${this.particleSystem.blur.toFixed(3)}</span>
+                                </label>
+                                <input type="range" class="range-slider" id="trail-length" 
+                                       min="0" max="100" step="1" value="${this.reverseMapTrailValue(this.particleSystem.blur)}">
+                                <span class="info-text">Lower = longer trails</span>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Halo Effect (renamed from Dreamtime) -->
+                    <!-- Per-Species Halo Effect -->
                     <div class="effect-group">
                         <div class="control-group">
                             <label>
-                                <input type="checkbox" id="halo-enabled" ${this.particleSystem.renderMode === 'dreamtime' ? 'checked' : ''}>
-                                Enable Halo
+                                <input type="checkbox" id="per-species-halo-enabled">
+                                Per-Species Halo
                             </label>
                         </div>
-                        <div class="control-group" id="halo-controls" style="${this.particleSystem.renderMode !== 'dreamtime' ? 'display: none;' : ''}">
+                        <div class="control-group" id="per-species-halo-controls" style="display: none;">
+                            <label>Halo Species</label>
+                            <select class="select select-sm" id="halo-species-selector">
+                                <option value="0">Red</option>
+                                <option value="1">Green</option>
+                                <option value="2">Blue</option>
+                                <option value="3">Yellow</option>
+                                <option value="4">Purple</option>
+                            </select>
+                        </div>
+                        <div class="control-group" id="per-species-halo-intensity-control" style="display: none;">
                             <label>
                                 Halo Intensity
-                                <span class="value-display" id="halo-intensity-value">${this.particleSystem.glowIntensity?.toFixed(2) || '0.80'}</span>
+                                <span class="value-display" id="per-species-halo-intensity-value">0.000</span>
                             </label>
-                            <input type="range" class="range-slider" id="halo-intensity" 
-                                   min="0.0" max="1.0" step="0.05" value="${this.particleSystem.glowIntensity || 0.8}">
+                            <input type="range" class="range-slider" id="per-species-halo-intensity" 
+                                   min="0.000" max="0.200" step="0.001" value="0.000">
                         </div>
-                        <div class="control-group" id="halo-radius-control" style="${this.particleSystem.renderMode !== 'dreamtime' ? 'display: none;' : ''}">
+                        <div class="control-group" id="per-species-halo-radius-control" style="display: none;">
                             <label>
                                 Halo Radius
-                                <span class="value-display" id="halo-radius-value">${this.particleSystem.glowRadius?.toFixed(1) || '3.0'}</span>
+                                <span class="value-display" id="per-species-halo-radius-value">1.0</span>
                             </label>
-                            <input type="range" class="range-slider" id="halo-radius" 
-                                   min="1.0" max="5.0" step="0.1" value="${this.particleSystem.glowRadius || 3.0}">
+                            <input type="range" class="range-slider" id="per-species-halo-radius" 
+                                   min="0.5" max="5.0" step="0.1" value="1.0">
                         </div>
                     </div>
                     
@@ -424,35 +569,6 @@ export class MainUI {
                         </label>
                         <input type="range" class="range-slider" id="background-cycle-time" 
                                min="0.5" max="30" step="0.1" value="5.0">
-                    </div>
-                    <div class="control-group">
-                        <label>Particle Size
-                            <span class="value-display" id="particle-size-value">${this.particleSystem.particleSize.toFixed(1)}</span>
-                        </label>
-                        <input type="range" class="range-slider" id="particle-size" 
-                               min="0.5" max="30" step="0.5" value="${this.particleSystem.particleSize}">
-                        <div class="info-text">Visual size only (doesn't affect physics)</div>
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="per-species-size-enabled">
-                            Per Species Size
-                        </label>
-                    </div>
-                    <div class="control-group" id="per-species-size-controls" style="display: none;">
-                        <label>Species</label>
-                        <select class="select select-sm" id="size-species-selector">
-                            <option value="0">Red</option>
-                            <option value="1">Green</option>
-                            <option value="2">Blue</option>
-                            <option value="3">Yellow</option>
-                            <option value="4">Purple</option>
-                        </select>
-                        <label>Size
-                            <span class="value-display" id="species-size-value">3.0</span>
-                        </label>
-                        <input type="range" class="range-slider" id="species-size" 
-                               min="0.5" max="30" step="0.5" value="3.0">
                     </div>
                     <div class="control-group">
                         <label>Species Colors</label>
@@ -1045,6 +1161,116 @@ export class MainUI {
                 color: var(--text-secondary) !important;
                 font-style: italic;
             }
+            
+            /* Pattern Parameters Panel Styles */
+            .pattern-parameters-panel {
+                display: none;
+                background: var(--bg-primary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                padding: var(--space-md);
+                margin-top: var(--space-md);
+                margin-bottom: var(--space-md);
+            }
+            
+            .pattern-parameters-header {
+                margin-bottom: var(--space-md);
+                padding-bottom: var(--space-sm);
+                border-bottom: 1px solid var(--border-default);
+            }
+            
+            .pattern-parameters-header h5 {
+                margin: 0;
+                font-size: var(--font-size-md);
+                font-weight: var(--font-weight-medium);
+                color: var(--text-primary);
+            }
+            
+            .pattern-parameters-panel .control-group {
+                margin-bottom: var(--space-md);
+            }
+            
+            .pattern-parameters-panel .control-group:last-child {
+                margin-bottom: 0;
+            }
+            
+            .pattern-parameters-panel .range-slider {
+                margin-top: var(--space-xs);
+            }
+            
+            .pattern-parameters-panel .select {
+                width: 100%;
+                margin-top: var(--space-xs);
+            }
+            
+            /* Pattern Parameter Tooltips and Documentation */
+            .pattern-description {
+                font-size: var(--font-size-xs);
+                color: var(--text-secondary);
+                margin: var(--space-xs) 0 var(--space-md) 0;
+                font-style: italic;
+            }
+            
+            .tooltip-icon {
+                color: var(--text-tertiary);
+                font-size: var(--font-size-xs);
+                margin-left: var(--space-xs);
+                cursor: help;
+                opacity: 0.7;
+                transition: opacity 0.2s ease;
+                font-weight: normal;
+            }
+            
+            .tooltip-icon:hover {
+                opacity: 1;
+                color: var(--accent-primary);
+            }
+            
+            .slider-labels {
+                display: flex;
+                justify-content: space-between;
+                margin-top: var(--space-xs);
+                font-size: var(--font-size-xs);
+                color: var(--text-tertiary);
+            }
+            
+            .slider-label-left,
+            .slider-label-right {
+                font-size: var(--font-size-xs);
+                color: var(--text-tertiary);
+            }
+            
+            /* Pattern Preset Buttons */
+            .preset-buttons {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: var(--space-xs);
+                margin-top: var(--space-xs);
+            }
+            
+            .preset-btn {
+                font-size: var(--font-size-xs);
+                padding: var(--space-xs) var(--space-sm);
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-sm);
+                color: var(--text-primary);
+                cursor: pointer;
+                transition: all 0.2s ease;
+                text-align: center;
+            }
+            
+            .preset-btn:hover {
+                background: var(--bg-tertiary);
+                border-color: var(--accent-primary);
+                color: var(--accent-primary);
+            }
+            
+            .preset-btn:active {
+                transform: translateY(1px);
+                background: var(--accent-primary);
+                color: var(--text-on-accent);
+            }
         `;
         document.head.appendChild(style);
         
@@ -1054,8 +1280,8 @@ export class MainUI {
         this.forceGraph = new XYGraph('force-graph-container', {
             width: 288,
             height: 120,
-            minX: -1,
-            maxX: 1,
+            minX: -5,
+            maxX: 5,
             labelX: 'Force',
             gradientColors: ['#cc6666', '#999999', '#66cc66'],
             gridLines: 5,
@@ -1063,15 +1289,9 @@ export class MainUI {
             onChange: (value) => {
                 const fromSpecies = parseInt(document.getElementById('from-species').value);
                 const toSpecies = parseInt(document.getElementById('to-species').value);
-                console.log(`Setting force from ${fromSpecies} to ${toSpecies}: ${value}`);
                 this.particleSystem.setSocialForce(fromSpecies, toSpecies, value);
                 this.updateGraphInfo();
                 this.triggerAutoSave();
-                
-                // Force a redraw to see immediate effect
-                if (this.particleSystem.socialForce[fromSpecies]) {
-                    console.log('Current force matrix row:', this.particleSystem.socialForce[fromSpecies]);
-                }
             }
         });
         
@@ -1109,11 +1329,20 @@ export class MainUI {
         this.updateSpeciesColors(this.particleSystem.numSpecies);
         this.updateGraph();
         
+        // Initialize pattern parameters panel with default pattern
+        const initialPattern = document.getElementById('force-pattern-selector').value;
+        this.updatePatternParametersPanel(initialPattern);
+        
         // Restore UI state from UI state manager if available
         this.restoreUIState();
         
         // Validate all UI elements are properly created
         this.validateUIElements();
+        
+        // Test parameter system after short delay to ensure DOM is ready
+        setTimeout(() => {
+            // Parameter system ready
+        }, 2000); // Give more time for initialization
     }
     
     triggerAutoSave() {
@@ -1192,7 +1421,7 @@ export class MainUI {
         const isMuted = this.particleSystem.toggleMute();
         
         // Visual feedback - show mute state in console for debugging
-        console.log(isMuted ? 'Simulation muted (frozen for performance)' : 'Simulation unmuted (running)');
+        // Simulation mute state changed
         
         // Optional: Add visual indicator to performance overlay
         const perfOverlay = document.getElementById('performance-overlay');
@@ -1210,38 +1439,50 @@ export class MainUI {
     
     
     randomizeForces() {
-        this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrixWithDistribution(this.forceDistribution);
+        // Enhanced force randomization with sophisticated pattern selection
+        const edgeBias = this.forceDistribution || 0.7; // Default to cluster-friendly bias
+        const patterns = ['clusters', 'predator-prey', 'territorial', 'symbiotic', 'cyclic'];
+        const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)];
+        
+        // Update UI to reflect the selected pattern
+        const patternSelector = document.getElementById('force-pattern-selector');
+        if (patternSelector) {
+            patternSelector.value = selectedPattern;
+        }
+        
+        // Update parameter panel to show default parameters for this pattern
+        this.updatePatternParametersPanel(selectedPattern);
+        
+        // Apply the pattern with default parameters using the new system
+        this.particleSystem.applyForcePattern(selectedPattern, edgeBias, {});
+        
+        // Also randomize collision parameters for complete dynamics overhaul
+        this.particleSystem.collisionRadius = this.particleSystem.createMatrix(8, 40);
+        this.particleSystem.collisionForce = this.particleSystem.createMatrix(-2.5, -0.2);
+        
         this.updateGraph();
         
-        // Visual feedback
+        // Enhanced visual feedback with pattern name
         const btn = document.getElementById('randomize-forces-btn');
         const originalText = btn.innerHTML;
-        btn.innerHTML = '✓ Randomized!';
+        btn.innerHTML = `✓ ${selectedPattern.charAt(0).toUpperCase() + selectedPattern.slice(1).replace('-', ' ')}!`;
         setTimeout(() => {
             btn.innerHTML = originalText;
-        }, 1500);
+        }, 2000);
     }
     
     randomizeValues() {
-        // Smart randomization algorithms for interesting visual results
-        const scenarios = [
-            'swarms',      // High particle count, low friction, medium forces
-            'crystals',    // Strong self-attraction, high friction, geometric patterns
-            'plasma',      // High energy, strong forces, glowing effects
-            'organic',     // Medium values, natural flow, trail effects
-            'chaos',       // Extreme values, unpredictable behavior
-            'minimal',     // Simple, clean, few particles
-            'dreamscape'   // Ethereal glow effects, soft movement
-        ];
+        // Clusters-inspired random parameter generation focused on emergent physics
+        const { scenario, params } = this.generateClustersLikeParams();
         
-        // Get unique scenario to avoid repetition
-        const scenario = this.getUniqueScenario(scenarios);
+        // Apply physics-focused parameters
+        this.applyClustersParams(params);
         
-        // Apply scenario-specific ranges
-        let params = this.generateRandomParams(scenario);
+        // Generate initial distribution pattern for all species
+        this.generateComplexInitialDistribution(scenario);
         
-        // Apply all parameters with visual feedback
-        this.applyRandomizedParams(params, scenario);
+        // Randomize background color based on scenario
+        this.randomizeBackgroundColor(scenario);
         
         // Update UI to reflect changes
         this.updateUIFromParticleSystem();
@@ -1249,11 +1490,172 @@ export class MainUI {
         
         // Visual feedback
         const btn = document.getElementById('randomize-values-btn');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `✓ ${scenario.charAt(0).toUpperCase() + scenario.slice(1)}!`;
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-        }, 2000);
+        if (btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `✓ ${scenario.charAt(0).toUpperCase() + scenario.slice(1)}!`;
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+            }, 2000);
+        }
+    }
+    
+    // Clusters-inspired random parameter generation
+    generateClustersLikeParams() {
+        const scenarios = [
+            'clusters',  // NEW: Stable cluster formations
+            'swarm',     // High mobility, coordinated movement
+            'predator',  // Clear chase dynamics
+            'crystal',   // Structured formations
+            'organic',   // Fluid, natural patterns
+            'chaotic',   // High energy, unstable
+            'minimal'    // Simple, clean behaviors
+        ];
+        
+        const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+        const params = {};
+        
+        switch(scenario) {
+            case 'clusters':
+                params.particlesPerSpecies = 120 + Math.random() * 180; // Optimized for cluster formation
+                params.numSpecies = 4 + Math.floor(Math.random() * 3); // 4-6 species for complex clustering
+                params.forceFactor = 1.5 + Math.random() * 2.0; // Stronger forces for stable clusters
+                params.friction = 0.94 + Math.random() * 0.04; // Higher friction for stability
+                params.socialRadius = 70 + Math.random() * 80; // Optimized social interaction range
+                params.collisionRadius = 12 + Math.random() * 18; // Enhanced collision dynamics
+                params.forceDistribution = 0.75; // Edge-biased for distinct clustering
+                params.environmentPressure = -0.2 + Math.random() * 0.3; // Slight environmental influence
+                params.chaosLevel = Math.random() * 0.15; // Low chaos for stable patterns
+                params.forcePattern = 'clusters';
+                break;
+                
+            case 'swarm':
+                params.particlesPerSpecies = 200 + Math.random() * 300;
+                params.numSpecies = 3 + Math.floor(Math.random() * 3);
+                params.forceFactor = 2.0 + Math.random() * 3.0;
+                params.friction = 0.85 + Math.random() * 0.1; // Low friction
+                params.socialRadius = 100 + Math.random() * 200;
+                params.forceDistribution = 0.3; // More uniform forces
+                break;
+                
+            case 'predator':
+                params.particlesPerSpecies = 100 + Math.random() * 200;
+                params.numSpecies = 2 + Math.floor(Math.random() * 3);
+                params.forceFactor = 3.0 + Math.random() * 4.0;
+                params.friction = 0.9 + Math.random() * 0.08;
+                params.forceDistribution = 0.8; // Strong asymmetry
+                break;
+                
+            case 'crystal':
+                params.particlesPerSpecies = 150 + Math.random() * 150;
+                params.numSpecies = 3 + Math.floor(Math.random() * 2);
+                params.forceFactor = 1.0 + Math.random() * 2.0;
+                params.friction = 0.95 + Math.random() * 0.04; // High friction
+                params.socialRadius = 50 + Math.random() * 100;
+                params.forceDistribution = 0.5;
+                break;
+                
+            case 'organic':
+                params.particlesPerSpecies = 180 + Math.random() * 220;
+                params.numSpecies = 4 + Math.floor(Math.random() * 4);
+                params.forceFactor = 1.5 + Math.random() * 2.5;
+                params.friction = 0.88 + Math.random() * 0.1;
+                params.socialRadius = 80 + Math.random() * 150;
+                params.forceDistribution = 0.6 + Math.random() * 0.2;
+                break;
+                
+            case 'chaotic':
+                params.particlesPerSpecies = 50 + Math.random() * 400;
+                params.numSpecies = 5 + Math.floor(Math.random() * 10);
+                params.forceFactor = 4.0 + Math.random() * 6.0;
+                params.friction = 0.8 + Math.random() * 0.15;
+                params.socialRadius = 50 + Math.random() * 300;
+                params.forceDistribution = 0.7 + Math.random() * 0.3;
+                break;
+                
+            case 'minimal':
+                params.particlesPerSpecies = 50 + Math.random() * 100;
+                params.numSpecies = 2;
+                params.forceFactor = 0.5 + Math.random() * 1.5;
+                params.friction = 0.9 + Math.random() * 0.08;
+                params.socialRadius = 80 + Math.random() * 80;
+                params.forceDistribution = 0.4 + Math.random() * 0.4;
+                break;
+        }
+        
+        // Always set physics-focused parameters (not visual effects)
+        params.collisionRadius = 5 + Math.random() * 30;
+        params.wallDamping = 0.7 + Math.random() * 0.5;
+        params.trailEnabled = Math.random() > 0.3;
+        params.blur = 0.88 + Math.random() * 0.11; // Focus on high trail values
+        
+        return { scenario, params };
+    }
+    
+    applyClustersParams(params) {
+        // Apply enhanced physics parameters for sophisticated emergent behaviors
+        if (params.numSpecies) {
+            this.particleSystem.setSpeciesCount(params.numSpecies);
+        }
+        if (params.particlesPerSpecies) {
+            this.particleSystem.particlesPerSpecies = Math.floor(params.particlesPerSpecies);
+        }
+        if (params.forceFactor) {
+            this.particleSystem.forceFactor = params.forceFactor;
+        }
+        if (params.friction) {
+            this.particleSystem.friction = 1.0 - params.friction; // Convert UI to physics
+        }
+        if (params.socialRadius) {
+            // Update all social radius values
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                for (let j = 0; j < this.particleSystem.numSpecies; j++) {
+                    this.particleSystem.socialRadius[i][j] = params.socialRadius;
+                }
+            }
+        }
+        if (params.collisionRadius) {
+            // Update all collision radius values
+            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+                for (let j = 0; j < this.particleSystem.numSpecies; j++) {
+                    this.particleSystem.collisionRadius[i][j] = params.collisionRadius;
+                }
+            }
+        }
+        // New enhanced parameters
+        if (params.environmentPressure !== undefined) {
+            this.particleSystem.environmentPressure = params.environmentPressure;
+        }
+        if (params.chaosLevel !== undefined) {
+            this.particleSystem.chaosLevel = params.chaosLevel;
+        }
+        if (params.forcePattern) {
+            // Apply sophisticated force patterns
+            const edgeBias = params.forceDistribution || 0.7;
+            this.particleSystem.socialForce = this.particleSystem.createForcePattern(params.forcePattern, edgeBias);
+        }
+        if (params.wallDamping) {
+            this.particleSystem.wallDamping = params.wallDamping;
+        }
+        if (params.trailEnabled !== undefined) {
+            this.particleSystem.trailEnabled = params.trailEnabled;
+        }
+        if (params.blur) {
+            this.particleSystem.blur = params.blur;
+        }
+        if (params.forceDistribution) {
+            this.forceDistribution = params.forceDistribution;
+            // Apply force pattern with this distribution
+            if (params.forcePattern) {
+                // Use specific force pattern (e.g., 'clusters')
+                this.particleSystem.socialForce = this.particleSystem.createForcePattern(params.forcePattern, params.forceDistribution);
+            } else {
+                // Use default asymmetric matrix
+                this.particleSystem.socialForce = this.particleSystem.createAsymmetricMatrixWithDistribution(params.forceDistribution);
+            }
+        }
+        
+        // Reinitialize particles with new configuration
+        this.particleSystem.initializeParticles();
     }
     
     loadNextPreset() {
@@ -1328,6 +1730,23 @@ export class MainUI {
         let params = {};
         
         switch (scenario) {
+            case 'clusters':
+                params = {
+                    particlesPerSpecies: randomInt(100, 250),
+                    numSpecies: randomInt(3, 6),
+                    forceFactor: random(1.0, 2.5),
+                    friction: random(0.12, 0.18), // High friction for stability
+                    wallDamping: random(0.8, 1.2),
+                    collisionRadius: randomInt(8, 20),
+                    socialRadius: randomInt(60, 140),
+                    particleSize: random(2.0, 5.0),
+                    trailEnabled: choice([true, true, false]), // Favor trails
+                    blur: random(0.88, 0.96),
+                    glowIntensity: random(0.2, 0.5),
+                    forcePattern: 'clusters' // Use clusters force pattern
+                };
+                break;
+                
             case 'swarms':
                 params = {
                     particlesPerSpecies: Math.round(randomInt(200, 500) * complexityFactor),
@@ -1455,17 +1874,13 @@ export class MainUI {
             this.recentScenarios = [];
         }
         
-        console.log(`Current recent scenarios: [${this.recentScenarios.join(', ')}], Length: ${this.recentScenarios.length}`);
-        
         // If we've used all scenarios recently, reset the history
         if (this.recentScenarios.length >= scenarios.length - 1) {
-            console.log(`Resetting scenario history after ${this.recentScenarios.length} uses`);
             this.recentScenarios = [];
         }
         
         // Find scenarios not used recently
         const availableScenarios = scenarios.filter(s => !this.recentScenarios.includes(s));
-        console.log(`Available scenarios: [${availableScenarios.join(', ')}]`);
         
         // Safety check - if no available scenarios, use all scenarios
         const scenariosToChooseFrom = availableScenarios.length > 0 ? availableScenarios : scenarios;
@@ -1478,7 +1893,7 @@ export class MainUI {
             this.recentScenarios.push(selectedScenario);
         }
         
-        console.log(`Selected scenario: ${selectedScenario}, Updated recent: [${this.recentScenarios.join(', ')}]`);
+        // Scenario selected
         
         return selectedScenario;
     }
@@ -1715,6 +2130,7 @@ export class MainUI {
     
     randomizeBackgroundColor(scenario) {
         const backgroundColors = {
+            clusters: ['#1a1a2e', '#16213e', '#0f3460', '#2c3e50'], // Deep blues/grays for contrast
             swarms: ['#0d1117', '#161b22', '#21262d', '#1c2128'],
             crystals: ['#f6f8fa', '#ffffff', '#f0f6ff', '#dbeafe'],
             plasma: ['#000000', '#0d1117', '#1a0033', '#330066'],
@@ -1741,6 +2157,7 @@ export class MainUI {
         }
         
         const patterns = {
+            clusters: () => this.createClustersDistribution(),
             swarms: () => this.createSwarmPattern(),
             crystals: () => this.createCrystalPattern(),
             plasma: () => this.createPlasmaPattern(),
@@ -1756,7 +2173,7 @@ export class MainUI {
         // Import the generated distribution
         if (distributionData && Object.keys(distributionData).length > 0) {
             this.distributionDrawer.importDistribution(distributionData);
-            console.log(`Applied ${scenario} distribution pattern with ${Object.keys(distributionData).length} species`);
+            // Distribution pattern applied
         } else {
             console.warn(`No distribution data generated for scenario: ${scenario}`);
         }
@@ -1789,6 +2206,37 @@ export class MainUI {
             const size = 0.04 + Math.random() * 0.03; // Smaller satellites
             
             distribution[i] = this.createClusterPoints(centerX, centerY, size);
+        }
+        
+        return distribution;
+    }
+    
+    // NEW: Clusters Distribution - Creates well-separated cluster starting positions
+    createClustersDistribution() {
+        const numSpecies = this.particleSystem.numSpecies;
+        const distribution = {};
+        
+        // Create distinct clusters positioned to avoid overlap
+        const gridSize = Math.ceil(Math.sqrt(numSpecies));
+        const spacing = 0.7 / gridSize; // Leaves margin from edges
+        const baseOffset = 0.15; // Start position offset from edges
+        
+        for (let i = 0; i < numSpecies; i++) {
+            const row = Math.floor(i / gridSize);
+            const col = i % gridSize;
+            
+            // Position clusters in a grid with some randomization
+            const baseX = baseOffset + col * spacing + Math.random() * spacing * 0.3;
+            const baseY = baseOffset + row * spacing + Math.random() * spacing * 0.3;
+            
+            // Ensure positions stay within bounds
+            const centerX = Math.min(0.85, Math.max(0.15, baseX));
+            const centerY = Math.min(0.85, Math.max(0.15, baseY));
+            
+            // Create tight clusters for better cohesion
+            const clusterSize = 0.04 + Math.random() * 0.03;
+            
+            distribution[i] = this.createClusterPoints(centerX, centerY, clusterSize);
         }
         
         return distribution;
@@ -1955,22 +2403,19 @@ export class MainUI {
     
     
     enforceEffectMutualExclusion() {
-        const haloEnabledEl = document.getElementById('halo-enabled');
+        const perSpeciesHaloEnabledEl = document.getElementById('per-species-halo-enabled');
         const speciesGlowEnabledEl = document.getElementById('species-glow-enabled');
         
-        if (!haloEnabledEl || !speciesGlowEnabledEl) {
+        if (!perSpeciesHaloEnabledEl || !speciesGlowEnabledEl) {
             console.warn('Effect elements not found during mutual exclusion check');
             return;
         }
         
-        const haloEnabled = haloEnabledEl.checked;
+        const haloEnabled = perSpeciesHaloEnabledEl.checked;
         const speciesGlowEnabled = speciesGlowEnabledEl.checked;
-        
-        console.log(`Effect mutual exclusion check: halo=${haloEnabled}, glow=${speciesGlowEnabled}`);
         
         // If both are enabled, disable species glow to prevent conflicts
         if (haloEnabled && speciesGlowEnabled) {
-            console.log('Both effects enabled, disabling species glow for mutual exclusion');
             speciesGlowEnabledEl.checked = false;
             
             // Hide species glow controls
@@ -1989,6 +2434,49 @@ export class MainUI {
         }
     }
     
+    // Non-linear trail slider mapping for fine control in high values
+    mapTrailValue(sliderValue) {
+        // Slider range: 0-100
+        if (sliderValue < 80) {
+            // 0-80 maps to 0.5-0.9 (linear)
+            return 0.5 + (sliderValue / 80) * 0.4;
+        } else {
+            // 80-100 maps to 0.9-0.999 (exponential for fine control)
+            const t = (sliderValue - 80) / 20; // 0-1
+            return 0.9 + (Math.pow(t, 2) * 0.099); // 0.9-0.999
+        }
+    }
+    
+    // Reverse mapping: blur value back to slider value
+    unmapTrailValue(blurValue) {
+        // Clamp blur value to valid range
+        blurValue = Math.max(0.5, Math.min(0.999, blurValue));
+        
+        if (blurValue <= 0.9) {
+            // Linear range: 0.5-0.9 maps back to 0-80
+            const result = ((blurValue - 0.5) / 0.4) * 80;
+            return Math.round(result * 100) / 100; // Round to 2 decimal places
+        } else {
+            // Exponential range: 0.9-0.999 maps back to 80-100
+            const normalizedBlur = (blurValue - 0.9) / 0.099; // 0-1
+            const t = Math.sqrt(normalizedBlur); // Inverse of t^2
+            const result = 80 + (t * 20);
+            return Math.round(result * 100) / 100; // Round to 2 decimal places
+        }
+    }
+    
+    // Reverse mapping for UI initialization 
+    reverseMapTrailValue(blurValue) {
+        if (blurValue <= 0.9) {
+            // Linear range: 0.5-0.9 maps to 0-80
+            return ((blurValue - 0.5) / 0.4) * 80;
+        } else {
+            // Exponential range: 0.9-0.999 maps to 80-100
+            const t = Math.sqrt((blurValue - 0.9) / 0.099); // Inverse of power function
+            return 80 + (t * 20);
+        }
+    }
+
     hslToRgb(h, s, l) {
         s /= 100;
         l /= 100;
@@ -2029,14 +2517,14 @@ export class MainUI {
         });
         // Log assignments for debugging
         if (Object.keys(assignments).length > 0) {
-            console.log('Saved synth assignments:', assignments);
+            // Synth assignments saved
         }
         return assignments;
     }
     
     loadSynthAssignments(assignments) {
         if (!assignments || typeof assignments !== 'object') {
-            console.warn('No valid synth assignments to load');
+            // No synth assignments to load
             return;
         }
         
@@ -2088,8 +2576,8 @@ export class MainUI {
         const container = document.getElementById('species-colors-container');
         container.innerHTML = '';
         
-        const defaultColors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
-                              'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
+        // Update all species names based on their colors
+        this.updateAllSpeciesNames();
         
         for (let i = 0; i < count; i++) {
             const species = this.particleSystem.species[i];
@@ -2109,12 +2597,28 @@ export class MainUI {
             const row = document.createElement('div');
             row.className = 'species-color-row';
             row.innerHTML = `
-                <span class="species-label">${defaultColors[i] || `Species ${i + 1}`}</span>
-                <input type="color" class="species-color" data-species="${i}" 
-                       value="${colorValue}">
+                <span class="species-label" id="species-label-${i}">${species?.name || `Species ${i + 1}`}</span>
+                <div class="species-color-wrapper">
+                    <input type="color" class="species-color" data-species="${i}" 
+                           value="${colorValue}">
+                </div>
                 <input type="number" class="species-amount" data-species="${i}" 
                        min="0" max="1000" step="10" 
                        value="${species?.particleCount || this.particleSystem.particlesPerSpecies}">
+                <div class="species-sliders">
+                    <div class="mini-slider-group">
+                        <label class="mini-label">Mobility</label>
+                        <input type="range" class="mini-slider species-mobility" data-species="${i}"
+                               min="0.1" max="3.0" step="0.1" value="${species?.mobility || 1.5}">
+                        <span class="mini-value">${(species?.mobility || 1.5).toFixed(1)}</span>
+                    </div>
+                    <div class="mini-slider-group">
+                        <label class="mini-label">Inertia</label>
+                        <input type="range" class="mini-slider species-inertia" data-species="${i}"
+                               min="0.70" max="0.99" step="0.01" value="${species?.inertia || 0.85}">
+                        <span class="mini-value">${(species?.inertia || 0.85).toFixed(2)}</span>
+                    </div>
+                </div>
             `;
             container.appendChild(row);
         }
@@ -2130,6 +2634,9 @@ export class MainUI {
                     const g = parseInt(hex.substr(3, 2), 16);
                     const b = parseInt(hex.substr(5, 2), 16);
                     this.particleSystem.species[speciesIndex].color = { r, g, b };
+                    
+                    // Update color name automatically
+                    this.updateSpeciesColorName(speciesIndex, hex);
                     this.triggerAutoSave();
                 }
             });
@@ -2158,11 +2665,151 @@ export class MainUI {
                 }
             });
         });
+
+        // Add mobility slider event listeners
+        container.querySelectorAll('.species-mobility').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const speciesIndex = parseInt(e.target.dataset.species);
+                const value = parseFloat(e.target.value);
+                if (this.particleSystem.species[speciesIndex]) {
+                    this.particleSystem.species[speciesIndex].mobility = value;
+                    // Update the display value
+                    const valueSpan = e.target.nextElementSibling;
+                    if (valueSpan) {
+                        valueSpan.textContent = value.toFixed(1);
+                    }
+                    this.triggerAutoSave();
+                }
+            });
+        });
+
+        // Add inertia slider event listeners
+        container.querySelectorAll('.species-inertia').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const speciesIndex = parseInt(e.target.dataset.species);
+                const value = parseFloat(e.target.value);
+                if (this.particleSystem.species[speciesIndex]) {
+                    this.particleSystem.species[speciesIndex].inertia = value;
+                    // Update the display value
+                    const valueSpan = e.target.nextElementSibling;
+                    if (valueSpan) {
+                        valueSpan.textContent = value.toFixed(2);
+                    }
+                    this.triggerAutoSave();
+                }
+            });
+        });
     }
     
     generateSpeciesColor(index) {
         const hue = (index * 360 / 20) % 360;
         return `hsl(${hue}, 70%, 50%)`;
+    }
+
+    updateSpeciesColorName(speciesIndex, hexColor) {
+        const colorName = this.getColorName(hexColor);
+        const labelElement = document.getElementById(`species-label-${speciesIndex}`);
+        if (labelElement) {
+            labelElement.textContent = colorName;
+        }
+        // Also update the species name in the particle system
+        if (this.particleSystem.species[speciesIndex]) {
+            this.particleSystem.species[speciesIndex].name = colorName;
+        }
+    }
+    
+    updateAllSpeciesNames() {
+        // Update all species names based on their current colors
+        for (let i = 0; i < this.particleSystem.numSpecies; i++) {
+            const species = this.particleSystem.species[i];
+            if (species && species.color) {
+                let hexColor;
+                if (typeof species.color === 'object' && species.color.r !== undefined) {
+                    hexColor = this.rgbToHex(species.color);
+                } else {
+                    hexColor = species.color;
+                }
+                // Generate name based on color
+                const colorName = this.getColorName(hexColor);
+                species.name = colorName;
+            }
+        }
+    }
+
+    getColorName(hexColor) {
+        // Convert hex to RGB
+        const r = parseInt(hexColor.substr(1, 2), 16);
+        const g = parseInt(hexColor.substr(3, 2), 16);
+        const b = parseInt(hexColor.substr(5, 2), 16);
+        
+        // Convert RGB to HSL for better color detection
+        const max = Math.max(r, g, b) / 255;
+        const min = Math.min(r, g, b) / 255;
+        let l = (max + min) / 2;
+        let h, s;
+        
+        if (max === min) {
+            h = s = 0; // achromatic
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            const r1 = r / 255;
+            const g1 = g / 255;
+            const b1 = b / 255;
+            
+            switch (max) {
+                case r1: h = ((g1 - b1) / d + (g1 < b1 ? 6 : 0)) / 6; break;
+                case g1: h = ((b1 - r1) / d + 2) / 6; break;
+                case b1: h = ((r1 - g1) / d + 4) / 6; break;
+            }
+        }
+        
+        h *= 360;
+        s *= 100;
+        l *= 100;
+        
+        // Check for grayscale colors first
+        if (s < 10) {
+            if (l < 20) return 'Black';
+            if (l > 80) return 'White';
+            if (l > 60) return 'Light Gray';
+            if (l > 40) return 'Gray';
+            return 'Dark Gray';
+        }
+        
+        // For chromatic colors, use hue-based naming with modifiers
+        let baseName = '';
+        let modifier = '';
+        
+        // Determine lightness modifier
+        if (l < 25) modifier = 'Dark ';
+        else if (l > 75) modifier = 'Light ';
+        else if (s < 30) modifier = 'Pale ';
+        else if (s > 80 && l > 40 && l < 60) modifier = 'Bright ';
+        
+        // Determine base color by hue with more precise ranges
+        if (h >= 355 || h < 10) baseName = 'Red';
+        else if (h >= 10 && h < 20) baseName = 'Red-Orange';
+        else if (h >= 20 && h < 40) baseName = 'Orange';
+        else if (h >= 40 && h < 50) baseName = 'Yellow-Orange';
+        else if (h >= 50 && h < 65) baseName = 'Yellow';
+        else if (h >= 65 && h < 80) baseName = 'Yellow-Green';
+        else if (h >= 80 && h < 150) baseName = 'Green';
+        else if (h >= 150 && h < 170) baseName = 'Teal';
+        else if (h >= 170 && h < 200) baseName = 'Cyan';
+        else if (h >= 200 && h < 240) baseName = 'Blue';
+        else if (h >= 240 && h < 260) baseName = 'Blue-Violet';
+        else if (h >= 260 && h < 290) baseName = 'Violet';
+        else if (h >= 290 && h < 310) baseName = 'Purple';
+        else if (h >= 310 && h < 330) baseName = 'Magenta';
+        else if (h >= 330 && h < 355) baseName = 'Pink';
+        
+        // Special cases for common colors
+        if (h >= 30 && h < 40 && s > 60 && l > 30 && l < 60) return 'Brown';
+        if (h >= 330 && h < 355 && s > 40 && l > 60) return 'Pink';
+        if (h >= 280 && h < 320 && s > 40 && l > 60) return 'Lavender';
+        
+        return modifier + baseName;
     }
     
     rgbToHex(color) {
@@ -2313,9 +2960,7 @@ export class MainUI {
             // Use the proper API method for species count changes
             if (this.particleSystem.setSpeciesCount) {
                 // Debug log
-                console.log(`Setting species count to ${value}`);
-                console.log(`Canvas dimensions: ${this.particleSystem.width}x${this.particleSystem.height}`);
-                console.log(`Particle count before: ${this.particleSystem.particles.length}`);
+                // Setting species count
                 
                 const result = this.particleSystem.setSpeciesCount(value);
                 
@@ -2343,8 +2988,7 @@ export class MainUI {
                     
                     this.triggerAutoSave();
                     
-                    console.log(`Particle count after: ${this.particleSystem.particles.length}`);
-                    console.log(`Species array length: ${this.particleSystem.species.length}`);
+                    // Species count updated
                 } else {
                     console.error(`Failed to set species count to ${value}`);
                     // Reset to a safe value
@@ -2420,16 +3064,32 @@ export class MainUI {
             this.triggerAutoSave();
         });
         
-        document.getElementById('collision-radius').addEventListener('input', (e) => {
+        document.getElementById('repulsive-force').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
-            for (let i = 0; i < this.particleSystem.numSpecies; i++) {
-                for (let j = 0; j < this.particleSystem.numSpecies; j++) {
-                    if (this.particleSystem.collisionRadius[i]) {
-                        this.particleSystem.collisionRadius[i][j] = value;
-                    }
-                }
-            }
-            document.getElementById('collision-radius-value').textContent = value;
+            this.particleSystem.repulsiveForce = value;
+            document.getElementById('repulsive-force-value').textContent = value.toFixed(2);
+            this.triggerAutoSave();
+        });
+        
+        document.getElementById('wrap-around-walls').addEventListener('change', (e) => {
+            this.particleSystem.wrapAroundWalls = e.target.checked;
+            this.triggerAutoSave();
+        });
+        
+        // Collision strength control
+        document.getElementById('collision-strength').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.collisionMultiplier = value;
+            document.getElementById('collision-strength-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
+        });
+        
+        // Collision offset control
+        document.getElementById('collision-offset').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.collisionOffset = value;
+            document.getElementById('collision-offset-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
         });
         
         document.getElementById('social-radius').addEventListener('input', (e) => {
@@ -2442,6 +3102,21 @@ export class MainUI {
                 }
             }
             document.getElementById('social-radius-value').textContent = value;
+        });
+        
+        // Advanced Physics controls
+        document.getElementById('environmental-pressure').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.environmentalPressure = value;
+            document.getElementById('environmental-pressure-value').textContent = value.toFixed(1);
+            this.triggerAutoSave();
+        });
+        
+        document.getElementById('chaos-level').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.chaosLevel = value;
+            document.getElementById('chaos-level-value').textContent = value.toFixed(2);
+            this.triggerAutoSave();
         });
         
         // Shockwave controls
@@ -2492,41 +3167,91 @@ export class MainUI {
         document.getElementById('trails-enabled').addEventListener('change', (e) => {
             this.particleSystem.trailEnabled = e.target.checked;
             document.getElementById('trail-controls').style.display = e.target.checked ? '' : 'none';
+            // Clear halo gradient cache since trail state affects halo rendering
+            this.particleSystem.haloGradientCache.clear();
             this.triggerAutoSave();
         });
         
         document.getElementById('trail-length').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.blur = value;
-            document.getElementById('trail-length-value').textContent = value.toFixed(2);
-            this.triggerAutoSave();
-        });
-        
-        document.getElementById('halo-enabled').addEventListener('change', (e) => {
-            this.particleSystem.renderMode = e.target.checked ? 'dreamtime' : 'normal';
-            document.getElementById('halo-controls').style.display = e.target.checked ? '' : 'none';
-            document.getElementById('halo-radius-control').style.display = e.target.checked ? '' : 'none';
-            if (e.target.checked) {
-                this.particleSystem.glowIntensity = parseFloat(document.getElementById('halo-intensity').value);
-                this.particleSystem.glowRadius = parseFloat(document.getElementById('halo-radius').value);
+            const sliderValue = parseFloat(e.target.value);
+            const mappedValue = this.mapTrailValue(sliderValue);
+            
+            if (this.particleSystem.linkAllSpeciesTrails) {
+                // Linked mode: update global blur and sync all species
+                this.particleSystem.setGlobalBlur(mappedValue);
+            } else {
+                // Per-species mode: update only the selected species (don't touch global blur)
+                const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value);
+                this.particleSystem.setSpeciesTrail(selectedSpecies, mappedValue);
             }
-            this.particleSystem.clearCaches();
+            
+            document.getElementById('trail-length-value').textContent = mappedValue.toFixed(3);
             this.triggerAutoSave();
         });
         
-        document.getElementById('halo-intensity').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.glowIntensity = value;
-            document.getElementById('halo-intensity-value').textContent = value.toFixed(2);
-            this.particleSystem.clearCaches();
+        // Link all species trails toggle
+        document.getElementById('link-all-species-trails').addEventListener('change', (e) => {
+            const linked = e.target.checked;
+            this.particleSystem.linkAllSpeciesTrails = linked;
+            
+            // Update UI visibility
+            document.getElementById('trail-species-selector-container').style.display = linked ? 'none' : '';
+            
+            // Update label
+            const label = document.getElementById('trail-length-label');
+            label.textContent = linked ? 'Trail Length (All Species)' : 'Trail Length (Selected Species)';
+            
+            if (linked) {
+                // Sync all species to current global blur value
+                this.particleSystem.syncAllSpeciesTrails();
+                // Update slider to show global value
+                document.getElementById('trail-length').value = this.reverseMapTrailValue(this.particleSystem.blur);
+                document.getElementById('trail-length-value').textContent = this.particleSystem.blur.toFixed(3);
+            } else {
+                // Switch to per-species mode: show selected species value (don't modify global blur)
+                const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value);
+                const currentTrail = this.particleSystem.getSpeciesTrail(selectedSpecies);
+                
+                // Update UI to show selected species trail value
+                document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
+                document.getElementById('trail-length-value').textContent = currentTrail.toFixed(3);
+            }
+            
             this.triggerAutoSave();
         });
         
-        document.getElementById('halo-radius').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.glowRadius = value;
-            document.getElementById('halo-radius-value').textContent = value.toFixed(1);
-            this.particleSystem.clearCaches();
+        // Trail species selector (only active in per-species mode)
+        document.getElementById('trail-species-selector').addEventListener('change', (e) => {
+            if (!this.particleSystem.linkAllSpeciesTrails) {
+                const selectedSpecies = parseInt(e.target.value);
+                const currentTrail = this.particleSystem.getSpeciesTrail(selectedSpecies);
+                
+                // Update slider to show current species trail value
+                document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
+                document.getElementById('trail-length-value').textContent = currentTrail.toFixed(3);
+                
+                // Update global blur to show this species' trail immediately
+                this.particleSystem.blur = currentTrail;
+            }
+        });
+        
+        // Per-species halo enable/disable
+        document.getElementById('per-species-halo-enabled').addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            document.getElementById('per-species-halo-controls').style.display = enabled ? '' : 'none';
+            document.getElementById('per-species-halo-intensity-control').style.display = enabled ? '' : 'none';
+            document.getElementById('per-species-halo-radius-control').style.display = enabled ? '' : 'none';
+            
+            if (!enabled) {
+                // Disable halo for all species using proper API
+                this.particleSystem.clearAllSpeciesHalo();
+            } else {
+                // Enable halo for selected species using proper API
+                const selectedSpecies = parseInt(document.getElementById('halo-species-selector').value);
+                const intensity = parseFloat(document.getElementById('per-species-halo-intensity').value);
+                const radius = parseFloat(document.getElementById('per-species-halo-radius').value);
+                this.particleSystem.setSpeciesHalo(selectedSpecies, { intensity, radius });
+            }
             this.triggerAutoSave();
         });
         
@@ -2550,7 +3275,7 @@ export class MainUI {
         
         document.getElementById('glow-species-selector').addEventListener('change', (e) => {
             const selectedSpecies = parseInt(e.target.value);
-            console.log('Selected species for glow:', selectedSpecies);
+            // Species selected for glow
             
             // Update sliders to show current values for selected species using proper API
             const glowSettings = this.particleSystem.getSpeciesGlow(selectedSpecies);
@@ -2561,7 +3286,7 @@ export class MainUI {
             document.getElementById('species-glow-intensity').value = glowSettings.intensity;
             document.getElementById('species-glow-intensity-value').textContent = glowSettings.intensity.toFixed(2);
             
-            console.log('Updated sliders - Size:', glowSettings.size, 'Intensity:', glowSettings.intensity);
+            // Glow settings updated
         });
         
         document.getElementById('species-glow-size').addEventListener('input', (e) => {
@@ -2576,6 +3301,49 @@ export class MainUI {
             document.getElementById('species-glow-intensity-value').textContent = value.toFixed(2);
             const selectedSpecies = parseInt(document.getElementById('glow-species-selector').value);
             this.particleSystem.setSpeciesGlow(selectedSpecies, { intensity: value });
+        });
+        
+        // Missing event handler for glow species selector
+        document.getElementById('glow-species-selector').addEventListener('change', (e) => {
+            const selectedSpecies = parseInt(e.target.value);
+            // Update UI to show current settings for this species
+            const glowSettings = this.particleSystem.getSpeciesGlow(selectedSpecies);
+            if (glowSettings) {
+                document.getElementById('species-glow-size').value = glowSettings.size;
+                document.getElementById('species-glow-size-value').textContent = glowSettings.size.toFixed(1);
+                document.getElementById('species-glow-intensity').value = glowSettings.intensity;
+                document.getElementById('species-glow-intensity-value').textContent = glowSettings.intensity.toFixed(2);
+            }
+        });
+        
+        // Per-species halo controls (simplified - no enable/disable checkbox)
+        
+        document.getElementById('halo-species-selector').addEventListener('change', (e) => {
+            const selectedSpecies = parseInt(e.target.value);
+            // Update UI to show current settings for this species
+            const haloSettings = this.particleSystem.getSpeciesHalo(selectedSpecies);
+            if (haloSettings) {
+                document.getElementById('per-species-halo-intensity').value = haloSettings.intensity;
+                document.getElementById('per-species-halo-intensity-value').textContent = haloSettings.intensity.toFixed(3);
+                document.getElementById('per-species-halo-radius').value = haloSettings.radius;
+                document.getElementById('per-species-halo-radius-value').textContent = haloSettings.radius.toFixed(1);
+            }
+        });
+        
+        document.getElementById('per-species-halo-intensity').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('per-species-halo-intensity-value').textContent = value.toFixed(3);
+            const selectedSpecies = parseInt(document.getElementById('halo-species-selector').value);
+            this.particleSystem.setSpeciesHalo(selectedSpecies, { intensity: value });
+            this.triggerAutoSave();
+        });
+        
+        document.getElementById('per-species-halo-radius').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('per-species-halo-radius-value').textContent = value.toFixed(1);
+            const selectedSpecies = parseInt(document.getElementById('halo-species-selector').value);
+            this.particleSystem.setSpeciesHalo(selectedSpecies, { radius: value });
+            this.triggerAutoSave();
         });
         
         // Visual controls
@@ -2607,65 +3375,36 @@ export class MainUI {
             this.triggerAutoSave();
         });
         
-        safeAddEventListener('particle-size', 'input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.particleSize = value;
-            
-            // Only update all species sizes if per-species mode is disabled
-            if (!this.particleSystem.perSpeciesSize && this.particleSystem.species && this.particleSystem.species.length > 0) {
-                for (let i = 0; i < this.particleSystem.species.length; i++) {
-                    if (this.particleSystem.species[i]) {
-                        this.particleSystem.species[i].size = value;
-                    }
-                }
-            }
-            
-            document.getElementById('particle-size-value').textContent = value.toFixed(1);
-            this.triggerAutoSave();
-        });
-        
-        // Per-species size controls
-        safeAddEventListener('per-species-size-enabled', 'change', (e) => {
-            const enabled = e.target.checked;
-            this.particleSystem.perSpeciesSize = enabled;
-            
-            // Show/hide per-species controls
-            document.getElementById('per-species-size-controls').style.display = enabled ? '' : 'none';
-            
-            // If disabling per-species mode, sync all species to global size
-            if (!enabled) {
-                const globalSize = this.particleSystem.particleSize;
-                for (let i = 0; i < this.particleSystem.species.length; i++) {
-                    if (this.particleSystem.species[i]) {
-                        this.particleSystem.species[i].size = globalSize;
-                    }
-                }
-            } else {
-                // If enabling per-species mode, update the current species selector display
-                this.updateSpeciesSizeDisplay();
-            }
-            
-            this.triggerAutoSave();
-        });
-        
-        // Species size selector
-        safeAddEventListener('size-species-selector', 'change', (e) => {
-            this.updateSpeciesSizeDisplay();
-        });
-        
-        // Individual species size slider
+        // New species size controls
         safeAddEventListener('species-size', 'input', (e) => {
             const value = parseFloat(e.target.value);
-            const selectedSpecies = parseInt(document.getElementById('size-species-selector').value);
+            const selectedSpecies = this.selectedSpeciesForSize;
             
-            // Update the selected species size
-            if (this.particleSystem.species[selectedSpecies]) {
-                this.particleSystem.species[selectedSpecies].size = value;
+            if (selectedSpecies !== null && selectedSpecies !== undefined && this.particleSystem.species[selectedSpecies]) {
+                // Clamp value to safe range
+                const safeValue = Math.max(0.5, Math.min(30, value));
+                
+                if (document.getElementById('link-all-sizes').checked) {
+                    // Update all species sizes when linked
+                    for (let i = 0; i < this.particleSystem.species.length; i++) {
+                        if (this.particleSystem.species[i]) {
+                            this.particleSystem.species[i].size = safeValue;
+                        }
+                    }
+                } else {
+                    // Update only selected species
+                    this.particleSystem.species[selectedSpecies].size = safeValue;
+                }
+                
+                document.getElementById('species-size-value').textContent = value.toFixed(1);
+                this.triggerAutoSave();
             }
-            
-            document.getElementById('species-size-value').textContent = value.toFixed(1);
+        });
+        
+        safeAddEventListener('link-all-sizes', 'change', (e) => {
             this.triggerAutoSave();
         });
+        
         
         // Action buttons
         document.getElementById('randomize-forces-btn').addEventListener('click', () => {
@@ -2689,6 +3428,36 @@ export class MainUI {
             if (window.uiStateManager) {
                 window.uiStateManager.updateParameter('forceDistribution', value, 'ui');
             }
+            
+            // Apply current pattern with new force distribution
+            const currentPattern = document.getElementById('force-pattern-selector').value;
+            const parameters = this.getPatternParameters(currentPattern);
+            this.particleSystem.applyForcePattern(currentPattern, value, parameters);
+            this.updateGraph();
+            
+            this.triggerAutoSave();
+        });
+        
+        // Force pattern selector with dynamic parameters
+        document.getElementById('force-pattern-selector').addEventListener('change', (e) => {
+            const pattern = e.target.value;
+            const edgeBias = this.forceDistribution || 0.8;
+            
+            // Update dynamic parameter panel
+            this.updatePatternParametersPanel(pattern);
+            
+            // Apply the selected force pattern with current parameters
+            const currentParams = this.getPatternParameters(pattern);
+            this.particleSystem.applyForcePattern(pattern, edgeBias, currentParams);
+            this.updateGraph();
+            
+            // Visual feedback
+            const selector = e.target;
+            const originalBg = selector.style.backgroundColor;
+            selector.style.backgroundColor = '#4CAF50';
+            setTimeout(() => {
+                selector.style.backgroundColor = originalBg;
+            }, 1000);
             
             this.triggerAutoSave();
         });
@@ -2802,7 +3571,7 @@ export class MainUI {
         const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
                        'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
-        const selectors = ['from-species', 'to-species', 'glow-species-selector', 'size-species-selector'];
+        const selectors = ['from-species', 'to-species', 'glow-species-selector', 'halo-species-selector', 'trail-species-selector', 'size-species-selector'];
         
         selectors.forEach(selectorId => {
             const select = document.getElementById(selectorId);
@@ -2852,6 +3621,680 @@ export class MainUI {
         this.forceGraph.setInfo(`${fromName} → ${toName}: ${force.toFixed(2)}`);
     }
     
+    // Dynamic pattern parameters panel management
+    updatePatternParametersPanel(pattern) {
+        const panel = document.getElementById('pattern-parameters-panel');
+        if (!panel) {
+            return;
+        }
+        
+        // Store current parameter values before switching patterns
+        const currentPattern = document.getElementById('force-pattern-selector').value;
+        if (currentPattern && currentPattern !== pattern && panel.children.length > 0) {
+            this.storePatternParameters(currentPattern);
+        }
+        
+        // Clear existing content
+        panel.innerHTML = '';
+        
+        if (pattern === 'random') {
+            panel.style.display = 'none';
+            return;
+        }
+        
+        panel.style.display = 'block';
+        
+        // Generate parameter controls based on pattern
+        switch (pattern) {
+            case 'clusters':
+                this.createClustersParameterPanel(panel);
+                break;
+            case 'predator-prey':
+                this.createPredatorPreyParameterPanel(panel);
+                break;
+            case 'territorial':
+                this.createTerritorialParameterPanel(panel);
+                break;
+            case 'symbiotic':
+                this.createSymbioticParameterPanel(panel);
+                break;
+            case 'cyclic':
+                this.createCyclicParameterPanel(panel);
+                break;
+            default:
+                console.warn(`Unknown pattern: ${pattern}`);
+        }
+        
+        // Restore saved parameter values for this pattern
+        this.restorePatternParameters(pattern);
+    }
+    
+    createClustersParameterPanel(panel) {
+        panel.innerHTML = `
+            <div class="pattern-parameters-header">
+                <h5>Cluster Parameters</h5>
+                <p class="pattern-description">Create stable cluster formations with orbital dynamics</p>
+            </div>
+            <div class="control-group">
+                <label>Quick Presets</label>
+                <div class="preset-buttons">
+                    <button class="btn btn-sm preset-btn" data-preset="orbital" title="Tight rotating formations - inspired by 'planets'">Orbital</button>
+                    <button class="btn btn-sm preset-btn" data-preset="layered" title="Concentric shell structures - inspired by 'atoms'">Layered</button>
+                    <button class="btn btn-sm preset-btn" data-preset="competitive" title="Dynamic territorial clusters - inspired by 'red menace'">Competitive</button>
+                    <button class="btn btn-sm preset-btn" data-preset="loose" title="Sparse cloud formations - inspired by 'gems'">Loose</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Choose the type of cluster formation pattern">
+                    Cluster Type <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <select class="select select-sm" id="param-cluster-type" title="Orbital: rotating clusters, Layered: concentric shells, Competitive: dynamic territories">
+                    <option value="orbital">Orbital (rotating clusters)</option>
+                    <option value="layered">Layered (concentric shells)</option>
+                    <option value="competitive_clustering">Competitive (dynamic territories)</option>
+                    <option value="symbiotic_chains">Symbiotic Chains (linked groups)</option>
+                    <option value="hierarchical_rings">Hierarchical Rings (nested circles)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label title="Controls how strongly particles attract within their cluster. Higher values create tighter, more stable clusters.">
+                    Cohesion Strength
+                    <span class="value-display" id="param-cohesion-value">0.8</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-cohesion-strength" 
+                       min="0.05" max="3.0" step="0.05" value="0.8" title="0.05 = ultra-loose clusters, 3.0 = ultra-tight formations">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Loose</span>
+                    <span class="slider-label-right">Tight</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Optimal distance between cluster members. Lower values create denser formations.">
+                    Separation Distance
+                    <span class="value-display" id="param-separation-value">0.5</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-separation-distance" 
+                       min="0.05" max="1.5" step="0.05" value="0.5" title="0.05 = ultra-dense packing, 1.5 = maximum spread">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Dense</span>
+                    <span class="slider-label-right">Spread</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="How much clusters prefer specific formations over random arrangements. Higher values create more structured patterns.">
+                    Formation Bias
+                    <span class="value-display" id="param-formation-value">0.6</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-formation-bias" 
+                       min="0.0" max="1.0" step="0.1" value="0.6" title="0.1 = random arrangement, 1.0 = perfect formation">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Random</span>
+                    <span class="slider-label-right">Structured</span>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners for real-time updates
+        this.attachParameterListeners('clusters');
+    }
+    
+    createPredatorPreyParameterPanel(panel) {
+        panel.innerHTML = `
+            <div class="pattern-parameters-header">
+                <h5>Predator-Prey Parameters</h5>
+                <p class="pattern-description">Simulate hunting dynamics and food chain behaviors</p>
+            </div>
+            <div class="control-group">
+                <label>Quick Presets</label>
+                <div class="preset-buttons">
+                    <button class="btn btn-sm preset-btn" data-preset="simple" title="Basic linear hunting chains - inspired by 'simple'">Simple</button>
+                    <button class="btn btn-sm preset-btn" data-preset="complex" title="Interconnected ecosystem web - inspired by 'complex'">Complex</button>
+                    <button class="btn btn-sm preset-btn" data-preset="pack" title="Coordinated group hunting - inspired by 'pack hunting'">Pack</button>
+                    <button class="btn btn-sm preset-btn" data-preset="territorial" title="Area-based hunting grounds - inspired by 'territorial'">Territorial</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Choose the ecosystem complexity and interaction patterns">
+                    Ecosystem Type <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <select class="select select-sm" id="param-ecosystem-type" title="Simple Chain: linear predator-prey relationships, Complex Web: interconnected food web">
+                    <option value="simple_chain">Simple Chain (linear food chain)</option>
+                    <option value="complex_web">Complex Web (interconnected)</option>
+                    <option value="territorial">Territorial (area-based hunting)</option>
+                    <option value="pack_hunting">Pack Hunting (group coordination)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label title="How aggressively predators pursue prey. Higher values create more intense hunting behavior.">
+                    Hunt Intensity
+                    <span class="value-display" id="param-hunt-value">3.0</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-hunt-intensity" 
+                       min="0.5" max="6.0" step="0.1" value="3.0" title="0.5 = nearly passive, 6.0 = relentless pursuit">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Passive</span>
+                    <span class="slider-label-right">Aggressive</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="How strongly prey species flee from predators. Higher values create more dramatic escape behaviors.">
+                    Escape Intensity
+                    <span class="value-display" id="param-escape-value">2.5</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-escape-intensity" 
+                       min="0.3" max="6.0" step="0.1" value="2.5" title="0.3 = sluggish response, 6.0 = instant panic flight">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Slow</span>
+                    <span class="slider-label-right">Rapid</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Ratio of predators to prey in the ecosystem. Lower values = more prey, higher values = more predators.">
+                    Population Balance
+                    <span class="value-display" id="param-population-value">0.4</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-population-balance" 
+                       min="0.2" max="0.8" step="0.1" value="0.4" title="0.2 = many prey species, 0.8 = many predator species">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Few Predators</span>
+                    <span class="slider-label-right">Many Predators</span>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners for real-time updates
+        this.attachParameterListeners('predator-prey');
+    }
+    
+    createTerritorialParameterPanel(panel) {
+        panel.innerHTML = `
+            <div class="pattern-parameters-header">
+                <h5>Territorial Parameters</h5>
+                <p class="pattern-description">Create aggressive territorial behaviors with strong boundaries</p>
+            </div>
+            <div class="control-group">
+                <label>Quick Presets</label>
+                <div class="preset-buttons">
+                    <button class="btn btn-sm preset-btn" data-preset="peaceful" title="Vast domains with permeable borders - inspired by 'gems'">Peaceful</button>
+                    <button class="btn btn-sm preset-btn" data-preset="aggressive" title="Micro-territories with berserker fury - inspired by 'red menace'">Aggressive</button>
+                    <button class="btn btn-sm preset-btn" data-preset="fortress" title="Impenetrable defensive bastions - inspired by 'fortress'">Fortress</button>
+                    <button class="btn btn-sm preset-btn" data-preset="nomadic" title="Expansive wandering domains - inspired by 'field'">Nomadic</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Size of each species' territorial area. Smaller territories create tighter groups, larger territories allow more spread.">
+                    Territory Size
+                    <span class="value-display" id="param-territory-value">0.3</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-territory-size" 
+                       min="0.05" max="1.2" step="0.05" value="0.3" title="0.05 = micro-territories, 1.2 = vast domains">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Small</span>
+                    <span class="slider-label-right">Large</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="How strongly species defend their territorial boundaries. Higher values create more aggressive defensive behavior.">
+                    Boundary Strength
+                    <span class="value-display" id="param-boundary-value">1.2</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-boundary-strength" 
+                       min="0.2" max="4.0" step="0.1" value="1.2" title="0.2 = permeable borders, 4.0 = impenetrable walls">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Weak</span>
+                    <span class="slider-label-right">Strong</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="How violently species react to territorial invasion. Higher values create more dramatic territorial conflicts.">
+                    Invasion Response
+                    <span class="value-display" id="param-invasion-value">2.0</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-invasion-response" 
+                       min="0.2" max="5.0" step="0.1" value="2.0" title="0.2 = pacifist response, 5.0 = berserker fury">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Mild</span>
+                    <span class="slider-label-right">Violent</span>
+                </div>
+            </div>
+        `;
+        
+        this.attachParameterListeners('territorial');
+    }
+    
+    createSymbioticParameterPanel(panel) {
+        panel.innerHTML = `
+            <div class="pattern-parameters-header">
+                <h5>Symbiotic Parameters</h5>
+                <p class="pattern-description">Create mutually beneficial partnerships between species</p>
+            </div>
+            <div class="control-group">
+                <label>Quick Presets</label>
+                <div class="preset-buttons">
+                    <button class="btn btn-sm preset-btn" data-preset="mutualism" title="Perfect harmony with total dependency - inspired by 'alliances'">Mutualism</button>
+                    <button class="btn btn-sm preset-btn" data-preset="commensalism" title="Indirect cooperation through environment - inspired by 'stigmergy'">Commensalism</button>
+                    <button class="btn btn-sm preset-btn" data-preset="competition" title="High-stakes competitive partnerships - inspired by 'acrobats'">Competition</button>
+                    <button class="btn btn-sm preset-btn" data-preset="independence" title="Minimal interdependence - inspired by 'simplify'">Independence</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>
+                    Cooperation Strength
+                    <span class="value-display" id="param-cooperation-value">1.5</span>
+                </label>
+                <input type="range" class="range-slider" id="param-cooperation-strength" 
+                       min="0.5" max="3.0" step="0.1" value="1.5">
+            </div>
+            <div class="control-group">
+                <label>
+                    Dependency Level
+                    <span class="value-display" id="param-dependency-value">0.7</span>
+                </label>
+                <input type="range" class="range-slider" id="param-dependency-level" 
+                       min="0.1" max="1.0" step="0.05" value="0.7" 
+                       title="0.1 = completely independent, 1.0 = total dependency">
+            </div>
+            <div class="control-group">
+                <label>Mutualism Type</label>
+                <select class="select-dropdown" id="param-mutualism-type" 
+                        title="Choose interaction type: obligate (must cooperate) or facultative (can survive alone)">
+                    <option value="obligate">Obligate (Dependent)</option>
+                    <option value="facultative" selected>Facultative (Optional)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>
+                    Competition Intensity
+                    <span class="value-display" id="param-competition-value">1.2</span>
+                </label>
+                <input type="range" class="range-slider" id="param-competition-intensity" 
+                       min="0.1" max="4.0" step="0.1" value="1.2" 
+                       title="0.1 = peaceful coexistence, 4.0 = intense competition">
+            </div>
+        `;
+        
+        this.attachParameterListeners('symbiotic');
+    }
+    
+    createCyclicParameterPanel(panel) {
+        panel.innerHTML = `
+            <div class="pattern-parameters-header">
+                <h5>Cyclic Parameters</h5>
+                <p class="pattern-description">Create rock-paper-scissors style circular dominance relationships</p>
+            </div>
+            <div class="control-group">
+                <label>Quick Presets</label>
+                <div class="preset-buttons">
+                    <button class="btn btn-sm preset-btn" data-preset="classic" title="Stable orbital dynamics - inspired by 'planets'">Classic</button>
+                    <button class="btn btn-sm preset-btn" data-preset="chaotic" title="Rapid division and reformation - inspired by 'mitosis'">Chaotic</button>
+                    <button class="btn btn-sm preset-btn" data-preset="stable" title="Hypnotic slow transitions - inspired by 'dreamtime'">Stable</button>
+                    <button class="btn btn-sm preset-btn" data-preset="complex" title="Multi-layered sophistication - inspired by 'pollack'">Complex</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Speed of the dominance cycle transitions. Higher values create faster changing dynamics.">
+                    Cycle Speed
+                    <span class="value-display" id="param-cycle-speed-value">1.0</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-cycle-speed" 
+                       min="0.1" max="4.0" step="0.1" value="1.0" title="0.1 = glacial transitions, 4.0 = lightning-fast cycles">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Slow</span>
+                    <span class="slider-label-right">Fast</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label title="Strength of dominance relationships. Higher values create more dramatic chase-flee behaviors.">
+                    Dominance Strength
+                    <span class="value-display" id="param-dominance-value">2.0</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-dominance-strength" 
+                       min="0.3" max="4.0" step="0.1" value="2.0" title="0.3 = gentle influence, 4.0 = absolute dominion">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Mild</span>
+                    <span class="slider-label-right">Strong</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Cycle Complexity</label>
+                <select class="select-dropdown" id="param-cycle-complexity" 
+                        title="Pattern complexity: simple (basic cycles), complex (multi-layered), multi-level (nested patterns)">
+                    <option value="simple" selected>Simple</option>
+                    <option value="complex">Complex</option>
+                    <option value="multi-level">Multi-Level</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label title="How stable individual species clusters are within the cycle. Higher values resist disruption.">
+                    Stability Factor
+                    <span class="value-display" id="param-stability-value">0.5</span>
+                    <span class="tooltip-icon">ℹ️</span>
+                </label>
+                <input type="range" class="range-slider" id="param-stability-factor" 
+                       min="0.05" max="1.0" step="0.05" value="0.5" title="0.05 = pure chaos, 1.0 = unbreakable formations">
+                <div class="slider-labels">
+                    <span class="slider-label-left">Chaotic</span>
+                    <span class="slider-label-right">Stable</span>
+                </div>
+            </div>
+        `;
+        
+        this.attachParameterListeners('cyclic');
+    }
+    
+    // Attach event listeners for pattern parameter controls
+    attachParameterListeners(pattern) {
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+            const panel = document.getElementById('pattern-parameters-panel');
+            if (!panel) {
+                console.warn('Pattern parameters panel not found');
+                return;
+            }
+            
+            // Create ID mapping for value displays
+            const idMappings = {
+                // Clusters
+                'param-cluster-type': null, // No value display for selects
+                'param-cohesion-strength': 'param-cohesion-value',
+                'param-separation-distance': 'param-separation-value',
+                'param-formation-bias': 'param-formation-value',
+                
+                // Predator-Prey
+                'param-ecosystem-type': null,
+                'param-hunt-intensity': 'param-hunt-value',
+                'param-escape-intensity': 'param-escape-value',
+                'param-population-balance': 'param-population-value',
+                
+                // Territorial
+                'param-territory-size': 'param-territory-value',
+                'param-boundary-strength': 'param-boundary-value',
+                'param-invasion-response': 'param-invasion-value',
+                
+                // Symbiotic
+                'param-cooperation-strength': 'param-cooperation-value',
+                'param-dependency-level': 'param-dependency-value',
+                'param-competition-intensity': 'param-competition-value',
+                
+                // Cyclic
+                'param-cycle-speed': 'param-cycle-speed-value',
+                'param-dominance-strength': 'param-dominance-value',
+                'param-stability-factor': 'param-stability-value'
+            };
+            
+            // Get all inputs and selects in the parameter panel
+            const inputs = panel.querySelectorAll('input[type="range"], select');
+            
+            
+            inputs.forEach(input => {
+                const eventType = input.type === 'range' ? 'input' : 'change';
+                
+                // For range inputs, also update the display immediately
+                if (input.type === 'range') {
+                    const valueDisplayId = idMappings[input.id];
+                    if (valueDisplayId) {
+                        const valueDisplay = panel.querySelector(`#${valueDisplayId}`);
+                        if (valueDisplay) {
+                            const value = parseFloat(input.value);
+                            valueDisplay.textContent = Number.isInteger(value) ? value.toString() : value.toFixed(1);
+                            // Initial value display set
+                        }
+                    }
+                }
+                
+                input.addEventListener(eventType, (e) => {
+                    // Parameter changed
+                    
+                    // Update value display for range inputs
+                    if (input.type === 'range') {
+                        const valueDisplayId = idMappings[input.id];
+                        if (valueDisplayId) {
+                            const valueDisplay = panel.querySelector(`#${valueDisplayId}`);
+                            if (valueDisplay) {
+                                const value = parseFloat(input.value);
+                                valueDisplay.textContent = Number.isInteger(value) ? value.toString() : value.toFixed(1);
+                            }
+                        }
+                    }
+                    
+                    // Apply updated parameters to particle system
+                    const currentPattern = document.getElementById('force-pattern-selector').value;
+                    const edgeBias = this.forceDistribution || 0.8;
+                    const parameters = this.getPatternParameters(currentPattern);
+                    
+                    this.particleSystem.applyForcePattern(currentPattern, edgeBias, parameters);
+                    this.updateGraph();
+                    this.triggerAutoSave();
+                });
+            });
+            
+            // Add preset button listeners
+            const presetButtons = panel.querySelectorAll('.preset-btn');
+            
+            presetButtons.forEach(button => {
+                const presetName = button.dataset.preset;
+                
+                button.addEventListener('click', () => {
+                    this.applyPatternPreset(pattern, presetName);
+                });
+            });
+        }, 10); // Small delay to ensure DOM is ready
+    }
+    
+    // Extract current parameter values from the UI
+    getPatternParameters(pattern) {
+        const panel = document.getElementById('pattern-parameters-panel');
+        if (!panel) {
+            console.warn('Pattern parameters panel not found for getPatternParameters');
+            return {};
+        }
+        
+        const parameters = {};
+        
+        switch (pattern) {
+            case 'clusters':
+                const clusterType = panel.querySelector('#param-cluster-type');
+                const cohesionStrength = panel.querySelector('#param-cohesion-strength');
+                const separationDistance = panel.querySelector('#param-separation-distance');
+                const formationBias = panel.querySelector('#param-formation-bias');
+                
+                if (clusterType) {
+                    parameters.clusterType = clusterType.value;
+                }
+                if (cohesionStrength) {
+                    parameters.cohesionStrength = parseFloat(cohesionStrength.value);
+                }
+                if (separationDistance) {
+                    parameters.separationDistance = parseFloat(separationDistance.value);
+                }
+                if (formationBias) {
+                    parameters.formationBias = parseFloat(formationBias.value);
+                }
+                break;
+                
+            case 'predator-prey':
+                const ecosystemType = panel.querySelector('#param-ecosystem-type');
+                const huntIntensity = panel.querySelector('#param-hunt-intensity');
+                const escapeIntensity = panel.querySelector('#param-escape-intensity');
+                const populationBalance = panel.querySelector('#param-population-balance');
+                
+                if (ecosystemType) {
+                    parameters.ecosystemType = ecosystemType.value;
+                }
+                if (huntIntensity) {
+                    parameters.huntIntensity = parseFloat(huntIntensity.value);
+                }
+                if (escapeIntensity) {
+                    parameters.escapeIntensity = parseFloat(escapeIntensity.value);
+                }
+                if (populationBalance) {
+                    parameters.populationBalance = parseFloat(populationBalance.value);
+                }
+                break;
+                
+            case 'territorial':
+                const territorySize = panel.querySelector('#param-territory-size');
+                const boundaryStrength = panel.querySelector('#param-boundary-strength');
+                const invasionResponse = panel.querySelector('#param-invasion-response');
+                
+                if (territorySize) {
+                    parameters.territorySize = parseFloat(territorySize.value);
+                }
+                if (boundaryStrength) {
+                    parameters.boundaryStrength = parseFloat(boundaryStrength.value);
+                }
+                if (invasionResponse) {
+                    parameters.invasionResponse = parseFloat(invasionResponse.value);
+                }
+                break;
+                
+            case 'symbiotic':
+                const cooperationStrength = panel.querySelector('#param-cooperation-strength');
+                const dependencyLevel = panel.querySelector('#param-dependency-level');
+                const mutualismType = panel.querySelector('#param-mutualism-type');
+                const competitionIntensity = panel.querySelector('#param-competition-intensity');
+                
+                if (cooperationStrength) {
+                    parameters.cooperationStrength = parseFloat(cooperationStrength.value);
+                }
+                if (dependencyLevel) {
+                    parameters.dependencyLevel = parseFloat(dependencyLevel.value);
+                }
+                if (mutualismType) {
+                    parameters.mutualismType = mutualismType.value;
+                }
+                if (competitionIntensity) {
+                    parameters.competitionIntensity = parseFloat(competitionIntensity.value);
+                }
+                break;
+                
+            case 'cyclic':
+                const cycleSpeed = panel.querySelector('#param-cycle-speed');
+                const dominanceStrength = panel.querySelector('#param-dominance-strength');
+                const cycleComplexity = panel.querySelector('#param-cycle-complexity');
+                const stabilityFactor = panel.querySelector('#param-stability-factor');
+                
+                if (cycleSpeed) {
+                    parameters.cycleSpeed = parseFloat(cycleSpeed.value);
+                }
+                if (dominanceStrength) {
+                    parameters.dominanceStrength = parseFloat(dominanceStrength.value);
+                }
+                if (cycleComplexity) {
+                    parameters.cycleComplexity = cycleComplexity.value;
+                }
+                if (stabilityFactor) {
+                    parameters.stabilityFactor = parseFloat(stabilityFactor.value);
+                }
+                break;
+        }
+        
+        return parameters;
+    }
+    
+    // Store parameter values for pattern switching persistence
+    storePatternParameters(pattern) {
+        const parameters = this.getPatternParameters(pattern);
+        if (Object.keys(parameters).length > 0) {
+            this.patternParameterStates[pattern] = parameters;
+        }
+    }
+    
+    // Restore parameter values when switching back to a pattern
+    restorePatternParameters(pattern) {
+        const savedParams = this.patternParameterStates[pattern];
+        if (!savedParams) return;
+        
+        const panel = document.getElementById('pattern-parameters-panel');
+        if (!panel) return;
+        
+        // Restore values to UI controls
+        Object.entries(savedParams).forEach(([paramName, value]) => {
+            let elementId;
+            
+            // Map parameter names to UI element IDs
+            switch (paramName) {
+                // Clusters parameters
+                case 'clusterType': elementId = 'param-cluster-type'; break;
+                case 'cohesionStrength': elementId = 'param-cohesion-strength'; break;
+                case 'separationDistance': elementId = 'param-separation-distance'; break;
+                case 'formationBias': elementId = 'param-formation-bias'; break;
+                
+                // Predator-prey parameters
+                case 'ecosystemType': elementId = 'param-ecosystem-type'; break;
+                case 'huntIntensity': elementId = 'param-hunt-intensity'; break;
+                case 'escapeIntensity': elementId = 'param-escape-intensity'; break;
+                case 'populationBalance': elementId = 'param-population-balance'; break;
+                
+                // Territorial parameters
+                case 'territorySize': elementId = 'param-territory-size'; break;
+                case 'boundaryStrength': elementId = 'param-boundary-strength'; break;
+                case 'invasionResponse': elementId = 'param-invasion-response'; break;
+                
+                // Symbiotic parameters
+                case 'cooperationStrength': elementId = 'param-cooperation-strength'; break;
+                case 'dependencyLevel': elementId = 'param-dependency-level'; break;
+                case 'mutualismType': elementId = 'param-mutualism-type'; break;
+                case 'competitionIntensity': elementId = 'param-competition-intensity'; break;
+                
+                // Cyclic parameters
+                case 'cycleSpeed': elementId = 'param-cycle-speed'; break;
+                case 'dominanceStrength': elementId = 'param-dominance-strength'; break;
+                case 'cycleComplexity': elementId = 'param-cycle-complexity'; break;
+                case 'stabilityFactor': elementId = 'param-stability-factor'; break;
+                
+                default: return;
+            }
+            
+            const element = panel.querySelector(`#${elementId}`);
+            if (element) {
+                element.value = value;
+                
+                // Update value display for range inputs using correct ID mapping
+                if (element.type === 'range') {
+                    const idMappings = {
+                        'param-cohesion-strength': 'param-cohesion-value',
+                        'param-separation-distance': 'param-separation-value',
+                        'param-formation-bias': 'param-formation-value',
+                        'param-hunt-intensity': 'param-hunt-value',
+                        'param-escape-intensity': 'param-escape-value',
+                        'param-population-balance': 'param-population-value',
+                        'param-territory-size': 'param-territory-value',
+                        'param-boundary-strength': 'param-boundary-value',
+                        'param-invasion-response': 'param-invasion-value',
+                        'param-cooperation-strength': 'param-cooperation-value',
+                        'param-dependency-level': 'param-dependency-value',
+                        'param-competition-intensity': 'param-competition-value',
+                        'param-cycle-speed': 'param-cycle-speed-value',
+                        'param-dominance-strength': 'param-dominance-value',
+                        'param-stability-factor': 'param-stability-value'
+                    };
+                    
+                    const valueDisplayId = idMappings[elementId];
+                    if (valueDisplayId) {
+                        const valueDisplay = panel.querySelector(`#${valueDisplayId}`);
+                        if (valueDisplay) {
+                            const displayValue = Number.isInteger(value) ? value.toString() : value.toFixed(1);
+                            valueDisplay.textContent = displayValue;
+                            // Value display restored
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
     restoreUIState() {
         // Restore UI-specific state from UI state manager if available
         if (window.uiStateManager) {
@@ -2886,14 +4329,40 @@ export class MainUI {
         document.getElementById('friction-value').textContent = uiFriction.toFixed(2);
         document.getElementById('wall-bounce').value = ps.wallDamping;
         document.getElementById('wall-bounce-value').textContent = ps.wallDamping.toFixed(2);
-        document.getElementById('collision-radius').value = ps.collisionRadius[0]?.[0] || 15;
-        document.getElementById('collision-radius-value').textContent = ps.collisionRadius[0]?.[0] || 15;
+        document.getElementById('repulsive-force').value = ps.repulsiveForce || 0.3;
+        document.getElementById('repulsive-force-value').textContent = (ps.repulsiveForce || 0.3).toFixed(2);
+        document.getElementById('wrap-around-walls').checked = ps.wrapAroundWalls || false;
+        // New collision strength control
+        document.getElementById('collision-strength').value = ps.collisionMultiplier || 1.0;
+        document.getElementById('collision-strength-value').textContent = (ps.collisionMultiplier || 1.0).toFixed(1);
+        
+        // Collision offset control
+        document.getElementById('collision-offset').value = ps.collisionOffset || 0.0;
+        document.getElementById('collision-offset-value').textContent = (ps.collisionOffset || 0.0).toFixed(1);
+        
         document.getElementById('social-radius').value = ps.socialRadius[0]?.[0] || 50;
         document.getElementById('social-radius-value').textContent = ps.socialRadius[0]?.[0] || 50;
         
-        // Force distribution
+        // Advanced Physics controls
+        document.getElementById('environmental-pressure').value = ps.environmentalPressure || 0.0;
+        document.getElementById('environmental-pressure-value').textContent = (ps.environmentalPressure || 0.0).toFixed(1);
+        document.getElementById('chaos-level').value = ps.chaosLevel || 0.0;
+        document.getElementById('chaos-level-value').textContent = (ps.chaosLevel || 0.0).toFixed(2);
+        
+        // Force distribution and pattern
+        this.forceDistribution = ps.forceDistribution || 0.8;
         document.getElementById('force-distribution').value = this.forceDistribution;
         document.getElementById('force-distribution-value').textContent = this.forceDistribution.toFixed(1);
+        
+        // Force pattern selector - restore from particle system
+        const currentPattern = ps.forcePatternType || 'random';
+        document.getElementById('force-pattern-selector').value = currentPattern;
+        
+        // Store pattern parameters and update dynamic panel
+        if (ps.forcePatternParameters) {
+            this.patternParameterStates[currentPattern] = ps.forcePatternParameters;
+        }
+        this.updatePatternParametersPanel(currentPattern);
         
         // Shockwave controls
         document.getElementById('shockwave-enabled').checked = ps.shockwaveEnabled || false;
@@ -2912,18 +4381,33 @@ export class MainUI {
         // Trail Effect
         document.getElementById('trails-enabled').checked = ps.trailEnabled;
         document.getElementById('trail-controls').style.display = ps.trailEnabled ? '' : 'none';
-        document.getElementById('trail-length').value = ps.blur;
-        document.getElementById('trail-length-value').textContent = ps.blur.toFixed(2);
         
-        // Halo Effect
-        const haloEnabled = ps.renderMode === 'dreamtime';
-        document.getElementById('halo-enabled').checked = haloEnabled;
-        document.getElementById('halo-controls').style.display = haloEnabled ? '' : 'none';
-        document.getElementById('halo-radius-control').style.display = haloEnabled ? '' : 'none';
-        document.getElementById('halo-intensity').value = ps.glowIntensity || 0.8;
-        document.getElementById('halo-intensity-value').textContent = (ps.glowIntensity || 0.8).toFixed(2);
-        document.getElementById('halo-radius').value = ps.glowRadius || 3.0;
-        document.getElementById('halo-radius-value').textContent = (ps.glowRadius || 3.0).toFixed(1);
+        // Trail linking and per-species controls
+        document.getElementById('link-all-species-trails').checked = ps.linkAllSpeciesTrails;
+        document.getElementById('trail-species-selector-container').style.display = ps.linkAllSpeciesTrails ? 'none' : '';
+        
+        // Update trail length slider and label
+        const label = document.getElementById('trail-length-label');
+        if (label) {
+            label.textContent = ps.linkAllSpeciesTrails ? 'Trail Length (All Species)' : 'Trail Length (Selected Species)';
+        }
+        
+        if (ps.linkAllSpeciesTrails) {
+            // Linked mode: show global blur value
+            document.getElementById('trail-length').value = this.reverseMapTrailValue(ps.blur);
+            document.getElementById('trail-length-value').textContent = ps.blur.toFixed(3);
+        } else {
+            // Per-species mode: show selected species value and sync global blur
+            const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value) || 0;
+            const currentTrail = ps.getSpeciesTrail(selectedSpecies);
+            document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
+            document.getElementById('trail-length-value').textContent = currentTrail.toFixed(3);
+            
+            // Ensure global blur matches selected species for rendering consistency
+            ps.blur = currentTrail;
+        }
+        
+        // Global halo effect removed - now per-species only
         
         // Species Glow Effect
         this.updateSpeciesGlowUI(ps);
@@ -2937,16 +4421,9 @@ export class MainUI {
         document.getElementById('background-cycle-time-value').textContent = (ps.backgroundCycleTime || 5.0).toFixed(1);
         this.toggleBackgroundModeUI(ps.backgroundMode || 'solid');
         
-        document.getElementById('particle-size').value = ps.particleSize;
-        document.getElementById('particle-size-value').textContent = ps.particleSize.toFixed(1);
-        
-        // Per-species size controls
-        document.getElementById('per-species-size-enabled').checked = ps.perSpeciesSize || false;
-        document.getElementById('per-species-size-controls').style.display = ps.perSpeciesSize ? '' : 'none';
-        
-        // If per-species mode is enabled, update the species size display
-        if (ps.perSpeciesSize) {
-            this.updateSpeciesSizeDisplay();
+        // Update species size display for currently selected species
+        if (this.selectedSpeciesForSize !== undefined && ps.species[this.selectedSpeciesForSize]) {
+            this.selectSpeciesForSize(this.selectedSpeciesForSize);
         }
         
         // Update species colors in UI
@@ -3099,6 +4576,27 @@ export class MainUI {
             document.getElementById('species-glow-size-control').style.display = hasGlow ? '' : 'none';
             document.getElementById('species-glow-intensity-control').style.display = hasGlow ? '' : 'none';
         }
+        
+        // Update per-species halo state
+        if (ps.speciesHaloIntensity) {
+            const selectedSpecies = parseInt(document.getElementById('halo-species-selector').value) || 0;
+            const haloSettings = ps.getSpeciesHalo(selectedSpecies);
+            if (haloSettings) {
+                document.getElementById('per-species-halo-intensity').value = haloSettings.intensity;
+                document.getElementById('per-species-halo-intensity-value').textContent = haloSettings.intensity.toFixed(3);
+                document.getElementById('per-species-halo-radius').value = haloSettings.radius;
+                document.getElementById('per-species-halo-radius-value').textContent = haloSettings.radius.toFixed(1);
+            }
+            
+            // Update halo enabled state
+            const hasHalo = ps.speciesHaloIntensity.some(intensity => intensity > 0);
+            document.getElementById('per-species-halo-enabled').checked = hasHalo;
+            
+            // Show/hide halo controls based on enabled state
+            document.getElementById('per-species-halo-controls').style.display = hasHalo ? '' : 'none';
+            document.getElementById('per-species-halo-intensity-control').style.display = hasHalo ? '' : 'none';
+            document.getElementById('per-species-halo-radius-control').style.display = hasHalo ? '' : 'none';
+        }
     }
     
     setupSpeciesButtons() {
@@ -3114,16 +4612,16 @@ export class MainUI {
         
         container.innerHTML = '';
         
-        const speciesLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
         
         for (let i = 0; i < numSpecies; i++) {
             const species = this.particleSystem.species[i];
             const button = document.createElement('button');
             button.className = `species-btn ${i === 0 ? 'active' : ''}`;
             button.dataset.speciesId = i;
-            button.title = `Species ${speciesLabels[i]} (${i + 1})`;
+            button.title = `${species.name || `Species ${i + 1}`} (${letterLabels[i] || i + 1})`;
             button.style.background = `rgb(${species.color.r}, ${species.color.g}, ${species.color.b})`;
-            button.textContent = speciesLabels[i];
+            button.textContent = letterLabels[i] || (i + 1);
             
             button.addEventListener('click', (e) => {
                 // Update button states
@@ -3135,9 +4633,40 @@ export class MainUI {
                 // Update distribution drawer
                 const speciesId = parseInt(e.target.dataset.speciesId);
                 this.distributionDrawer.setSpecies(speciesId);
+                
+                // Update size controls
+                this.selectSpeciesForSize(speciesId);
             });
             
             container.appendChild(button);
+        }
+        
+        // Select first species by default for size control
+        if (numSpecies > 0) {
+            this.selectSpeciesForSize(0);
+        }
+    }
+    
+    selectSpeciesForSize(speciesId) {
+        this.selectedSpeciesForSize = speciesId;
+        const species = this.particleSystem.species[speciesId];
+        
+        if (species) {
+            // Update species name display
+            const nameElement = document.getElementById('selected-species-name');
+            if (nameElement) {
+                nameElement.textContent = species.name || `Species ${speciesId + 1}`;
+                nameElement.style.color = `rgb(${species.color.r}, ${species.color.g}, ${species.color.b})`;
+            }
+            
+            // Update size slider
+            const sizeSlider = document.getElementById('species-size');
+            const sizeValue = document.getElementById('species-size-value');
+            if (sizeSlider && sizeValue) {
+                sizeSlider.disabled = false;
+                sizeSlider.value = species.size || this.particleSystem.particleSize;
+                sizeValue.textContent = (species.size || this.particleSystem.particleSize).toFixed(1);
+            }
         }
     }
     
@@ -3154,14 +4683,151 @@ export class MainUI {
         }
     }
     
-    updateSpeciesSizeDisplay() {
-        const selectedSpecies = parseInt(document.getElementById('size-species-selector').value);
+    // Parameter system functionality complete
+    
+    // Apply predefined parameter presets for different patterns
+    applyPatternPreset(pattern, presetName) {
         
-        // Get the current size for the selected species
-        const currentSize = this.particleSystem.species[selectedSpecies]?.size || this.particleSystem.particleSize;
+        const presets = {
+            clusters: {
+                // Inspired by "planets" - tight orbital formations
+                orbital: { clusterType: 'orbital', cohesionStrength: 1.2, separationDistance: 0.3, formationBias: 0.8 },
+                // Inspired by "atoms" - layered concentric structures
+                layered: { clusterType: 'layered', cohesionStrength: 0.9, separationDistance: 0.6, formationBias: 0.9 },
+                // Inspired by "red menace" - competitive territorial clusters
+                competitive: { clusterType: 'competitive_clustering', cohesionStrength: 1.8, separationDistance: 0.2, formationBias: 0.7 },
+                // Inspired by "gems" - loose, sparse formations
+                loose: { clusterType: 'orbital', cohesionStrength: 0.4, separationDistance: 1.0, formationBias: 0.3 }
+            },
+            'predator-prey': {
+                // Basic linear hunting chains
+                simple: { ecosystemType: 'simple_chain', huntIntensity: 2.0, escapeIntensity: 1.8, populationBalance: 0.3 },
+                // Interconnected ecosystem web
+                complex: { ecosystemType: 'complex_web', huntIntensity: 3.5, escapeIntensity: 3.0, populationBalance: 0.5 },
+                // Coordinated group hunting
+                pack: { ecosystemType: 'pack_hunting', huntIntensity: 4.2, escapeIntensity: 3.8, populationBalance: 0.4 },
+                // Area-based hunting grounds
+                territorial: { ecosystemType: 'territorial', huntIntensity: 2.8, escapeIntensity: 2.2, populationBalance: 0.6 }
+            },
+            territorial: {
+                // Inspired by "gems" - small, precious territories fiercely defended
+                peaceful: { territorySize: 1.0, boundaryStrength: 0.3, invasionResponse: 0.5 },
+                // Inspired by "red menace" - aggressive expansion with violent response
+                aggressive: { territorySize: 0.1, boundaryStrength: 3.8, invasionResponse: 4.5 },
+                // Inspired by "fortress" - impenetrable defensive positions  
+                fortress: { territorySize: 0.25, boundaryStrength: 4.0, invasionResponse: 2.8 },
+                // Inspired by "field" - vast, loosely controlled domains
+                nomadic: { territorySize: 1.15, boundaryStrength: 0.4, invasionResponse: 0.8 }
+            },
+            symbiotic: {
+                // Inspired by "alliances" - perfect cooperation with total dependency
+                mutualism: { cooperationStrength: 3.8, dependencyLevel: 0.95, mutualismType: 'obligate', competitionIntensity: 0.15 },
+                // Inspired by "stigmergy" - indirect cooperation through environmental interaction  
+                commensalism: { cooperationStrength: 1.8, dependencyLevel: 0.25, mutualismType: 'facultative', competitionIntensity: 1.2 },
+                // Inspired by "acrobats" - competitive partnerships with high stakes
+                competition: { cooperationStrength: 0.4, dependencyLevel: 0.1, mutualismType: 'facultative', competitionIntensity: 3.5 },
+                // Inspired by "simplify" - minimal interdependence, loose cooperation
+                independence: { cooperationStrength: 1.2, dependencyLevel: 0.2, mutualismType: 'facultative', competitionIntensity: 0.8 }
+            },
+            cyclic: {
+                // Inspired by "planets" - stable, predictable orbital dynamics
+                classic: { cycleSpeed: 0.8, dominanceStrength: 1.8, cycleComplexity: 'simple', stabilityFactor: 0.75 },
+                // Inspired by "mitosis" - rapid division and chaotic reformation
+                chaotic: { cycleSpeed: 3.5, dominanceStrength: 3.2, cycleComplexity: 'complex', stabilityFactor: 0.1 },
+                // Inspired by "dreamtime" - slow, hypnotic transitions
+                stable: { cycleSpeed: 0.2, dominanceStrength: 1.0, cycleComplexity: 'simple', stabilityFactor: 0.95 },
+                // Inspired by "pollack" - multi-layered, sophisticated patterns
+                complex: { cycleSpeed: 2.2, dominanceStrength: 3.5, cycleComplexity: 'multi-level', stabilityFactor: 0.3 }
+            }
+        };
         
-        // Update the slider and display
-        document.getElementById('species-size').value = currentSize;
-        document.getElementById('species-size-value').textContent = currentSize.toFixed(1);
+        const patternPresets = presets[pattern];
+        if (!patternPresets) {
+            console.warn(`No presets defined for pattern: ${pattern}`);
+            return;
+        }
+        
+        const presetParams = patternPresets[presetName];
+        if (!presetParams) {
+            console.warn(`No preset '${presetName}' found for pattern: ${pattern}`);
+            return;
+        }
+        
+        // Apply parameters to UI controls
+        const panel = document.getElementById('pattern-parameters-panel');
+        if (!panel) {
+            console.warn('Pattern parameters panel not found');
+            return;
+        }
+        
+        Object.entries(presetParams).forEach(([paramName, value]) => {
+            this.setParameterValue(pattern, paramName, value);
+        });
+        
+        // Apply to particle system
+        const edgeBias = this.forceDistribution || 0.8;
+        this.particleSystem.applyForcePattern(pattern, edgeBias, presetParams);
+        this.updateGraph();
+        this.triggerAutoSave();
     }
+    
+    // Helper method to set individual parameter values in UI
+    setParameterValue(pattern, paramName, value) {
+        const panel = document.getElementById('pattern-parameters-panel');
+        if (!panel) return;
+        
+        // Map parameter names to UI element IDs
+        const paramMappings = {
+            // Clusters
+            clusterType: 'param-cluster-type',
+            cohesionStrength: 'param-cohesion-strength',
+            separationDistance: 'param-separation-distance',
+            formationBias: 'param-formation-bias',
+            
+            // Predator-Prey
+            ecosystemType: 'param-ecosystem-type',
+            huntIntensity: 'param-hunt-intensity',
+            escapeIntensity: 'param-escape-intensity',
+            populationBalance: 'param-population-balance',
+            
+            // Territorial
+            territorySize: 'param-territory-size',
+            boundaryStrength: 'param-boundary-strength', 
+            invasionResponse: 'param-invasion-response',
+            
+            // Symbiotic  
+            cooperationStrength: 'param-cooperation-strength',
+            dependencyLevel: 'param-dependency-level',
+            mutualismType: 'param-mutualism-type',
+            competitionIntensity: 'param-competition-intensity',
+            
+            // Cyclic
+            cycleSpeed: 'param-cycle-speed',
+            dominanceStrength: 'param-dominance-strength',
+            cycleComplexity: 'param-cycle-complexity',
+            stabilityFactor: 'param-stability-factor'
+        };
+        
+        const elementId = paramMappings[paramName];
+        if (!elementId) {
+            console.warn(`No UI mapping found for parameter: ${paramName}`);
+            return;
+        }
+        
+        const element = panel.querySelector(`#${elementId}`);
+        if (!element) {
+            console.warn(`UI element not found: ${elementId}`);
+            return;
+        }
+        
+        // Set the value
+        element.value = value;
+        
+        // Trigger event to update displays and apply changes
+        const eventType = element.type === 'range' ? 'input' : 'change';
+        element.dispatchEvent(new Event(eventType));
+        
+        // Parameter updated
+    }
+    
 }

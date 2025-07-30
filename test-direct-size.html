@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Direct Size Change</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #fff;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .info {
+            margin: 20px 0;
+            padding: 15px;
+            background: #222;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Direct Particle Size Test</h1>
+    
+    <div class="info">
+        <p>Open the main app in another tab, then use these buttons to directly change particle sizes.</p>
+        <p>Check the console for debug output.</p>
+    </div>
+    
+    <button onclick="testSmall()">Set All Species to Size 1</button>
+    <button onclick="testLarge()">Set All Species to Size 20</button>
+    <button onclick="testGradient()">Set Gradient Sizes (2, 5, 10, 15, 20)</button>
+    <button onclick="logCurrentSizes()">Log Current Sizes</button>
+    
+    <div id="output" class="info"></div>
+
+    <script>
+        function output(msg) {
+            const div = document.getElementById('output');
+            div.innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+        
+        function getSystem() {
+            // Try to access the particle system from the main window
+            if (window.opener && window.opener.mainUI) {
+                return window.opener.mainUI.particleSystem;
+            }
+            // Or if opened in same window
+            if (window.mainUI) {
+                return window.mainUI.particleSystem;
+            }
+            output('ERROR: Cannot find particle system. Make sure main app is loaded.');
+            return null;
+        }
+        
+        function testSmall() {
+            const ps = getSystem();
+            if (!ps) return;
+            
+            output('Setting all species to size 1...');
+            for (let i = 0; i < ps.species.length; i++) {
+                ps.species[i].size = 1;
+            }
+            output('Done! Particles should be very small now.');
+        }
+        
+        function testLarge() {
+            const ps = getSystem();
+            if (!ps) return;
+            
+            output('Setting all species to size 20...');
+            for (let i = 0; i < ps.species.length; i++) {
+                ps.species[i].size = 20;
+            }
+            output('Done! Particles should be very large now.');
+        }
+        
+        function testGradient() {
+            const ps = getSystem();
+            if (!ps) return;
+            
+            const sizes = [2, 5, 10, 15, 20];
+            output('Setting gradient sizes...');
+            for (let i = 0; i < ps.species.length && i < sizes.length; i++) {
+                ps.species[i].size = sizes[i];
+                output(`Species ${i}: size = ${sizes[i]}`);
+            }
+            output('Done! Each species should have a different size.');
+        }
+        
+        function logCurrentSizes() {
+            const ps = getSystem();
+            if (!ps) return;
+            
+            output('Current species sizes:');
+            for (let i = 0; i < ps.species.length; i++) {
+                output(`Species ${i}: size = ${ps.species[i].size}`);
+            }
+        }
+        
+        // Try to connect on load
+        setTimeout(() => {
+            const ps = getSystem();
+            if (ps) {
+                output('Connected to particle system!');
+                logCurrentSizes();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

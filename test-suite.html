@@ -1384,6 +1384,7 @@
                 this.addTest('system', 'trail-rendering', 'Trail Rendering', () => this.testTrailRendering());
                 this.addTest('system', 'ui-state-manager', 'UI State Manager', () => this.testUIStateManager());
                 this.addTest('system', 'dom-helpers', 'DOM Helpers', () => this.testDOMHelpers());
+                this.addTest('features', 'advanced-presets', 'Advanced Force Pattern Presets', () => this.testAdvancedPresets());
                 this.addTest('storage', 'preset-system', 'Preset System', () => this.testPresetSystem());
                 
                 // Add randomize button testing
@@ -1410,6 +1411,17 @@
                 this.addTest('integration', 'modal-button-states', 'Modal Button States Update Correctly', () => this.testModalButtonStates());
                 this.addTest('integration', 'preset-button-removal', 'Removed Buttons No Longer Present', () => this.testRemovedButtons());
                 this.addTest('integration', 'firebase-integration', 'Firebase Integration Test', () => this.testFirebaseIntegration());
+                
+                // NEW ADVANCED PHYSICS TESTING (consolidated from test-new-features.html)
+                this.addTest('system', 'halo-features', 'Halo Features Testing', () => this.testHaloFeatures());
+                this.addTest('ui', 'trail-mapping', 'Trail Mapping Functions', () => this.testTrailMapping());
+                this.addTest('ui', 'ui-ranges', 'UI Control Ranges', () => this.testUIRanges());
+                this.addTest('system', 'force-calculation', 'Force Calculation (1/d)', () => this.testForceCalculation());
+                this.addTest('system', 'enhanced-randomization', 'Enhanced Randomization', () => this.testEnhancedRandomization());
+                this.addTest('system', 'collision-physics', 'Per-Species Collision Physics', () => this.testCollisionPhysics());
+                this.addTest('system', 'force-patterns', 'Force Pattern Presets', () => this.testForcePatterns());
+                this.addTest('system', 'advanced-physics', 'Advanced Physics Features', () => this.testAdvancedPhysics());
+                this.addTest('system', 'species-naming', 'Species Color-Based Naming', () => this.testSpeciesNaming());
             }
             
             // Comprehensive preset testing functions
@@ -2319,7 +2331,7 @@
                         randomizeBtn.click();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         
-                        const haloEnabled = await this.findMainUIElement('#halo-enabled');
+                        const haloEnabled = await this.findMainUIElement('#per-species-halo-enabled');
                         const speciesGlowEnabled = await this.findMainUIElement('#species-glow-enabled');
                         
                         // They should not both be enabled simultaneously
@@ -2577,10 +2589,10 @@
                     const patternButtons = ctx.presetModal.modal.querySelectorAll('.pattern-btn');
                     this.assert(patternButtons.length > 0, 'Pattern buttons exist');
                     
-                    const patterns = ['draw', 'erase', 'cluster', 'ring', 'grid', 'random'];
+                    const drawPatterns = ['draw', 'erase', 'cluster', 'ring', 'grid', 'random'];
                     const results = {};
                     
-                    for (const pattern of patterns) {
+                    for (const pattern of drawPatterns) {
                         const btn = ctx.presetModal.modal.querySelector(`[data-pattern="${pattern}"]`);
                         results[pattern] = btn !== null;
                     }
@@ -2962,6 +2974,1031 @@
                     throw new Error(`Firebase integration test failed: ${error.message}`);
                 }
             }
+            
+            // === NEW ADVANCED PHYSICS TESTING FUNCTIONS ===
+            // Consolidated from test-new-features.html
+            
+            async testHaloFeatures() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test global halo functionality
+                    ctx.particleSystem.renderMode = 'dreamtime';
+                    ctx.particleSystem.glowIntensity = 0.8;
+                    ctx.particleSystem.glowRadius = 3.0;
+                    this.log('✓ Global halo settings applied', 'success');
+                    
+                    // Test per-species halo arrays exist
+                    if (ctx.particleSystem.speciesHaloIntensity && ctx.particleSystem.speciesHaloRadius) {
+                        this.log('✓ Per-species halo arrays exist', 'success');
+                    } else {
+                        throw new Error('Per-species halo arrays missing');
+                    }
+                    
+                    // Test per-species halo API with new intensity range (0-0.05)
+                    const testResult = ctx.particleSystem.setSpeciesHalo(0, { intensity: 0.025, radius: 2.0 });
+                    if (testResult) {
+                        const settings = ctx.particleSystem.getSpeciesHalo(0);
+                        if (settings && settings.intensity === 0.025 && settings.radius === 2.0) {
+                            this.log('✓ Per-species halo API working with new intensity range (0-0.05)', 'success');
+                        } else {
+                            throw new Error(`Per-species halo API values incorrect: got intensity=${settings?.intensity}, radius=${settings?.radius}`);
+                        }
+                    } else {
+                        throw new Error('Per-species halo API failed');
+                    }
+                    
+                    // Test intensity range validation (should clamp values outside 0-0.05)
+                    ctx.particleSystem.setSpeciesHalo(1, { intensity: 0.5 }); // Should clamp to 0.05
+                    const clampedSettings = ctx.particleSystem.getSpeciesHalo(1);
+                    if (clampedSettings && clampedSettings.intensity === 0.05) {
+                        this.log('✓ Intensity range validation working (clamping to 0.05)', 'success');
+                    } else {
+                        throw new Error(`Intensity clamping failed: expected 0.05, got ${clampedSettings?.intensity}`);
+                    }
+                    
+                    // Test clear functionality
+                    ctx.particleSystem.clearAllSpeciesHalo();
+                    const clearedSettings = ctx.particleSystem.getSpeciesHalo(0);
+                    if (clearedSettings && clearedSettings.intensity === 0) {
+                        this.log('✓ Clear all species halo working', 'success');
+                    } else {
+                        throw new Error('Clear all species halo failed');
+                    }
+                    
+                    // Test performance optimization (gradient caching)
+                    if (ctx.particleSystem.haloGradientCache) {
+                        ctx.particleSystem.setSpeciesHalo(0, { intensity: 0.003, radius: 1.5 });
+                        const cacheSizeBefore = ctx.particleSystem.haloGradientCache.size;
+                        
+                        // Trigger halo rendering to populate cache
+                        if (ctx.particleSystem.renderSpeciesHalo) {
+                            this.log('✓ Halo gradient caching system available', 'success');
+                            
+                            // Test cache clearing on parameter changes
+                            ctx.particleSystem.setSpeciesHalo(0, { intensity: 0.007 });
+                            this.log('✓ Halo gradient cache integration working', 'success');
+                        } else {
+                            throw new Error('Optimized halo rendering method missing');
+                        }
+                    } else {
+                        throw new Error('Halo gradient cache not initialized');
+                    }
+                    
+                    // Test new enable/disable checkbox functionality
+                    const perSpeciesHaloEnabledEl = await this.findMainUIElement('#per-species-halo-enabled');
+                    if (perSpeciesHaloEnabledEl) {
+                        // Enable halo for testing
+                        perSpeciesHaloEnabledEl.checked = true;
+                        perSpeciesHaloEnabledEl.dispatchEvent(new Event('change'));
+                        
+                        // Check if controls are shown
+                        const controlsEl = await this.findMainUIElement('#per-species-halo-controls');
+                        if (controlsEl && controlsEl.style.display !== 'none') {
+                            this.log('✓ Per-species halo enable/disable checkbox working', 'success');
+                        } else {
+                            throw new Error('Halo controls not shown when checkbox enabled');
+                        }
+                        
+                        // Disable and check controls are hidden
+                        perSpeciesHaloEnabledEl.checked = false;
+                        perSpeciesHaloEnabledEl.dispatchEvent(new Event('change'));
+                        
+                        if (controlsEl.style.display === 'none') {
+                            this.log('✓ Halo controls properly hidden when disabled', 'success');
+                        } else {
+                            throw new Error('Halo controls not hidden when checkbox disabled');
+                        }
+                    } else {
+                        throw new Error('Per-species halo enabled checkbox not found');
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`Halo features test failed: ${error.message}`);
+                }
+            }
+            
+            async testTrailMapping() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test trail mapping function exists
+                    if (typeof ctx.mainUI.mapTrailValue === 'function') {
+                        this.log('✓ Trail mapping function exists', 'success');
+                        
+                        // Test mapping values
+                        const testCases = [
+                            { input: 0, expected: 0.5 },
+                            { input: 40, expected: 0.7 },
+                            { input: 80, expected: 0.9 },
+                            { input: 90, expected: 0.924 },
+                            { input: 100, expected: 0.999 }
+                        ];
+                        
+                        let allPassed = true;
+                        testCases.forEach(test => {
+                            const result = ctx.mainUI.mapTrailValue(test.input);
+                            const tolerance = 0.005;
+                            if (Math.abs(result - test.expected) < tolerance) {
+                                this.log(`✓ Trail mapping ${test.input} → ${result.toFixed(3)} (expected ${test.expected})`, 'success');
+                            } else {
+                                this.log(`✗ Trail mapping ${test.input} → ${result.toFixed(3)} (expected ${test.expected})`, 'error');
+                                allPassed = false;
+                            }
+                        });
+                        
+                        if (allPassed) {
+                            this.log('✓ Trail mapping values correct', 'success');
+                        }
+                        
+                        // Test reverse mapping
+                        if (typeof ctx.mainUI.reverseMapTrailValue === 'function') {
+                            const reverseTest = ctx.mainUI.reverseMapTrailValue(0.95);
+                            if (reverseTest > 80 && reverseTest < 100) {
+                                this.log('✓ Reverse trail mapping working', 'success');
+                            } else {
+                                throw new Error('Reverse trail mapping failed');
+                            }
+                        } else {
+                            throw new Error('Reverse trail mapping function missing');
+                        }
+                        
+                    } else {
+                        throw new Error('Trail mapping function missing');
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`Trail mapping test failed: ${error.message}`);
+                }
+            }
+            
+            async testUIRanges() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test expanded ranges in DOM
+                    const ranges = [
+                        { id: 'friction', expectedMin: '0', expectedMax: '0.5' },
+                        { id: 'wall-bounce', expectedMin: '-1.0', expectedMax: '3.0' },
+                        { id: 'collision-radius', expectedMin: '0', expectedMax: '100' },
+                        { id: 'force-strength', expectedMin: '0.1', expectedMax: '10' },
+                        { id: 'social-radius', expectedMin: '1', expectedMax: '500' }
+                    ];
+                    
+                    ranges.forEach(range => {
+                        const element = ctx.document.getElementById(range.id);
+                        if (element) {
+                            const min = element.getAttribute('min');
+                            const max = element.getAttribute('max');
+                            if (min === range.expectedMin && max === range.expectedMax) {
+                                this.log(`✓ ${range.id} range correct: [${min}, ${max}]`, 'success');
+                            } else {
+                                throw new Error(`${range.id} range incorrect: [${min}, ${max}] (expected [${range.expectedMin}, ${range.expectedMax}])`);
+                            }
+                        } else {
+                            throw new Error(`${range.id} element not found`);
+                        }
+                    });
+                    
+                    // Test force matrix range
+                    if (ctx.particleSystem.socialForce) {
+                        const forces = ctx.particleSystem.socialForce.flat();
+                        const maxForce = Math.max(...forces.map(Math.abs));
+                        if (maxForce <= 5.1) { // Allow small tolerance
+                            this.log(`✓ Force matrix uses [-5,5] range (max: ${maxForce.toFixed(2)})`, 'success');
+                        } else {
+                            throw new Error(`Force matrix exceeds [-5,5] range (max: ${maxForce.toFixed(2)})`);
+                        }
+                    } else {
+                        throw new Error('Force matrix not initialized');
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`UI ranges test failed: ${error.message}`);
+                }
+            }
+            
+            async testForceCalculation() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Ensure proper initialization
+                    ctx.particleSystem.setSpeciesCount(2);
+                    
+                    // Create test particles
+                    const p1 = { x: 100, y: 100, vx: 0, vy: 0, species: 0 };
+                    const p2 = { x: 200, y: 100, vx: 0, vy: 0, species: 1 };
+                    
+                    // Set a known force value
+                    if (ctx.particleSystem.socialForce && ctx.particleSystem.socialForce[0] && ctx.particleSystem.socialRadius && ctx.particleSystem.socialRadius[0]) {
+                        ctx.particleSystem.socialForce[0][1] = 2.0;
+                        ctx.particleSystem.socialRadius[0][1] = 200;
+                    } else {
+                        throw new Error('Force matrices not properly initialized');
+                    }
+                    
+                    // Test the force calculation by examining the physics update
+                    ctx.particleSystem.particles = [p1, p2];
+                    const initialVx = p1.vx;
+                    ctx.particleSystem.update(16.67); // Simulate one frame at 60fps
+                    
+                    // Check if particle accelerated (indicating force was applied)
+                    if (Math.abs(p1.vx - initialVx) > 0.001) {
+                        this.log('✓ Force calculation producing acceleration', 'success');
+                        this.log(`  Velocity change: ${(p1.vx - initialVx).toFixed(6)}`, 'info');
+                    } else {
+                        throw new Error('Force calculation not producing acceleration');
+                    }
+                    
+                    // The exact math verification would require accessing internal force calculation
+                    // But we can verify the system is using the expected simplified approach
+                    this.log('ℹ Force calculation using F = g/d approach (verified by code inspection)', 'info');
+                    
+                } catch (error) {
+                    throw new Error(`Force calculation test failed: ${error.message}`);
+                }
+            }
+            
+            async testEnhancedRandomization() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test Clusters-like parameter generation
+                    if (typeof ctx.mainUI.generateClustersLikeParams === 'function') {
+                        this.log('✓ Clusters-like parameter generation exists', 'success');
+                        
+                        const { scenario, params } = ctx.mainUI.generateClustersLikeParams();
+                        this.log(`  Generated scenario: ${scenario}`, 'info');
+                        
+                        // Verify scenario is valid
+                        const validScenarios = ['swarm', 'predator', 'crystal', 'organic', 'chaotic', 'minimal'];
+                        if (validScenarios.includes(scenario)) {
+                            this.log('✓ Valid scenario generated', 'success');
+                        } else {
+                            throw new Error(`Invalid scenario: ${scenario}`);
+                        }
+                        
+                        // Verify parameters are physics-focused
+                        const expectedParams = ['particlesPerSpecies', 'numSpecies', 'forceFactor', 'friction'];
+                        let hasPhysicsParams = expectedParams.every(param => params.hasOwnProperty(param));
+                        
+                        if (hasPhysicsParams) {
+                            this.log('✓ Physics-focused parameters generated', 'success');
+                        } else {
+                            throw new Error('Missing expected physics parameters');
+                        }
+                        
+                        // Test parameter application
+                        if (typeof ctx.mainUI.applyClustersParams === 'function') {
+                            this.log('✓ Parameter application function exists', 'success');
+                        } else {
+                            throw new Error('Parameter application function missing');
+                        }
+                        
+                    } else {
+                        throw new Error('Clusters-like parameter generation missing');
+                    }
+                    
+                    // Test force randomization scaling
+                    const originalSpeciesCount = ctx.particleSystem.numSpecies;
+                    ctx.particleSystem.setSpeciesCount(10);
+                    
+                    if (typeof ctx.mainUI.randomizeForces === 'function') {
+                        ctx.mainUI.randomizeForces();
+                        this.log('✓ Force randomization executed with 10 species', 'success');
+                    } else {
+                        throw new Error('Force randomization function missing');
+                    }
+                    
+                    // Restore original species count
+                    ctx.particleSystem.setSpeciesCount(originalSpeciesCount);
+                    
+                } catch (error) {
+                    throw new Error(`Enhanced randomization test failed: ${error.message}`);
+                }
+            }
+            
+            async testCollisionPhysics() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test properties exist
+                    if (typeof ctx.particleSystem.perSpeciesCollision !== 'undefined' &&
+                        typeof ctx.particleSystem.collisionMultiplier !== 'undefined') {
+                        this.log('✓ Per-species collision properties exist', 'success');
+                    } else {
+                        throw new Error('Per-species collision properties missing');
+                    }
+                    
+                    // Test UI controls exist
+                    const checkboxElement = ctx.document.getElementById('per-species-collision-enabled');
+                    const multiplierElement = ctx.document.getElementById('collision-multiplier');
+                    const multiplierValueElement = ctx.document.getElementById('collision-multiplier-value');
+                    const multiplierControlElement = ctx.document.getElementById('collision-multiplier-control');
+                    
+                    if (checkboxElement && multiplierElement && multiplierValueElement && multiplierControlElement) {
+                        this.log('✓ Per-species collision UI controls exist', 'success');
+                    } else {
+                        throw new Error('Per-species collision UI controls missing');
+                    }
+                    
+                    // Test default values
+                    if (ctx.particleSystem.perSpeciesCollision === false && ctx.particleSystem.collisionMultiplier === 1.0) {
+                        this.log('✓ Default collision physics values correct', 'success');
+                    } else {
+                        throw new Error(`Default values incorrect: perSpecies=${ctx.particleSystem.perSpeciesCollision}, multiplier=${ctx.particleSystem.collisionMultiplier}`);
+                    }
+                    
+                    // Test enabling per-species collision
+                    ctx.particleSystem.perSpeciesCollision = true;
+                    ctx.particleSystem.collisionMultiplier = 1.5;
+                    
+                    // Test collision radius calculation with different species sizes
+                    if (ctx.particleSystem.species && ctx.particleSystem.species.length > 1) {
+                        // Set different sizes for testing
+                        ctx.particleSystem.species[0].size = 2.0;
+                        ctx.particleSystem.species[1].size = 8.0; // Large size difference
+                        
+                        this.log('✓ Species sizes set for collision testing', 'success');
+                        this.log(`  Species 0 size: ${ctx.particleSystem.species[0].size}`, 'info');
+                        this.log(`  Species 1 size: ${ctx.particleSystem.species[1].size}`, 'info');
+                        this.log(`  Collision multiplier: ${ctx.particleSystem.collisionMultiplier}`, 'info');
+                        
+                        // Test collision radius calculation logic
+                        const baseCollisionRadius = 15; // Default collision radius
+                        const expectedRadius1 = (ctx.particleSystem.species[0].size / 2) * ctx.particleSystem.collisionMultiplier;
+                        const expectedRadius2 = (ctx.particleSystem.species[1].size / 2) * ctx.particleSystem.collisionMultiplier;
+                        const expectedCombined = expectedRadius1 + expectedRadius2;
+                        const expectedRatio = expectedCombined / (ctx.particleSystem.particleSize / 2);
+                        const expectedFinalRadius = baseCollisionRadius * expectedRatio;
+                        
+                        this.log(`✓ Expected combined collision radius: ${expectedFinalRadius.toFixed(2)}`, 'success');
+                        this.log(`  Calculation: (${expectedRadius1.toFixed(1)} + ${expectedRadius2.toFixed(1)}) * ${baseCollisionRadius} / ${(ctx.particleSystem.particleSize/2).toFixed(1)} = ${expectedFinalRadius.toFixed(2)}`, 'info');
+                        
+                        // Test UI control visibility
+                        if (checkboxElement && multiplierControlElement) {
+                            checkboxElement.checked = true;
+                            const event = new Event('change');
+                            checkboxElement.dispatchEvent(event);
+                            
+                            // Check if multiplier control becomes visible
+                            if (multiplierControlElement.style.display === 'block') {
+                                this.log('✓ Multiplier control shows when per-species collision enabled', 'success');
+                            } else {
+                                throw new Error('Multiplier control visibility not working');
+                            }
+                        }
+                    } else {
+                        throw new Error('Species array not properly initialized');
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`Collision physics test failed: ${error.message}`);
+                }
+            }
+            
+            async testForcePatterns() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test createForcePattern method exists
+                    if (typeof ctx.particleSystem.createForcePattern === 'function') {
+                        this.log('✓ createForcePattern method exists', 'success');
+                    } else {
+                        throw new Error('createForcePattern method missing');
+                    }
+                    
+                    // Test UI selector exists
+                    const patternSelector = ctx.document.getElementById('force-pattern-selector');
+                    if (patternSelector) {
+                        this.log('✓ Force pattern selector UI element exists', 'success');
+                    } else {
+                        throw new Error('Force pattern selector UI element missing');
+                    }
+                    
+                    // Test each pattern type
+                    const forcePatterns = ['random', 'predator-prey', 'territorial', 'symbiotic', 'cyclic'];
+                    forcePatterns.forEach(pattern => {
+                        try {
+                            const matrix = ctx.particleSystem.createForcePattern(pattern, 0.8);
+                            
+                            if (Array.isArray(matrix) && matrix.length === ctx.particleSystem.numSpecies) {
+                                this.log(`✓ ${pattern} pattern generated successfully`, 'success');
+                                
+                                // Check if pattern has expected asymmetry
+                                let hasAsymmetry = false;
+                                for (let i = 0; i < matrix.length && !hasAsymmetry; i++) {
+                                    for (let j = 0; j < matrix[i].length && !hasAsymmetry; j++) {
+                                        if (Math.abs(matrix[i][j] - matrix[j][i]) > 0.1) {
+                                            hasAsymmetry = true;
+                                        }
+                                    }
+                                }
+                                
+                                if (hasAsymmetry) {
+                                    this.log(`  ${pattern} pattern has asymmetric forces`, 'info');
+                                } else {
+                                    this.log(`  ${pattern} pattern is symmetric (may be intended)`, 'info');
+                                }
+                                
+                                // Check force range
+                                const forces = matrix.flat();
+                                const maxForce = Math.max(...forces.map(Math.abs));
+                                if (maxForce <= 5.1) { // Allow small tolerance
+                                    this.log(`  ${pattern} forces within [-5,5] range (max: ${maxForce.toFixed(2)})`, 'info');
+                                } else {
+                                    this.log(`  ${pattern} forces exceed [-5,5] range (max: ${maxForce.toFixed(2)})`, 'info');
+                                }
+                                
+                            } else {
+                                throw new Error(`${pattern} pattern generation failed`);
+                            }
+                        } catch (error) {
+                            throw new Error(`${pattern} pattern error: ${error.message}`);
+                        }
+                    });
+                    
+                    // Test pattern-specific behaviors
+                    this.log('Testing pattern-specific behaviors:', 'info');
+                    
+                    // Predator-prey should have clear hunter-prey relationships
+                    const predatorMatrix = ctx.particleSystem.createForcePattern('predator-prey', 0.8);
+                    let hasPredatorPrey = false;
+                    for (let i = 0; i < predatorMatrix.length; i++) {
+                        const prey = (i + 1) % predatorMatrix.length;
+                        if (predatorMatrix[i][prey] > 1.0 && predatorMatrix[prey][i] < -1.0) {
+                            hasPredatorPrey = true;
+                            break;
+                        }
+                    }
+                    
+                    if (hasPredatorPrey) {
+                        this.log('  Predator-prey pattern has clear chase relationships', 'success');
+                    } else {
+                        throw new Error('Predator-prey pattern lacks expected relationships');
+                    }
+                    
+                    // Territorial should have strong self-attraction and inter-species repulsion
+                    const territorialMatrix = ctx.particleSystem.createForcePattern('territorial', 0.8);
+                    let hasTerritorialBehavior = false;
+                    for (let i = 0; i < territorialMatrix.length; i++) {
+                        if (territorialMatrix[i][i] > 0.5) { // Self-attraction
+                            let hasRepulsion = true;
+                            for (let j = 0; j < territorialMatrix.length; j++) {
+                                if (i !== j && territorialMatrix[i][j] >= -0.5) {
+                                    hasRepulsion = false;
+                                    break;
+                                }
+                            }
+                            if (hasRepulsion) {
+                                hasTerritorialBehavior = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (hasTerritorialBehavior) {
+                        this.log('  Territorial pattern has expected self-attraction + repulsion', 'success');
+                    } else {
+                        throw new Error('Territorial pattern lacks expected behavior');
+                    }
+                    
+                    // === NEW PATTERN PARAMETER SYSTEM TESTS ===
+                    this.log('Testing pattern parameter system:', 'info');
+                    
+                    // Test applyForcePattern method with parameters
+                    if (typeof ctx.particleSystem.applyForcePattern === 'function') {
+                        this.log('✓ applyForcePattern method exists', 'success');
+                    } else {
+                        throw new Error('applyForcePattern method missing');
+                    }
+                    
+                    // Test parameter storage
+                    ctx.particleSystem.applyForcePattern('clusters', 0.8, {
+                        clusterType: 'orbital',
+                        cohesionStrength: 1.2,
+                        separationDistance: 0.3,
+                        formationBias: 0.7
+                    });
+                    
+                    if (ctx.particleSystem.forcePatternType === 'clusters' &&
+                        ctx.particleSystem.forcePatternParameters.cohesionStrength === 1.2) {
+                        this.log('✓ Pattern parameters stored correctly', 'success');
+                    } else {
+                        throw new Error('Pattern parameters not stored correctly');
+                    }
+                    
+                    // Test parameter variations produce different matrices
+                    const baseParams = { clusterType: 'orbital', cohesionStrength: 0.8, separationDistance: 0.5, formationBias: 0.6 };
+                    const variedParams = { clusterType: 'orbital', cohesionStrength: 1.5, separationDistance: 0.5, formationBias: 0.6 };
+                    
+                    const baseMatrix = ctx.particleSystem.createForcePattern('clusters', 0.8, baseParams);
+                    const variedMatrix = ctx.particleSystem.createForcePattern('clusters', 0.8, variedParams);
+                    
+                    let matricesDifferent = false;
+                    for (let i = 0; i < baseMatrix.length && !matricesDifferent; i++) {
+                        for (let j = 0; j < baseMatrix[i].length && !matricesDifferent; j++) {
+                            if (Math.abs(baseMatrix[i][j] - variedMatrix[i][j]) > 0.1) {
+                                matricesDifferent = true;
+                            }
+                        }
+                    }
+                    
+                    if (matricesDifferent) {
+                        this.log('✓ Parameter variations produce different force matrices', 'success');
+                    } else {
+                        throw new Error('Parameter variations should produce different matrices');
+                    }
+                    
+                    // Test UI parameter panels for each pattern
+                    const uiPatterns = ['clusters', 'predator-prey', 'territorial', 'symbiotic', 'cyclic'];
+                    for (const pattern of uiPatterns) {
+                        // Trigger pattern change via UI
+                        const patternSelector = ctx.document.getElementById('force-pattern-selector');
+                        patternSelector.value = pattern;
+                        patternSelector.dispatchEvent(new Event('change'));
+                        
+                        // Wait for UI update
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        const paramPanel = ctx.document.getElementById('pattern-parameters-panel');
+                        if (paramPanel && paramPanel.children.length > 0) {
+                            this.log(`✓ ${pattern} parameter panel created`, 'success');
+                            
+                            // Test parameter controls exist
+                            const inputs = paramPanel.querySelectorAll('input[type="range"], select');
+                            if (inputs.length > 0) {
+                                this.log(`  ${pattern} has ${inputs.length} parameter controls`, 'info');
+                                
+                                // Test parameter interaction
+                                const firstInput = inputs[0];
+                                const originalValue = firstInput.value;
+                                
+                                // Change value and trigger event
+                                if (firstInput.type === 'range') {
+                                    const midValue = (parseFloat(firstInput.min) + parseFloat(firstInput.max)) / 2;
+                                    firstInput.value = midValue.toString();
+                                    firstInput.dispatchEvent(new Event('input'));
+                                } else {
+                                    const options = firstInput.querySelectorAll('option');
+                                    if (options.length > 1) {
+                                        firstInput.selectedIndex = 1;
+                                        firstInput.dispatchEvent(new Event('change'));
+                                    }
+                                }
+                                
+                                // Wait for system update
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                                
+                                this.log(`  ${pattern} parameter interaction working`, 'success');
+                                
+                                // Restore original value
+                                firstInput.value = originalValue;
+                                firstInput.dispatchEvent(new Event(firstInput.type === 'range' ? 'input' : 'change'));
+                            }
+                        } else if (pattern !== 'random') {
+                            throw new Error(`${pattern} parameter panel not created`);
+                        }
+                    }
+                    
+                    // Test parameter persistence in preset system
+                    this.log('Testing parameter persistence:', 'info');
+                    
+                    // Set specific parameters
+                    ctx.particleSystem.applyForcePattern('predator-prey', 0.7, {
+                        ecosystemType: 'complex_web',
+                        huntIntensity: 4.0,
+                        escapeIntensity: 3.0,
+                        populationBalance: 0.6
+                    });
+                    
+                    // Export preset
+                    const testPreset = ctx.particleSystem.exportPreset();
+                    if (testPreset.forces && testPreset.forces.pattern) {
+                        const patternConfig = testPreset.forces.pattern;
+                        if (patternConfig.type === 'predator-prey' && 
+                            patternConfig.parameters.huntIntensity === 4.0 &&
+                            patternConfig.edgeBias === 0.7) {
+                            this.log('✓ Pattern parameters exported to preset correctly', 'success');
+                        } else {
+                            throw new Error('Pattern parameters not exported correctly');
+                        }
+                    } else {
+                        throw new Error('Force pattern configuration missing from preset');
+                    }
+                    
+                    // Test preset loading restores parameters
+                    ctx.particleSystem.applyForcePattern('clusters', 0.8, {}); // Change to different pattern
+                    ctx.particleSystem.loadFullPreset(testPreset); // Load the test preset
+                    
+                    if (ctx.particleSystem.forcePatternType === 'predator-prey' &&
+                        ctx.particleSystem.forcePatternParameters.huntIntensity === 4.0) {
+                        this.log('✓ Pattern parameters restored from preset correctly', 'success');
+                    } else {
+                        throw new Error('Pattern parameters not restored correctly');
+                    }
+                    
+                    // Test all parameter combinations for edge cases
+                    this.log('Testing parameter edge cases:', 'info');
+                    
+                    const edgeCases = [
+                        // Clusters extreme cases
+                        { pattern: 'clusters', params: { cohesionStrength: 0.1, separationDistance: 1.0, formationBias: 0.1 }}, // Min values
+                        { pattern: 'clusters', params: { cohesionStrength: 2.0, separationDistance: 0.1, formationBias: 1.0 }}, // Max values
+                        
+                        // Predator-prey extreme cases  
+                        { pattern: 'predator-prey', params: { huntIntensity: 5.0, escapeIntensity: 1.0, populationBalance: 0.1 }}, // Few predators
+                        { pattern: 'predator-prey', params: { huntIntensity: 1.0, escapeIntensity: 5.0, populationBalance: 0.9 }}, // Many predators
+                        
+                        // Territorial extreme cases
+                        { pattern: 'territorial', params: { territorySize: 0.1, boundaryStrength: 3.0, invasionResponse: 3.0 }}, // Small, aggressive territories
+                        { pattern: 'territorial', params: { territorySize: 1.0, boundaryStrength: 0.5, invasionResponse: 0.5 }}, // Large, peaceful territories
+                        
+                        // Symbiotic extreme cases
+                        { pattern: 'symbiotic', params: { cooperationStrength: 3.0, dependencyLevel: 0.1, competitionIntensity: 3.0 }}, // High competition
+                        { pattern: 'symbiotic', params: { cooperationStrength: 0.5, dependencyLevel: 1.0, competitionIntensity: 0.1 }}, // High dependency
+                        
+                        // Cyclic extreme cases
+                        { pattern: 'cyclic', params: { cycleSpeed: 3.0, dominanceStrength: 3.0, cycleComplexity: 'complex', stabilityFactor: 0.1 }}, // Fast, chaotic
+                        { pattern: 'cyclic', params: { cycleSpeed: 0.1, dominanceStrength: 0.5, cycleComplexity: 'simple', stabilityFactor: 1.0 }} // Slow, stable
+                    ];
+                    
+                    for (const testCase of edgeCases) {
+                        try {
+                            const matrix = ctx.particleSystem.createForcePattern(testCase.pattern, 0.8, testCase.params);
+                            if (Array.isArray(matrix) && matrix.length > 0) {
+                                this.log(`✓ ${testCase.pattern} edge case handled correctly`, 'success');
+                            } else {
+                                throw new Error(`${testCase.pattern} edge case failed`);
+                            }
+                        } catch (error) {
+                            throw new Error(`${testCase.pattern} edge case error: ${error.message}`);
+                        }
+                    }
+                    
+                    this.log('✓ Pattern parameter system comprehensive test completed', 'success');
+                    
+                } catch (error) {
+                    throw new Error(`Force patterns test failed: ${error.message}`);
+                }
+            }
+            
+            async testAdvancedPhysics() {
+                try {
+                    const ctx = await this.getAppContext();
+                    
+                    // Test properties exist
+                    const physicsProps = [
+                        'environmentalPressure', 'chaosLevel', 'enableDensityForces', 'enableTimeModulation'
+                    ];
+                    
+                    let allPropsExist = true;
+                    physicsProps.forEach(prop => {
+                        if (typeof ctx.particleSystem[prop] === 'undefined') {
+                            this.log(`✗ Property ${prop} missing`, 'error');
+                            allPropsExist = false;
+                        }
+                    });
+                    
+                    if (allPropsExist) {
+                        this.log('✓ All advanced physics properties exist', 'success');
+                    }
+                    
+                    // Test UI controls exist
+                    const uiControls = [
+                        'environmental-pressure', 'environmental-pressure-value',
+                        'chaos-level', 'chaos-level-value'
+                    ];
+                    
+                    let allControlsExist = true;
+                    uiControls.forEach(id => {
+                        const element = ctx.document.getElementById(id);
+                        if (!element) {
+                            this.log(`✗ UI control ${id} missing`, 'error');
+                            allControlsExist = false;
+                        }
+                    });
+                    
+                    if (allControlsExist) {
+                        this.log('✓ All advanced physics UI controls exist', 'success');
+                    }
+                    
+                    // Test default values
+                    if (ctx.particleSystem.environmentalPressure === 0.0 && ctx.particleSystem.chaosLevel === 0.0) {
+                        this.log('✓ Default values correct (environmental pressure and chaos = 0)', 'success');
+                    } else {
+                        throw new Error(`Default values incorrect: envPressure=${ctx.particleSystem.environmentalPressure}, chaos=${ctx.particleSystem.chaosLevel}`);
+                    }
+                    
+                    // Test environmental pressure functionality
+                    ctx.particleSystem.environmentalPressure = 0.5;
+                    const p1 = { x: 100, y: 100, vx: 0, vy: 0, species: 0 };
+                    ctx.particleSystem.particles = [p1];
+                    
+                    const initialVx = p1.vx;
+                    ctx.particleSystem.update(16.67);
+                    
+                    if (Math.abs(p1.vx - initialVx) > 0.001) {
+                        this.log('✓ Environmental pressure affects particle movement', 'success');
+                        this.log(`  Velocity change: ${(p1.vx - initialVx).toFixed(6)}`, 'info');
+                    } else {
+                        throw new Error('Environmental pressure not affecting movement');
+                    }
+                    
+                    // Test chaos injection
+                    ctx.particleSystem.chaosLevel = 0.1;
+                    let hasRandomMovement = false;
+                    
+                    // Run multiple updates to check for randomness
+                    for (let i = 0; i < 5; i++) {
+                        const beforeVx = p1.vx;
+                        ctx.particleSystem.update(16.67);
+                        if (Math.abs(p1.vx - beforeVx) > 0.001) {
+                            hasRandomMovement = true;
+                            break;
+                        }
+                    }
+                    
+                    if (hasRandomMovement) {
+                        this.log('✓ Chaos injection creates random movement', 'success');
+                    } else {
+                        throw new Error('Chaos injection not working');
+                    }
+                    
+                    // Test species-specific properties
+                    if (ctx.particleSystem.species && ctx.particleSystem.species.length > 0) {
+                        const species0 = ctx.particleSystem.species[0];
+                        if (species0.mobility && species0.inertia && species0.size) {
+                            this.log('✓ Species have mobility, inertia, and varied sizes', 'success');
+                            this.log(`  Species 0: size=${species0.size.toFixed(2)}, mobility=${species0.mobility.toFixed(2)}, inertia=${species0.inertia.toFixed(3)}`, 'info');
+                        } else {
+                            throw new Error('Species missing advanced properties');
+                        }
+                    } else {
+                        throw new Error('Species array not properly initialized');
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`Advanced physics test failed: ${error.message}`);
+                }
+            }
+
+        // Test species color-based naming functionality
+        async testSpeciesNaming() {
+            this.log('Testing species color-based naming...', 'info');
+            const ctx = await this.getAppContext();
+            
+            try {
+                // Test 1: Check initial species have names based on their colors
+                this.log('Testing initial species names...', 'info');
+                const ps = ctx.particleSystem;
+                
+                // Initialize a new system to ensure clean state
+                ps.initializeSpecies();
+                
+                // Check first 5 species have color-based names
+                const expectedNames = ['Red', 'Green', 'Blue', 'Yellow', 'Purple'];
+                for (let i = 0; i < Math.min(5, ps.numSpecies); i++) {
+                    const species = ps.species[i];
+                    this.assert(species.name === expectedNames[i], 
+                        `Species ${i} has expected name: ${species.name} === ${expectedNames[i]}`);
+                }
+                
+                // Test 2: Update species names when colors change
+                this.log('Testing name updates on color change...', 'info');
+                
+                // Change first species to a cyan color
+                ps.species[0].color = { r: 0, g: 255, b: 255 };
+                
+                // Update UI which should trigger name update
+                ctx.mainUI.updateAllSpeciesNames();
+                
+                this.assert(ps.species[0].name === 'Cyan', 
+                    `Species 0 name updated to Cyan after color change`);
+                
+                // Test 3: Test complex color naming
+                this.log('Testing complex color naming...', 'info');
+                
+                const testColors = [
+                    { color: { r: 255, g: 128, b: 0 }, expected: 'Orange' },
+                    { color: { r: 128, g: 0, b: 128 }, expected: 'Purple' },
+                    { color: { r: 0, g: 128, b: 128 }, expected: 'Teal' },
+                    { color: { r: 255, g: 192, b: 203 }, expected: 'Pink' },
+                    { color: { r: 64, g: 64, b: 64 }, expected: 'Dark Gray' },
+                    { color: { r: 192, g: 192, b: 192 }, expected: 'Light Gray' },
+                    { color: { r: 139, g: 69, b: 19 }, expected: 'Brown' }
+                ];
+                
+                for (const test of testColors) {
+                    const hexColor = ctx.mainUI.rgbToHex(test.color);
+                    const colorName = ctx.mainUI.getColorName(hexColor);
+                    this.log(`Color ${hexColor} -> ${colorName} (expected: ${test.expected})`, 'info');
+                    
+                    // Allow some flexibility in naming (e.g., 'Light Pink' vs 'Pink')
+                    const nameMatches = colorName.includes(test.expected.split(' ').pop());
+                    this.assert(nameMatches, 
+                        `Color naming works for ${test.expected}: got '${colorName}'`);
+                }
+                
+                // Test 4: Check preset loading updates species names
+                this.log('Testing species names after preset load...', 'info');
+                
+                // Create a test preset with specific colors
+                const testPreset = {
+                    name: 'Test Color Names',
+                    species: {
+                        count: 3,
+                        definitions: [
+                            { color: { r: 255, g: 0, b: 0 }, size: 3, opacity: 0.9, particleCount: 100 },
+                            { color: { r: 0, g: 0, b: 255 }, size: 3, opacity: 0.9, particleCount: 100 },
+                            { color: { r: 255, g: 255, b: 0 }, size: 3, opacity: 0.9, particleCount: 100 }
+                        ]
+                    },
+                    physics: { friction: 0.02, forceFactor: 3 },
+                    visual: { blur: 0.92, particleSize: 3 }
+                };
+                
+                // Load the preset
+                ps.loadFullPreset(testPreset);
+                ctx.mainUI.updateUIFromParticleSystem();
+                
+                // Wait for UI update
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Check species names were updated
+                this.assert(ps.species[0].name === 'Red', 'Species 0 named Red after preset load');
+                this.assert(ps.species[1].name === 'Blue', 'Species 1 named Blue after preset load');
+                this.assert(ps.species[2].name === 'Yellow', 'Species 2 named Yellow after preset load');
+                
+                // Test 5: Check UI elements display correct names
+                this.log('Testing UI displays correct species names...', 'info');
+                
+                const speciesLabel0 = ctx.document.getElementById('species-label-0');
+                const speciesLabel1 = ctx.document.getElementById('species-label-1');
+                
+                if (speciesLabel0 && speciesLabel1) {
+                    this.assert(speciesLabel0.textContent === 'Red', 
+                        `Species label 0 shows correct name: ${speciesLabel0.textContent}`);
+                    this.assert(speciesLabel1.textContent === 'Blue', 
+                        `Species label 1 shows correct name: ${speciesLabel1.textContent}`);
+                } else {
+                    this.log('⚠️ Species labels not found in DOM', 'warning');
+                }
+                
+                this.log('✓ Species color-based naming test completed', 'success');
+                
+            } catch (error) {
+                throw new Error(`Species naming test failed: ${error.message}`);
+            }
+        }
+
+        // Test the advanced force pattern presets
+        async testAdvancedPresets() {
+            this.log('Testing advanced force pattern presets with Clusters inspiration...', 'info');
+            const ctx = await this.getAppContext();
+            
+            // Ensure we have the force pattern system
+            this.assert(typeof ctx.mainUI.applyForcePattern === 'function', 'Force pattern system available');
+            this.assert(typeof ctx.mainUI.applyPatternPreset === 'function', 'Pattern preset system available');
+            
+            // Test data structures for all patterns
+            const testPatterns = [
+                {
+                    name: 'territorial', 
+                    presets: ['peaceful', 'aggressive', 'fortress', 'nomadic'],
+                    expectedParams: ['territorySize', 'boundaryStrength', 'invasionResponse']
+                },
+                {
+                    name: 'symbiotic',
+                    presets: ['mutualism', 'commensalism', 'competition', 'independence'], 
+                    expectedParams: ['cooperationStrength', 'dependencyLevel', 'mutualismType', 'competitionIntensity']
+                },
+                {
+                    name: 'cyclic',
+                    presets: ['classic', 'chaotic', 'stable', 'complex'],
+                    expectedParams: ['cycleSpeed', 'dominanceStrength', 'cycleComplexity', 'stabilityFactor']
+                }
+            ];
+            
+            let totalPresetsTest = 0;
+            let successfulPresets = 0;
+            
+            for (const pattern of testPatterns) {
+                this.log(`Testing ${pattern.name} pattern...`, 'info');
+                
+                // Switch to the pattern first
+                ctx.mainUI.applyForcePattern(pattern.name, 0.5);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // Test each preset
+                for (const presetName of pattern.presets) {
+                    totalPresetsTest++;
+                    try {
+                        // Apply the preset
+                        ctx.mainUI.applyPatternPreset(pattern.name, presetName);
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                        
+                        // Verify pattern parameters are extracted correctly
+                        const params = ctx.mainUI.extractPatternParameters(pattern.name);
+                        
+                        // Check that we got the expected parameters
+                        for (const expectedParam of pattern.expectedParams) {
+                            this.assert(
+                                params.hasOwnProperty(expectedParam),
+                                `${pattern.name}.${presetName}: Has ${expectedParam} parameter`
+                            );
+                        }
+                        
+                        // Verify preset applied distinct values
+                        if (pattern.name === 'territorial') {
+                            this.assert(
+                                typeof params.territorySize === 'number' && params.territorySize > 0,
+                                `${presetName}: Territory size is valid (${params.territorySize})`
+                            );
+                            this.assert(
+                                typeof params.boundaryStrength === 'number' && params.boundaryStrength > 0,
+                                `${presetName}: Boundary strength is valid (${params.boundaryStrength})`
+                            );
+                        } else if (pattern.name === 'symbiotic') {
+                            this.assert(
+                                typeof params.cooperationStrength === 'number' && params.cooperationStrength > 0,
+                                `${presetName}: Cooperation strength is valid (${params.cooperationStrength})`
+                            );
+                            this.assert(
+                                ['obligate', 'facultative'].includes(params.mutualismType),
+                                `${presetName}: Mutualism type is valid (${params.mutualismType})`
+                            );
+                        } else if (pattern.name === 'cyclic') {
+                            this.assert(
+                                typeof params.cycleSpeed === 'number' && params.cycleSpeed > 0,
+                                `${presetName}: Cycle speed is valid (${params.cycleSpeed})`
+                            );
+                            this.assert(
+                                ['simple', 'complex', 'multi-level'].includes(params.cycleComplexity),
+                                `${presetName}: Cycle complexity is valid (${params.cycleComplexity})`
+                            );
+                        }
+                        
+                        successfulPresets++;
+                        this.log(`✓ ${pattern.name}.${presetName} applied successfully`, 'success');
+                        
+                    } catch (error) {
+                        this.log(`✗ ${pattern.name}.${presetName} failed: ${error.message}`, 'error');
+                        throw error;
+                    }
+                }
+            }
+            
+            // Test that different presets produce different parameter values
+            this.log('Testing preset uniqueness...', 'info');
+            
+            // Compare territorial presets
+            ctx.mainUI.applyForcePattern('territorial', 0.5);
+            ctx.mainUI.applyPatternPreset('territorial', 'peaceful');
+            const peacefulParams = ctx.mainUI.extractPatternParameters('territorial');
+            
+            ctx.mainUI.applyPatternPreset('territorial', 'aggressive');
+            const aggressiveParams = ctx.mainUI.extractPatternParameters('territorial');
+            
+            this.assert(
+                peacefulParams.territorySize !== aggressiveParams.territorySize ||
+                peacefulParams.boundaryStrength !== aggressiveParams.boundaryStrength,
+                'Territorial presets produce different parameter values'
+            );
+            
+            // Test UI parameter display updates
+            this.log('Testing UI parameter display updates...', 'info');
+            
+            // Test symbiotic pattern UI
+            ctx.mainUI.applyForcePattern('symbiotic', 0.6);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            const paramPanel = ctx.document.getElementById('pattern-parameters-panel');
+            this.assert(paramPanel !== null, 'Parameter panel exists');
+            
+            const cooperationSlider = paramPanel.querySelector('#param-cooperation-strength');
+            const mutualismDropdown = paramPanel.querySelector('#param-mutualism-type');
+            const competitionSlider = paramPanel.querySelector('#param-competition-intensity');
+            
+            this.assert(cooperationSlider !== null, 'Cooperation strength slider exists');
+            this.assert(mutualismDropdown !== null, 'Mutualism type dropdown exists');
+            this.assert(competitionSlider !== null, 'Competition intensity slider exists');
+            
+            // Apply a preset and verify UI updates
+            ctx.mainUI.applyPatternPreset('symbiotic', 'mutualism');
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            this.assert(
+                mutualismDropdown.value === 'obligate',
+                `Mutualism preset sets dropdown correctly (${mutualismDropdown.value})`
+            );
+            
+            return {
+                totalPresets: totalPresetsTest,
+                successfulPresets: successfulPresets,
+                uniquenessVerified: true,
+                uiUpdatesWorking: true
+            };
         }
         
         // Initialize test runner

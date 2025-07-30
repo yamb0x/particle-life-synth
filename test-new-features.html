@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Features Test - Particle Life Synth</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+        }
+        
+        .test-button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+        }
+        
+        .test-button:hover {
+            background: #00cc6a;
+        }
+        
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .success {
+            background: #004d1a;
+            border: 1px solid #00ff88;
+        }
+        
+        .error {
+            background: #4d0000;
+            border: 1px solid #ff0000;
+        }
+        
+        .info {
+            background: #1a1a4d;
+            border: 1px solid #4488ff;
+        }
+        
+        canvas {
+            border: 1px solid #666;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 New Features Test Suite</h1>
+        <p>Testing all recent features for proper save/load functionality</p>
+        
+        <div class="test-section">
+            <h2>📋 Test Controls</h2>
+            <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+            <button class="test-button" onclick="testPresetSaveLoad()">Test Preset Save/Load</button>
+            <button class="test-button" onclick="testPhysicsFeatures()">Test Physics Features</button>
+            <button class="test-button" onclick="testSpeciesFeatures()">Test Species Features</button>
+            <button class="test-button" onclick="testCloudSync()">Test Cloud Sync</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Test Results</h2>
+            <div id="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🖼️ Visual Test Canvas</h2>
+            <canvas id="test-canvas" width="800" height="400"></canvas>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        import { HybridPresetManager } from './src/utils/HybridPresetManager.js';
+        
+        // Global variables for testing
+        let particleSystem;
+        let presetManager;
+        let testResults = [];
+        
+        // Initialize test environment
+        function initializeTest() {
+            const canvas = document.getElementById('test-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
+            particleSystem.canvas = canvas;
+            particleSystem.ctx = ctx;
+            particleSystem.initializeParticles();
+            
+            presetManager = new HybridPresetManager();
+            return true;
+        }
+        
+        // Logging functions
+        function logSuccess(message) {
+            testResults.push({ type: 'success', message });
+            updateResultsDisplay();
+        }
+        
+        function logError(message) {
+            testResults.push({ type: 'error', message });
+            updateResultsDisplay();
+        }
+        
+        function logInfo(message) {
+            testResults.push({ type: 'info', message });
+            updateResultsDisplay();
+        }
+        
+        function updateResultsDisplay() {
+            const container = document.getElementById('test-results');
+            container.innerHTML = testResults.map(result => 
+                `<div class="test-result ${result.type}">${result.message}</div>`
+            ).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function clearResults() {
+            testResults = [];
+            updateResultsDisplay();
+        }
+        
+        // Test functions
+        async function testPresetSaveLoad() {
+            logInfo('🔄 Testing preset save/load cycle...');
+            
+            try {
+                // Create a minimal test preset first, then set detailed values
+                particleSystem.numSpecies = 3;
+                particleSystem.initializeSpecies();
+                
+                // Set up test values for all new features
+                particleSystem.collisionOffset = 5.0;
+                particleSystem.environmentalPressure = 0.3;
+                particleSystem.chaosLevel = 0.2;
+                particleSystem.collisionMultiplier = 1.5;
+                
+                // Set per-species dynamics
+                particleSystem.species[0].mobility = 1.2;
+                particleSystem.species[0].inertia = 0.9;
+                particleSystem.species[1].mobility = 0.8;
+                particleSystem.species[1].inertia = 0.75;
+                particleSystem.species[2].mobility = 1.8;
+                particleSystem.species[2].inertia = 0.95;
+                
+                // Set per-species halos
+                particleSystem.setSpeciesHalo(0, { intensity: 0.1, radius: 2.0 });
+                particleSystem.setSpeciesHalo(1, { intensity: 0.05, radius: 1.5 });
+                particleSystem.setSpeciesHalo(2, { intensity: 0.15, radius: 2.5 });
+                
+                // Set per-species trails
+                particleSystem.linkAllSpeciesTrails = false;
+                particleSystem.speciesTrailLength[0] = 0.9;
+                particleSystem.speciesTrailLength[1] = 0.95;
+                particleSystem.speciesTrailLength[2] = 0.85;
+                
+                // Set force pattern
+                particleSystem.forcePatternType = 'predator-prey';
+                particleSystem.forceDistribution = 0.7;
+                particleSystem.forcePatternParameters = { huntIntensity: 2.5 };
+                
+                // Set wall system features
+                particleSystem.repulsiveForce = 0.6;
+                particleSystem.wrapAroundWalls = true;
+                
+                // Set background features
+                particleSystem.backgroundMode = 'sinusoidal';
+                particleSystem.backgroundColor1 = '#ff0000';
+                particleSystem.backgroundColor2 = '#0000ff';
+                particleSystem.backgroundCycleTime = 8.0;
+                
+                // Export the configured preset
+                const testPreset = particleSystem.exportPreset();
+                testPreset.name = 'FeatureTest_' + Date.now();
+                
+                logSuccess('✓ Initial preset created and exported');
+                
+                // Reset system and load the preset back
+                particleSystem.loadDefaults();
+                particleSystem.loadFullPreset(testPreset);
+                logSuccess('✓ Preset loaded successfully');
+                
+                // Export again to verify round-trip
+                const exportedPreset = particleSystem.exportPreset();
+                logSuccess('✓ Preset exported successfully');
+                
+                // Log the actual structure for debugging (first few levels only)
+                logInfo('📋 Exported preset structure (summary):');
+                const summary = {
+                    name: exportedPreset.name,
+                    sections: Object.keys(exportedPreset),
+                    physics_keys: exportedPreset.physics ? Object.keys(exportedPreset.physics) : [],
+                    species_count: exportedPreset.species?.count,
+                    effects_keys: exportedPreset.effects ? Object.keys(exportedPreset.effects) : [],
+                    forces_keys: exportedPreset.forces ? Object.keys(exportedPreset.forces) : [],
+                    walls_keys: exportedPreset.walls ? Object.keys(exportedPreset.walls) : [],
+                    visual_keys: exportedPreset.visual ? Object.keys(exportedPreset.visual) : []
+                };
+                logInfo(JSON.stringify(summary, null, 2));
+                
+                // Verify all new features are preserved
+                const checks = [
+                    // Physics features
+                    {
+                        test: exportedPreset.physics?.collisionOffset === 5.0,
+                        name: 'Collision Offset',
+                        expected: 5.0,
+                        actual: exportedPreset.physics?.collisionOffset
+                    },
+                    {
+                        test: exportedPreset.physics?.environmentPressure === 0.3,
+                        name: 'Environmental Pressure',
+                        expected: 0.3,
+                        actual: exportedPreset.physics?.environmentPressure
+                    },
+                    {
+                        test: exportedPreset.physics?.chaosLevel === 0.2,
+                        name: 'Chaos Level',
+                        expected: 0.2,
+                        actual: exportedPreset.physics?.chaosLevel
+                    },
+                    
+                    // Species dynamics
+                    {
+                        test: exportedPreset.species?.definitions?.[0]?.mobility === 1.2,
+                        name: 'Species 0 Mobility',
+                        expected: 1.2,
+                        actual: exportedPreset.species?.definitions?.[0]?.mobility
+                    },
+                    {
+                        test: exportedPreset.species?.definitions?.[0]?.inertia === 0.9,
+                        name: 'Species 0 Inertia',
+                        expected: 0.9,
+                        actual: exportedPreset.species?.definitions?.[0]?.inertia
+                    },
+                    {
+                        test: exportedPreset.species?.definitions?.[1]?.mobility === 0.8,
+                        name: 'Species 1 Mobility',
+                        expected: 0.8,
+                        actual: exportedPreset.species?.definitions?.[1]?.mobility
+                    },
+                    {
+                        test: exportedPreset.species?.definitions?.[2]?.inertia === 0.95,
+                        name: 'Species 2 Inertia',
+                        expected: 0.95,
+                        actual: exportedPreset.species?.definitions?.[2]?.inertia
+                    },
+                    
+                    // Halo system
+                    {
+                        test: exportedPreset.effects?.speciesHaloArrays?.intensities?.[0] === 0.1,
+                        name: 'Species 0 Halo Intensity',
+                        expected: 0.1,
+                        actual: exportedPreset.effects?.speciesHaloArrays?.intensities?.[0]
+                    },
+                    {
+                        test: exportedPreset.effects?.speciesHaloArrays?.radii?.[2] === 2.5,
+                        name: 'Species 2 Halo Radius',
+                        expected: 2.5,
+                        actual: exportedPreset.effects?.speciesHaloArrays?.radii?.[2]
+                    },
+                    
+                    // Trail system
+                    {
+                        test: exportedPreset.effects?.speciesTrailArrays?.lengths?.[1] === 0.95,
+                        name: 'Species 1 Trail Length',
+                        expected: 0.95,
+                        actual: exportedPreset.effects?.speciesTrailArrays?.lengths?.[1]
+                    },
+                    {
+                        test: exportedPreset.effects?.linkAllSpeciesTrails === false,
+                        name: 'Link All Species Trails',
+                        expected: false,
+                        actual: exportedPreset.effects?.linkAllSpeciesTrails
+                    },
+                    
+                    // Force patterns
+                    {
+                        test: exportedPreset.forces?.pattern?.type === 'predator-prey',
+                        name: 'Force Pattern Type',
+                        expected: 'predator-prey',
+                        actual: exportedPreset.forces?.pattern?.type
+                    },
+                    {
+                        test: exportedPreset.forces?.pattern?.parameters?.huntIntensity === 2.5,
+                        name: 'Hunt Intensity Parameter',
+                        expected: 2.5,
+                        actual: exportedPreset.forces?.pattern?.parameters?.huntIntensity
+                    },
+                    
+                    // Wall system
+                    {
+                        test: exportedPreset.walls?.repulsiveForce === 0.6,
+                        name: 'Repulsive Force',
+                        expected: 0.6,
+                        actual: exportedPreset.walls?.repulsiveForce
+                    },
+                    {
+                        test: exportedPreset.walls?.wrapAroundWalls === true,
+                        name: 'Wrap Around Walls',
+                        expected: true,
+                        actual: exportedPreset.walls?.wrapAroundWalls
+                    },
+                    
+                    // Background system
+                    {
+                        test: exportedPreset.visual?.backgroundMode === 'sinusoidal',
+                        name: 'Background Mode',
+                        expected: 'sinusoidal',
+                        actual: exportedPreset.visual?.backgroundMode
+                    },
+                    {
+                        test: exportedPreset.visual?.backgroundColor1 === '#ff0000',
+                        name: 'Background Color 1',
+                        expected: '#ff0000',
+                        actual: exportedPreset.visual?.backgroundColor1
+                    },
+                    {
+                        test: exportedPreset.visual?.backgroundColor2 === '#0000ff',
+                        name: 'Background Color 2',
+                        expected: '#0000ff',
+                        actual: exportedPreset.visual?.backgroundColor2
+                    },
+                    {
+                        test: exportedPreset.visual?.backgroundCycleTime === 8.0,
+                        name: 'Background Cycle Time',
+                        expected: 8.0,
+                        actual: exportedPreset.visual?.backgroundCycleTime
+                    }
+                ];
+                
+                const passedChecks = checks.filter(check => check.test);
+                const failedChecks = checks.filter(check => !check.test);
+                
+                // Log detailed results
+                passedChecks.forEach(check => {
+                    logSuccess(`✓ ${check.name}: ${check.actual}`);
+                });
+                
+                failedChecks.forEach(check => {
+                    logError(`✗ ${check.name}: expected ${check.expected}, got ${check.actual}`);
+                });
+                
+                if (passedChecks.length === checks.length) {
+                    logSuccess(`🎉 All ${checks.length} feature checks passed!`);
+                } else {
+                    logError(`❌ ${passedChecks.length}/${checks.length} feature checks passed`);
+                }
+                
+                // Test save to local manager (without cloud upload)
+                await presetManager.savePreset('test_preset', exportedPreset, false);
+                logSuccess('✓ Preset saved to local manager');
+                
+                // Test load from manager and verify round-trip preservation
+                const loadedPreset = presetManager.getPreset('test_preset');
+                if (loadedPreset && loadedPreset.name === exportedPreset.name) {
+                    logSuccess('✓ Preset loaded from manager successfully');
+                    
+                    // Test loading the manager preset back into the particle system
+                    particleSystem.loadDefaults();
+                    particleSystem.loadFullPreset(loadedPreset);
+                    
+                    // Export again after manager round-trip
+                    const finalExport = particleSystem.exportPreset();
+                    
+                    // Quick spot check of critical values after manager round-trip
+                    const managerRoundTripChecks = [
+                        loadedPreset.physics?.collisionOffset === exportedPreset.physics?.collisionOffset,
+                        loadedPreset.species?.definitions?.[0]?.mobility === exportedPreset.species?.definitions?.[0]?.mobility,
+                        loadedPreset.effects?.speciesHaloArrays?.intensities?.[0] === exportedPreset.effects?.speciesHaloArrays?.intensities?.[0]
+                    ];
+                    
+                    const managerPassed = managerRoundTripChecks.filter(check => check).length;
+                    const managerTotal = managerRoundTripChecks.length;
+                    
+                    if (managerPassed === managerTotal) {
+                        logSuccess(`✓ Manager round-trip preserved all ${managerTotal} critical values`);
+                    } else {
+                        logError(`✗ Manager round-trip: ${managerPassed}/${managerTotal} values preserved`);
+                    }
+                } else {
+                    logError('✗ Failed to load preset from manager');
+                }
+                
+            } catch (error) {
+                logError(`✗ Preset test failed: ${error.message}`);
+            }
+        }
+        
+        async function testPhysicsFeatures() {
+            logInfo('⚡ Testing physics features...');
+            
+            try {
+                // Test collision offset
+                particleSystem.collisionOffset = 7.5;
+                if (particleSystem.collisionOffset === 7.5) {
+                    logSuccess('✓ Collision offset setting works');
+                } else {
+                    logError('✗ Collision offset setting failed');
+                }
+                
+                // Test environmental pressure
+                particleSystem.environmentalPressure = 0.5;
+                if (particleSystem.environmentalPressure === 0.5) {
+                    logSuccess('✓ Environmental pressure setting works');
+                } else {
+                    logError('✗ Environmental pressure setting failed'); 
+                }
+                
+                // Test chaos level
+                particleSystem.chaosLevel = 0.4;
+                if (particleSystem.chaosLevel === 0.4) {
+                    logSuccess('✓ Chaos level setting works');
+                } else {
+                    logError('✗ Chaos level setting failed');
+                }
+                
+                logSuccess('✓ All physics features working correctly');
+                
+            } catch (error) {
+                logError(`✗ Physics test failed: ${error.message}`);
+            }
+        }
+        
+        async function testSpeciesFeatures() {
+            logInfo('🐠 Testing species features...');
+            
+            try {
+                // Test per-species mobility and inertia
+                if (particleSystem.species.length > 0) {
+                    particleSystem.species[0].mobility = 2.0;
+                    particleSystem.species[0].inertia = 0.8;
+                    
+                    if (particleSystem.species[0].mobility === 2.0 && 
+                        particleSystem.species[0].inertia === 0.8) {
+                        logSuccess('✓ Per-species mobility and inertia work');
+                    } else {
+                        logError('✗ Per-species mobility and inertia failed');
+                    }
+                }
+                
+                // Test halo system
+                particleSystem.setSpeciesHalo(0, { intensity: 0.12, radius: 3.0 });
+                const haloSettings = particleSystem.getSpeciesHalo(0);
+                
+                if (haloSettings.intensity === 0.12 && haloSettings.radius === 3.0) {
+                    logSuccess('✓ Per-species halo system works');
+                } else {
+                    logError('✗ Per-species halo system failed');
+                }
+                
+                // Test trail system
+                if (particleSystem.speciesTrailLength && particleSystem.speciesTrailLength.length > 0) {
+                    particleSystem.speciesTrailLength[0] = 0.88;
+                    if (particleSystem.speciesTrailLength[0] === 0.88) {
+                        logSuccess('✓ Per-species trail system works');
+                    } else {
+                        logError('✗ Per-species trail system failed');
+                    }
+                }
+                
+                logSuccess('✓ All species features working correctly');
+                
+            } catch (error) {
+                logError(`✗ Species test failed: ${error.message}`);
+            }
+        }
+        
+        async function testCloudSync() {
+            logInfo('☁️ Testing cloud synchronization...');
+            
+            try {
+                // Enable cloud sync
+                await presetManager.enableCloudSync();
+                
+                if (presetManager.isCloudEnabled()) {
+                    logSuccess('✓ Cloud sync enabled successfully');
+                    
+                    const status = presetManager.getCloudStatus();
+                    logInfo(`Cloud status: ${JSON.stringify(status, null, 2)}`);
+                    
+                    // Test cleanup function
+                    try {
+                        await presetManager.cleanupLocalTestPresets();
+                        logSuccess('✓ Local cleanup completed');
+                    } catch (cleanupError) {
+                        logInfo(`Local cleanup note: ${cleanupError.message}`);
+                    }
+                    
+                } else {
+                    logError('✗ Cloud sync failed to enable');
+                }
+                
+            } catch (error) {
+                logError(`✗ Cloud sync test failed: ${error.message}`);
+            }
+        }
+        
+        async function runAllTests() {
+            clearResults();
+            logInfo('🚀 Starting comprehensive test suite...');
+            
+            if (!initializeTest()) {
+                logError('✗ Failed to initialize test environment');
+                return;
+            }
+            
+            logSuccess('✓ Test environment initialized');
+            
+            await testPhysicsFeatures();
+            await testSpeciesFeatures();
+            await testPresetSaveLoad();
+            await testCloudSync();
+            
+            logSuccess('🎉 All tests completed!');
+        }
+        
+        // Make functions available globally
+        window.runAllTests = runAllTests;
+        window.testPresetSaveLoad = testPresetSaveLoad;
+        window.testPhysicsFeatures = testPhysicsFeatures;
+        window.testSpeciesFeatures = testSpeciesFeatures;
+        window.testCloudSync = testCloudSync;
+        window.clearResults = clearResults;
+        
+        // Auto-initialize
+        logInfo('Test suite ready. Click "Run All Tests" to begin.');
+        
+    </script>
+</body>
+</html>

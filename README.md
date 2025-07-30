@@ -8,11 +8,13 @@ A visual particle simulation system that creates emergent behaviors through mult
 
 ### Key Features
 - **Real-time Cloud Collaboration** - Share presets instantly via links with robust Firebase management
-- **25+ Configurable Parameters** - Physics, visuals, and particle behaviors
-- **Visual Distribution Editor** - Paint particle distributions with brush, circle, lightning, and eraser modes
-- **Smart Preset Management** - Intelligent cloud sync with test artifact prevention and duplicate elimination
-- **Streamlined Workflow** - Save as new preset by simply changing the name
-- **Performance Optimized** - 60+ FPS with 500+ particles
+- **Advanced Physics Engine** - Collision detection, environmental pressure, chaos injection, and per-species dynamics
+- **Mathematical Distribution Patterns** - Fibonacci spirals, fractal recursion, golden ratio, and species-responsive patterns
+- **Per-Species Control** - Individual trail intensity, mobility, inertia, and visual effects per species
+- **Enhanced Force Systems** - Predator-prey, symbiotic, crystal formation, vortex, and chain reaction presets
+- **Visual Effects Suite** - Halo system, glow controls, wrap-around boundaries, and dreamtime rendering
+- **Smart Preset Management** - Intelligent cloud sync with test artifact prevention and auto-naming
+- **Performance Optimized** - 60+ FPS with 500+ particles, advanced collision detection
 - **No Build Required** - Pure vanilla JavaScript with ES6 modules
 
 ## Quick Start
@@ -33,15 +35,28 @@ python3 serve.py
 ### Keyboard Shortcuts
 - **C** - Toggle UI and overlay visibility
 - **V** - Randomize particle values | **R** - Randomize force relationships
+- **M** - Mute/freeze simulation (preserve battery)
 - **Shift + Plus** - Next preset | **Shift + Minus** - Previous preset
 
 ### Core Features
-- **Visual Distribution Editor** - Paint particle starting positions with brush, circle, lightning, and eraser modes
-- **Force Relationship Editor** - Visual matrix for species interactions
-- **Real-time Parameter Adjustment** - 25+ physics and visual parameters
-- **Preset System** - Save, load, and share configurations
-- **Cloud Collaboration** - Share presets via links with automatic sync
-- **Performance Monitoring** - Built-in FPS tracking and optimization
+
+#### 🎨 Enhanced Visual Systems
+- **Mathematical Distribution Patterns** - Fibonacci spirals, fractal recursion, golden ratio, phyllotaxis
+- **Species-Responsive Patterns** - Quantum interference, neural noise, data corruption, temporal distortion
+- **Smart Distribution Tools** - Precision circle mode, sci-fi glitch effects, smart erase (Cmd+Click)
+- **Per-Species Visual Control** - Individual trail intensity, halo effects, glow systems
+
+#### ⚙️ Advanced Physics Engine  
+- **Collision System** - Per-species size-based collisions with offset and strength controls
+- **Environmental Forces** - Global pressure, chaos injection, boundary interactions
+- **Per-Species Dynamics** - Individual mobility, inertia, and size variation controls
+- **Force Presets** - Predator-prey, symbiotic, crystal formation, vortex, chain reaction patterns
+
+#### 🌐 Smart Collaboration
+- **Cloud Preset Management** - Intelligent sync with duplicate prevention and test artifact blocking
+- **Auto-Naming System** - Color-based species identification with smart detection
+- **Streamlined Workflow** - Save as new preset by changing name, update existing by keeping name
+- **Real-time Sharing** - Instant preset sharing via links with Firebase integration
 
 ## Architecture
 
@@ -55,6 +70,22 @@ src/
 ```
 
 **Tech Stack**: Vanilla JavaScript (ES6 modules) • Canvas 2D • IndexedDB/localStorage • Firebase • Vercel
+
+## Latest Updates (July 30, 2025)
+
+### 🚀 Major Enhancements
+- **Per-Species Trail System** - Individual trail controls for each species with unique motion signatures
+- **Advanced Collision Physics** - Size-based interactions with environmental pressure and chaos injection
+- **Mathematical Distribution Patterns** - 8+ mathematical patterns including Fibonacci and golden ratio
+- **Enhanced Force Presets** - 5 main categories with 15+ sub-patterns for complex behaviors
+- **Species Auto-Naming** - Intelligent color-based naming with automatic updates
+- **Cloud Storage Revolution** - Smart ID system with test artifact prevention and conflict resolution
+
+### 🎯 UI/UX Improvements  
+- **Reorganized Interface** - Logical grouping of particles, forces, and visual controls
+- **Extended Parameter Ranges** - Higher limits for creative experimentation
+- **Real-time Feedback** - Instant value updates across all interface elements
+- **Performance Monitoring** - Built-in diagnostics with FPS tracking and resource analysis
 
 ## Development Status
 

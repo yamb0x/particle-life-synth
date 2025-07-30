@@ -3,6 +3,39 @@
  * Focuses on asymmetric behaviors and visual interest
  */
 
+// Pattern parameter defaults for configurable force patterns
+const PATTERN_DEFAULTS = {
+    clusters: {
+        clusterType: 'orbital',
+        cohesionStrength: 0.8,
+        separationDistance: 0.5,
+        formationBias: 0.6
+    },
+    'predator-prey': {
+        ecosystemType: 'simple_chain',
+        huntIntensity: 3.0,
+        escapeIntensity: 2.5,
+        populationBalance: 0.4
+    },
+    territorial: {
+        territorySize: 0.3,
+        boundaryStrength: 1.2,
+        invasionResponse: 2.0
+    },
+    symbiotic: {
+        cooperationStrength: 1.5,
+        dependencyLevel: 0.7,
+        mutualismType: 'obligate',
+        competitionIntensity: 1.0
+    },
+    cyclic: {
+        cycleSpeed: 1.0,
+        dominanceStrength: 2.0,
+        cycleComplexity: 'simple',
+        stabilityFactor: 0.5
+    }
+};
+
 export class SimpleParticleSystem {
     constructor(width, height) {
         this.width = width;
@@ -25,7 +58,7 @@ export class SimpleParticleSystem {
         // Visual settings
         this.blur = 0.95; // Trail effect (0.5-0.99, higher = shorter trails)
         this.particleSize = 3;
-        this.perSpeciesSize = false; // Enable per-species particle size control
+        this.perSpeciesSize = true; // Always use per-species particle size
         this.trailEnabled = true;
         
         // Background color system
@@ -43,10 +76,36 @@ export class SimpleParticleSystem {
         this.speciesGlowSize = new Array(10).fill(1.0); // Glow size multiplier (0.5-3.0)
         this.speciesGlowIntensity = new Array(10).fill(0); // Glow intensity (0-1)
         
+        // Per-species halo values
+        this.speciesHaloIntensity = new Array(20).fill(0); // Halo intensity (0-0.2)
+        this.speciesHaloRadius = new Array(20).fill(1.0); // Halo radius multiplier (0.5-5.0)
+        
+        // Per-species trail values
+        this.linkAllSpeciesTrails = true; // Link all species trails to global value (simplified UX)
+        this.speciesTrailLength = new Array(20).fill(0.95); // Trail length per species (0.5-0.99)
+        
+        // Trail canvas cache for per-species trails
+        this.trailCanvasCache = null;
+        this.lastFrameImageData = null;
+        
         // Physics settings
         this.friction = 0.98;
         this.wallDamping = 0.8;
         this.forceFactor = 0.5;
+        
+        // Wall behavior settings
+        this.repulsiveForce = 0.3; // Strength of invisible repulsive barriers (0-1)
+        this.wrapAroundWalls = false; // Enable wrap-around boundaries
+        
+        // Collision physics - always based on particle sizes
+        this.collisionMultiplier = 1.0;   // Global multiplier for collision strength (0.5-5.0)
+        this.collisionOffset = 0.0;       // Extra spacing between particles (0-10)
+        
+        // Advanced physics for organic behaviors
+        this.enableDensityForces = false; // Density-dependent force modulation
+        this.enableTimeModulation = false; // Time-varying forces
+        this.chaosLevel = 0.0; // Random force injection (0-1)
+        this.environmentalPressure = 0.0; // Global center attraction/repulsion (-1 to 1)
         
         // Species settings
         this.numSpecies = 5;
@@ -62,11 +121,27 @@ export class SimpleParticleSystem {
             this.speciesGlowIntensity[i] = 0; // Default: no extra glow
         }
         
+        // Initialize per-species halo
+        for (let i = 0; i < this.numSpecies; i++) {
+            this.speciesHaloIntensity[i] = 0; // Default: no halo
+            this.speciesHaloRadius[i] = 1.0; // Default: normal radius
+        }
+        
+        // Initialize per-species trails
+        for (let i = 0; i < this.numSpecies; i++) {
+            this.speciesTrailLength[i] = this.blur; // Default: same as global trail
+        }
+        
         // Asymmetric force matrices - the key to interesting behaviors!
         this.collisionRadius = this.createMatrix(15, 25); // Close range
         this.socialRadius = this.createMatrix(50, 150);   // Long range
         this.collisionForce = this.createMatrix(-1, -0.5); // Repulsion
         this.socialForce = this.createAsymmetricMatrix();  // Attraction/repulsion
+        
+        // Force pattern configuration
+        this.forcePatternType = 'random';
+        this.forceDistribution = 0.8; // Edge bias value
+        this.forcePatternParameters = {}; // Pattern-specific parameters
         
         // Canvas reference
         this.canvas = null;
@@ -81,8 +156,9 @@ export class SimpleParticleSystem {
         this.mousePressed = false; // Track mouse state for continuous shockwaves
         this.currentMousePos = { x: 0, y: 0 }; // Current mouse position
         
-        // Cached gradient for dreamtime mode
+        // Cached gradients for performance
         this.gradientCache = new Map();
+        this.haloGradientCache = new Map();
         
         // Object pools for memory optimization
         this.tempArrayPool = [];
@@ -110,7 +186,7 @@ export class SimpleParticleSystem {
         }
         
         const totalCells = this.gridWidth * this.gridHeight;
-        console.log(`Initializing spatial grid: ${this.gridWidth}x${this.gridHeight} = ${totalCells} cells`);
+        // Spatial grid initialized
         
         this.spatialGrid = [];
         for (let i = 0; i < totalCells; i++) {
@@ -250,6 +326,9 @@ export class SimpleParticleSystem {
         if (this.gradientCache) {
             this.gradientCache.clear();
         }
+        if (this.haloGradientCache) {
+            this.haloGradientCache.clear();
+        }
         // Keep object pools but clear their contents
         if (this.tempArrayPool) {
             this.tempArrayPool.forEach(arr => arr.length = 0);
@@ -257,31 +336,72 @@ export class SimpleParticleSystem {
     }
     
     applyTrailDecay() {
-        // Use fillRect with globalCompositeOperation for clean trails
-        // This prevents the gray residue accumulation issue completely
-        
         // Get current background color (dynamic for sinusoidal mode)
         const currentBgColor = this.getCurrentBackgroundColor();
         
-        // Parse background color to get RGB values
+        if (this.linkAllSpeciesTrails) {
+            // Linked mode: use global blur value (same as original behavior)
+            const trailAlpha = 1 - this.blur;
+            this.ctx.save();
+            this.ctx.globalAlpha = trailAlpha;
+            this.ctx.fillStyle = currentBgColor;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+            this.ctx.restore();
+        } else {
+            // Per-species mode: apply different trail decay to different regions
+            this.applyPerSpeciesTrailDecay(currentBgColor);
+        }
+    }
+    
+    applyPerSpeciesTrailDecay(bgColor) {
+        // Simple approach: Apply different trail intensities to circular areas around each particle
+        // This gives the visual effect of per-species trails without complex pixel manipulation
+        
+        this.ensureTrailArraysSize();
+        
+        // Parse background color
         let bgR = 0, bgG = 0, bgB = 0;
-        if (currentBgColor.startsWith('#')) {
-            const hex = currentBgColor.slice(1);
+        if (bgColor.startsWith('#')) {
+            const hex = bgColor.slice(1);
             bgR = parseInt(hex.substr(0, 2), 16) || 0;
             bgG = parseInt(hex.substr(2, 2), 16) || 0;
             bgB = parseInt(hex.substr(4, 2), 16) || 0;
         }
         
-        // Calculate alpha for trail effect
-        // this.blur represents trail length (0.5-0.99, higher = shorter trails)
-        // Convert to alpha overlay (higher blur = more overlay toward background)
-        const trailAlpha = 1 - this.blur;
-        
-        // Apply trail decay using alpha blending
         this.ctx.save();
-        this.ctx.globalAlpha = trailAlpha;
-        this.ctx.fillStyle = currentBgColor;
-        this.ctx.fillRect(0, 0, this.width, this.height);
+        
+        // Apply trail decay for each species
+        for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
+            const trailLength = this.speciesTrailLength[speciesId] || this.blur;
+            const trailAlpha = 1 - trailLength;
+            
+            if (trailAlpha > 0) {
+                // Create a radial gradient for smoother blending
+                const speciesParticles = this.particles.filter(p => p.species === speciesId);
+                
+                for (const particle of speciesParticles) {
+                    const radius = 25; // Influence radius around each particle
+                    
+                    // Create radial gradient from particle position
+                    const gradient = this.ctx.createRadialGradient(
+                        particle.x, particle.y, 0,
+                        particle.x, particle.y, radius
+                    );
+                    
+                    // Inner circle: full species trail effect
+                    gradient.addColorStop(0, `rgba(${bgR}, ${bgG}, ${bgB}, ${trailAlpha})`);
+                    // Outer edge: fade to transparent
+                    gradient.addColorStop(1, `rgba(${bgR}, ${bgG}, ${bgB}, 0)`);
+                    
+                    this.ctx.globalCompositeOperation = 'source-over';
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+        }
+        
         this.ctx.restore();
     }
     
@@ -328,6 +448,91 @@ export class SimpleParticleSystem {
         }
     }
     
+    // Per-species halo management API
+    setSpeciesHalo(speciesId, settings) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return false;
+        
+        this.ensureHaloArraysSize();
+        
+        if (settings.intensity !== undefined) {
+            this.speciesHaloIntensity[speciesId] = Math.max(0, Math.min(0.2, settings.intensity));
+        }
+        
+        if (settings.radius !== undefined) {
+            this.speciesHaloRadius[speciesId] = Math.max(0.5, Math.min(5.0, settings.radius));
+        }
+        
+        // Clear cache to force re-render
+        this.gradientCache.clear();
+        this.haloGradientCache.clear();
+        
+        return true;
+    }
+    
+    getSpeciesHalo(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return null;
+        
+        this.ensureHaloArraysSize();
+        
+        return {
+            intensity: this.speciesHaloIntensity[speciesId] || 0,
+            radius: this.speciesHaloRadius[speciesId] || 1.0
+        };
+    }
+    
+    clearAllSpeciesHalo() {
+        this.ensureHaloArraysSize();
+        for (let i = 0; i < this.numSpecies; i++) {
+            this.speciesHaloIntensity[i] = 0;
+        }
+        this.gradientCache.clear();
+        this.haloGradientCache.clear();
+    }
+    
+    // Per-species trail management API
+    setSpeciesTrail(speciesId, trailLength) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) {
+            console.warn(`Invalid species ID: ${speciesId}, must be 0-${this.numSpecies - 1}`);
+            return false;
+        }
+        
+        this.ensureTrailArraysSize();
+        this.speciesTrailLength[speciesId] = Math.max(0.5, Math.min(0.99, trailLength));
+        return true;
+    }
+    
+    getSpeciesTrail(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) {
+            console.warn(`Invalid species ID: ${speciesId}, must be 0-${this.numSpecies - 1}`);
+            return this.blur; // Fallback to global value
+        }
+        
+        this.ensureTrailArraysSize();
+        return this.speciesTrailLength[speciesId] || this.blur;
+    }
+    
+    resetAllSpeciesTrails() {
+        this.ensureTrailArraysSize();
+        for (let i = 0; i < this.numSpecies; i++) {
+            this.speciesTrailLength[i] = this.blur; // Reset to global value
+        }
+    }
+    
+    // Sync all species trails to global blur value (when linking is enabled)
+    syncAllSpeciesTrails() {
+        if (this.linkAllSpeciesTrails) {
+            this.resetAllSpeciesTrails();
+        }
+    }
+    
+    // Set global blur and optionally sync all species
+    setGlobalBlur(value) {
+        this.blur = value;
+        if (this.linkAllSpeciesTrails) {
+            this.syncAllSpeciesTrails();
+        }
+    }
+    
     ensureGlowArraysSize() {
         // Resize arrays if needed
         if (this.speciesGlowIntensity.length < this.numSpecies) {
@@ -339,6 +544,30 @@ export class SimpleParticleSystem {
         if (this.speciesGlowSize.length < this.numSpecies) {
             this.speciesGlowSize = Array.from({ length: this.numSpecies }, (_, i) => 
                 this.speciesGlowSize[i] || 1.0
+            );
+        }
+    }
+    
+    ensureHaloArraysSize() {
+        // Resize halo arrays if needed
+        if (this.speciesHaloIntensity.length < this.numSpecies) {
+            this.speciesHaloIntensity = Array.from({ length: this.numSpecies }, (_, i) => 
+                this.speciesHaloIntensity[i] || 0
+            );
+        }
+        
+        if (this.speciesHaloRadius.length < this.numSpecies) {
+            this.speciesHaloRadius = Array.from({ length: this.numSpecies }, (_, i) => 
+                this.speciesHaloRadius[i] || 1.0
+            );
+        }
+    }
+    
+    ensureTrailArraysSize() {
+        // Resize trail arrays if needed
+        if (this.speciesTrailLength.length < this.numSpecies) {
+            this.speciesTrailLength = Array.from({ length: this.numSpecies }, (_, i) => 
+                this.speciesTrailLength[i] || this.blur
             );
         }
     }
@@ -361,7 +590,7 @@ export class SimpleParticleSystem {
             return false;
         }
         
-        console.log(`Changing species count from ${this.numSpecies} to ${newCount}, canvas: ${this.width}x${this.height}`);
+        // Changing species count
         
         const oldCount = this.numSpecies;
         this.numSpecies = newCount;
@@ -372,12 +601,18 @@ export class SimpleParticleSystem {
         // Resize glow arrays
         this.ensureGlowArraysSize();
         
+        // Resize halo arrays
+        this.ensureHaloArraysSize();
+        
+        // Resize trail arrays
+        this.ensureTrailArraysSize();
+        
         // Resize species array
         this.resizeSpeciesArray(oldCount, newCount);
         
         // CRITICAL FIX: Reinitialize spatial grid BEFORE reinitializing particles
         // This ensures the grid is properly sized for the new particle configuration
-        console.log('Initializing spatial grid...');
+        // Reinitializing spatial grid
         this.initSpatialGrid();
         
         // Validate spatial grid was created successfully
@@ -387,19 +622,19 @@ export class SimpleParticleSystem {
             return false;
         }
         
-        console.log(`Spatial grid initialized: ${this.spatialGrid.length} cells`);
+        // Spatial grid ready
         
         // Reinitialize particles with new species count
-        console.log('Reinitializing particles...');
+        // Reinitializing particles
         this.initializeParticlesWithPositions();
         
-        console.log(`Particles initialized: ${this.particles.length} particles`);
+        // Particles ready
         
         // Update spatial grid with new particles to prevent undefined grid cell access
-        console.log('Updating spatial grid with new particles...');
+        // Updating spatial grid
         this.updateSpatialGrid();
         
-        console.log('Species count change completed successfully');
+        // Species count change completed
         
         // Update main UI elements to stay in sync
         this.updateMainUISpeciesCount(newCount);
@@ -428,7 +663,7 @@ export class SimpleParticleSystem {
             }
         }
         
-        console.log(`Updated main UI elements to species count: ${newCount}`);
+        // UI updated for species count
     }
     
     preserveAndResizeForceMatrices(oldCount, newCount) {
@@ -471,17 +706,38 @@ export class SimpleParticleSystem {
         
         for (let i = 0; i < newCount; i++) {
             if (i < oldCount && oldSpecies[i]) {
-                // Keep existing species configuration
+                // Keep existing species configuration but ensure size is synchronized
                 this.species[i] = { ...oldSpecies[i] };
+                // Ensure size is updated if not per-species mode
+                if (!this.perSpeciesSize) {
+                    this.species[i].size = this.particleSize;
+                }
+                // Ensure color is properly set (fix undefined color issue)
+                if (!this.species[i].color || typeof this.species[i].color !== 'object' || 
+                    this.species[i].color.r === undefined || this.species[i].color.g === undefined || this.species[i].color.b === undefined) {
+                    this.species[i].color = this.generateSpeciesColor(i);
+                }
+                // Ensure advanced properties are set (fix missing mobility/inertia)
+                if (this.species[i].mobility === undefined) {
+                    this.species[i].mobility = 1.5; // Default center value
+                }
+                if (this.species[i].inertia === undefined) {
+                    this.species[i].inertia = 0.85; // Default center value
+                }
+                if (this.species[i].opacity === undefined) {
+                    this.species[i].opacity = 0.8 + Math.random() * 0.2;
+                }
             } else {
                 // Create new species with default configuration
                 this.species[i] = {
                     color: this.generateSpeciesColor(i),
-                    size: this.particleSize,
-                    opacity: 0.9,
+                    size: this.particleSize + (this.perSpeciesSize ? (Math.random() - 0.5) * this.particleSize * 0.5 : 0),
+                    opacity: 0.8 + Math.random() * 0.2,
                     particleCount: this.particlesPerSpecies,
+                    mobility: 1.5, // Default center value
+                    inertia: 0.85, // Default center value
                     startPosition: {
-                        type: 'random',
+                        type: 'cluster',
                         center: { x: 0.5, y: 0.5 },
                         radius: 0.2
                     }
@@ -571,17 +827,24 @@ export class SimpleParticleSystem {
         
         this.species = []; // Clear existing species
         for (let i = 0; i < this.numSpecies; i++) {
+            const baseColor = baseColors[i % baseColors.length];
             this.species[i] = {
-                color: baseColors[i % baseColors.length],
-                size: this.particleSize, // Use global particle size
+                color: { r: baseColor.r, g: baseColor.g, b: baseColor.b },
+                name: baseColor.name,
+                size: this.particleSize + (Math.random() - 0.5) * this.particleSize * 0.5, // Vary species size ±25%
                 opacity: 0.8 + Math.random() * 0.2, // Vary particle opacity
                 particleCount: this.particlesPerSpecies,
+                mobility: 1.5, // Speed multiplier (default center)
+                inertia: 0.85, // Individual friction (default center)
                 startPosition: {
                     type: this.startPattern || 'cluster',
                     center: { x: 0.5, y: 0.5 },
                     radius: 0.2
                 }
             };
+            
+            // Ensure size is always positive and reasonable
+            this.species[i].size = Math.max(0.5, Math.min(10, this.species[i].size));
         }
         
         // Reinitialize per-species glow for new species count
@@ -594,11 +857,18 @@ export class SimpleParticleSystem {
             }
         }
         
-        // Reinitialize force matrices for new species count
-        this.collisionRadius = this.createMatrix(15, 25);
-        this.socialRadius = this.createMatrix(50, 150);
-        this.collisionForce = this.createMatrix(-1, -0.5);
-        this.socialForce = this.createAsymmetricMatrix();
+        // Reinitialize per-species trails for new species count
+        for (let i = 0; i < this.numSpecies; i++) {
+            if (this.speciesTrailLength[i] === undefined) {
+                this.speciesTrailLength[i] = this.blur;
+            }
+        }
+        
+        // Reinitialize force matrices for new species count with improved ranges
+        this.collisionRadius = this.createMatrix(10, 35); // Expanded range for better clustering
+        this.socialRadius = this.createMatrix(40, 200);   // Wider social interactions
+        this.collisionForce = this.createMatrix(-2, -0.3); // Stronger collision forces
+        this.socialForce = this.createAsymmetricMatrix();  // Enhanced clustering patterns
     }
     
     createMatrix(min, max) {
@@ -615,34 +885,44 @@ export class SimpleParticleSystem {
     createAsymmetricMatrix() {
         const matrix = [];
         
-        // Dynamic pattern generation that works for any number of species
+        // Enhanced pattern generation inspired by "clusters" project
         const generatePatternRow = (rowIndex, numSpecies) => {
             const row = new Array(numSpecies);
             
-            // Create interesting predator-prey patterns that scale with species count
+            // Create sophisticated clustering patterns for complex emergent behaviors
             for (let j = 0; j < numSpecies; j++) {
                 if (rowIndex === j) {
-                    // Self-interaction: weak positive or neutral
-                    row[j] = 0.2 + Math.random() * 0.3;
+                    // Self-interaction: mild cohesion to promote clustering
+                    row[j] = 0.3 + Math.random() * 0.8; // 0.3-1.1 range for gentle self-attraction
                 } else {
-                    // Different pattern types based on relationship
+                    const speciesDist = Math.abs(j - rowIndex);
+                    const cyclicDist = Math.min(speciesDist, numSpecies - speciesDist);
                     const relationship = (j - rowIndex + numSpecies) % numSpecies;
                     
-                    if (relationship === 1) {
-                        // Chase next species (clockwise predator-prey)
-                        row[j] = 0.5 + Math.random() * 0.4;
-                    } else if (relationship === numSpecies - 1) {
-                        // Flee from previous species (avoid being prey)
-                        row[j] = -0.3 - Math.random() * 0.4;
-                    } else if (relationship <= numSpecies / 3) {
-                        // Neutral to slight attraction for nearby species
-                        row[j] = -0.1 + Math.random() * 0.4;
-                    } else if (relationship <= 2 * numSpecies / 3) {
-                        // Mixed interactions for middle-distance species
-                        row[j] = -0.3 + Math.random() * 0.6;
+                    // Create multi-layered interaction patterns
+                    if (cyclicDist === 1) {
+                        // Adjacent species: strong predator-prey dynamics
+                        if (relationship === 1) {
+                            // Hunt the next species - strong attraction with some variation
+                            row[j] = 1.8 + Math.random() * 1.4; // 1.8-3.2 range
+                        } else {
+                            // Flee from the previous species - strong repulsion
+                            row[j] = -2.2 - Math.random() * 1.3; // -3.5 to -2.2 range
+                        }
+                    } else if (cyclicDist === 2) {
+                        // Species two steps away: moderate interactions for clustering
+                        const clusterBias = Math.random() > 0.6 ? 1 : -1;
+                        row[j] = clusterBias * (0.8 + Math.random() * 1.2); // ±0.8-2.0 range
+                    } else if (cyclicDist <= Math.ceil(numSpecies / 4)) {
+                        // Close species: create cluster formation tendencies
+                        const attractionBias = Math.random() > 0.3 ? 1 : -1;
+                        row[j] = attractionBias * (0.4 + Math.random() * 1.1); // ±0.4-1.5 range
+                    } else if (cyclicDist <= Math.ceil(numSpecies / 2)) {
+                        // Medium distance: mixed interactions for dynamic patterns
+                        row[j] = -0.5 + Math.random() * 2.0; // -0.5 to 1.5 range
                     } else {
-                        // Weak interactions for distant species
-                        row[j] = -0.2 + Math.random() * 0.4;
+                        // Distant species: weak interactions to maintain system coherence
+                        row[j] = -0.3 + Math.random() * 0.8; // -0.3 to 0.5 range
                     }
                 }
             }
@@ -652,10 +932,10 @@ export class SimpleParticleSystem {
         for (let i = 0; i < this.numSpecies; i++) {
             matrix[i] = generatePatternRow(i, this.numSpecies);
             
-            // Add some randomness and ensure values stay in valid range
+            // Add controlled randomness for emergent complexity
             for (let j = 0; j < this.numSpecies; j++) {
-                matrix[i][j] += (Math.random() - 0.5) * 0.3;
-                matrix[i][j] = Math.max(-1, Math.min(1, matrix[i][j]));
+                matrix[i][j] += (Math.random() - 0.5) * 0.8; // Reduced randomness for more predictable clustering
+                matrix[i][j] = Math.max(-5, Math.min(5, matrix[i][j])); // Clamp to [-5,5] range
             }
         }
         return matrix;
@@ -700,27 +980,27 @@ export class SimpleParticleSystem {
             // Create interesting predator-prey patterns that scale with species count
             for (let j = 0; j < numSpecies; j++) {
                 if (rowIndex === j) {
-                    // Self-interaction: weak positive or neutral
-                    row[j] = edgeBiasedRandom(0.2, 0.5, bias);
+                    // Self-interaction: weak positive or neutral (scaled for [-5,5] range)
+                    row[j] = edgeBiasedRandom(0.5, 2.5, bias);
                 } else {
-                    // Different pattern types based on relationship
+                    // Different pattern types based on relationship (scaled for [-5,5] range)
                     const relationship = (j - rowIndex + numSpecies) % numSpecies;
                     
                     if (relationship === 1) {
-                        // Chase next species (clockwise predator-prey)
-                        row[j] = edgeBiasedRandom(0.5, 0.9, bias);
+                        // Chase next species (clockwise predator-prey) - strong attraction
+                        row[j] = edgeBiasedRandom(2.5, 4.5, bias);
                     } else if (relationship === numSpecies - 1) {
-                        // Flee from previous species (avoid being prey)
-                        row[j] = edgeBiasedRandom(-0.7, -0.3, bias);
+                        // Flee from previous species (avoid being prey) - strong repulsion
+                        row[j] = edgeBiasedRandom(-4.5, -1.5, bias);
                     } else if (relationship <= numSpecies / 3) {
-                        // Neutral to slight attraction for nearby species
-                        row[j] = edgeBiasedRandom(-0.1, 0.3, bias);
+                        // Neutral to moderate interactions for nearby species
+                        row[j] = edgeBiasedRandom(-0.5, 1.5, bias);
                     } else if (relationship <= 2 * numSpecies / 3) {
                         // Mixed interactions for middle-distance species
-                        row[j] = edgeBiasedRandom(-0.3, 0.3, bias);
+                        row[j] = edgeBiasedRandom(-1.5, 1.5, bias);
                     } else {
-                        // Weak interactions for distant species
-                        row[j] = edgeBiasedRandom(-0.2, 0.2, bias);
+                        // Moderate interactions for distant species
+                        row[j] = edgeBiasedRandom(-1.0, 1.0, bias);
                     }
                 }
             }
@@ -736,6 +1016,434 @@ export class SimpleParticleSystem {
                 matrix[i][j] = Math.max(-1, Math.min(1, matrix[i][j]));
             }
         }
+        return matrix;
+    }
+    
+    // Force Pattern Presets - Creates specific ecological relationships
+    createForcePattern(patternType, edgeBias = 0.8, userParameters = {}) {
+        // Merge user parameters with defaults for this pattern
+        const defaultParams = PATTERN_DEFAULTS[patternType] || {};
+        const parameters = { ...defaultParams, ...userParameters };
+        
+        switch (patternType) {
+            case 'clusters':
+                return this.createClustersPattern(edgeBias, parameters);
+            case 'predator-prey':
+                return this.createPredatorPreyPattern(edgeBias, parameters);
+            case 'territorial':
+                return this.createTerritorialPattern(edgeBias, parameters);
+            case 'symbiotic':
+                return this.createSymbioticPattern(edgeBias, parameters);
+            case 'cyclic':
+                return this.createCyclicPattern(edgeBias, parameters);
+            case 'random':
+            default:
+                return this.createAsymmetricMatrixWithDistribution(edgeBias);
+        }
+    }
+    
+    // Enhanced Clusters Pattern - Creates sophisticated stable cluster formations inspired by "clusters" project
+    createClustersPattern(edgeBias, parameters = {}) {
+        const matrix = [];
+        
+        for (let i = 0; i < this.numSpecies; i++) {
+            matrix[i] = new Array(this.numSpecies).fill(0);
+        }
+        
+        // Extract all parameters at the beginning
+        const cohesionStrength = parameters.cohesionStrength || 0.8;
+        const separationDistance = parameters.separationDistance || 0.5;
+        const formationBias = parameters.formationBias || 0.6;
+        
+        // Use configurable cluster type instead of random selection
+        const clusterTypes = ['orbital', 'layered', 'competitive_clustering', 'symbiotic_chains', 'hierarchical_rings'];
+        const chosenType = parameters.clusterType || clusterTypes[Math.floor(Math.random() * clusterTypes.length)];
+        
+        for (let i = 0; i < this.numSpecies; i++) {
+            for (let j = 0; j < this.numSpecies; j++) {
+                if (i === j) {
+                    // Self-cohesion for cluster stability - scaled by cohesionStrength parameter
+                    const randomFactor = (1 - formationBias) * Math.random() + formationBias * 0.5;
+                    
+                    let baseCohesion = 1.8; // Default base value
+                    
+                    switch (chosenType) {
+                        case 'orbital':
+                            baseCohesion = 1.8 + randomFactor * 0.8;
+                            break;
+                        case 'layered':
+                            // Layer-dependent cohesion
+                            const layer = i % 3;
+                            baseCohesion = 1.5 + layer * 0.4 + randomFactor * 0.6;
+                            break;
+                        case 'competitive_clustering':
+                            baseCohesion = 2.2 + randomFactor * 1.0;
+                            break;
+                        case 'symbiotic_chains':
+                            baseCohesion = 1.4 + randomFactor * 0.8;
+                            break;
+                        case 'hierarchical_rings':
+                            // Ring-based hierarchy
+                            const ringPos = i % Math.ceil(this.numSpecies / 3);
+                            baseCohesion = 1.6 + ringPos * 0.3 + randomFactor * 0.5;
+                            break;
+                    }
+                    
+                    matrix[i][j] = baseCohesion * cohesionStrength;
+                } else {
+                    const speciesDiff = Math.abs(i - j);
+                    const cyclicDist = Math.min(speciesDiff, this.numSpecies - speciesDiff);
+                    const relationship = (j - i + this.numSpecies) % this.numSpecies;
+                    
+                    switch (chosenType) {
+                        case 'orbital':
+                            // Create orbital patterns with attraction/repulsion zones
+                            // Use formationBias to control orbital tightness (0=loose, 1=tight)
+                            const orbitalTightness = 1 + formationBias * 2; // 1.0 to 3.0
+                            
+                            if (cyclicDist === 1) {
+                                // Adjacent species create orbital pairs
+                                // cohesionStrength affects attraction, separationDistance affects repulsion
+                                const attraction = (2.5 * cohesionStrength * orbitalTightness) + Math.random() * 1.2;
+                                const repulsion = (-1.8 * (1 + separationDistance)) - Math.random() * 0.8;
+                                matrix[i][j] = relationship === 1 ? attraction : repulsion;
+                            } else if (cyclicDist === 2) {
+                                // Secondary orbital influences - affected by formationBias
+                                matrix[i][j] = (0.4 * cohesionStrength * (1 - formationBias * 0.5)) + Math.random() * 0.8;
+                            } else {
+                                // Distant repulsion maintains orbital separation
+                                matrix[i][j] = (-0.6 * (1 + separationDistance)) - Math.random() * 0.4;
+                            }
+                            break;
+                            
+                        case 'layered':
+                            // Create layered cluster structures
+                            const iLayer = Math.floor(i / Math.ceil(this.numSpecies / 3));
+                            const jLayer = Math.floor(j / Math.ceil(this.numSpecies / 3));
+                            
+                            // formationBias controls layer density (0=spread out, 1=compact)
+                            const layerCompactness = 1 + formationBias * 1.5;
+                            
+                            if (iLayer === jLayer) {
+                                // Same layer: strong attraction scaled by cohesionStrength
+                                matrix[i][j] = (1.2 * cohesionStrength * layerCompactness) + Math.random() * 1.0;
+                            } else if (Math.abs(iLayer - jLayer) === 1) {
+                                // Adjacent layers: interaction controlled by separationDistance
+                                const layerInteraction = 0.2 * (1 - separationDistance) * cohesionStrength;
+                                matrix[i][j] = layerInteraction + Math.random() * 0.6;
+                            } else {
+                                // Distant layers: repulsion scaled by separationDistance
+                                matrix[i][j] = (-0.8 * (1 + separationDistance * 2)) - Math.random() * 0.5;
+                            }
+                            break;
+                            
+                        case 'competitive_clustering':
+                            // Intra-cluster attraction, inter-cluster competition
+                            const clusterSize = Math.max(2, Math.floor(this.numSpecies / 3));
+                            const iCluster = Math.floor(i / clusterSize);
+                            const jCluster = Math.floor(j / clusterSize);
+                            
+                            // formationBias controls cluster aggression (0=peaceful, 1=competitive)
+                            const competitiveness = 1 + formationBias * 2;
+                            
+                            if (iCluster === jCluster) {
+                                // Same cluster: very strong attraction scaled by cohesionStrength
+                                matrix[i][j] = (2.0 * cohesionStrength * competitiveness) + Math.random() * 1.5;
+                            } else {
+                                // Different clusters: repulsion scaled by separationDistance and formationBias
+                                const repulsionForce = -2.5 * (1 + separationDistance) * competitiveness;
+                                matrix[i][j] = repulsionForce - Math.random() * 1.0;
+                            }
+                            break;
+                            
+                        case 'symbiotic_chains':
+                            // Create chain-like symbiotic relationships
+                            // cohesionStrength controls chain bond strength
+                            // formationBias controls chain flexibility (0=flexible, 1=rigid)
+                            const chainRigidity = 1 + formationBias * 1.5;
+                            
+                            if (cyclicDist === 1) {
+                                // Chain links - strong bonds scaled by parameters
+                                matrix[i][j] = (3.0 * cohesionStrength * chainRigidity) + Math.random() * 1.0;
+                            } else if (cyclicDist === 2) {
+                                // Secondary chain influences - controlled by separationDistance
+                                const secondaryInfluence = -0.5 + (1 - separationDistance) * 1.5;
+                                matrix[i][j] = secondaryInfluence + Math.random() * 1.2;
+                            } else {
+                                // Anti-clustering for chain separation
+                                matrix[i][j] = (-1.2 * (1 + separationDistance)) - Math.random() * 0.8;
+                            }
+                            break;
+                            
+                        case 'hierarchical_rings':
+                            // Concentric ring structures with hierarchy
+                            const ringSize = Math.ceil(this.numSpecies / 3);
+                            const iRing = Math.floor(i / ringSize);
+                            const jRing = Math.floor(j / ringSize);
+                            const iPos = i % ringSize;
+                            const jPos = j % ringSize;
+                            
+                            // formationBias controls ring hierarchy strength (0=equal, 1=strict hierarchy)
+                            const hierarchyStrength = 1 + formationBias * 2;
+                            
+                            if (iRing === jRing) {
+                                // Same ring: orbital attraction
+                                const ringDist = Math.min(Math.abs(iPos - jPos), ringSize - Math.abs(iPos - jPos));
+                                if (ringDist === 1) {
+                                    // Adjacent in ring - strong attraction
+                                    matrix[i][j] = (2.8 * cohesionStrength * hierarchyStrength) + Math.random() * 0.7;
+                                } else {
+                                    // Non-adjacent in ring - mild repulsion scaled by separationDistance
+                                    matrix[i][j] = (-0.3 * (1 + separationDistance)) + Math.random() * 0.8;
+                                }
+                            } else {
+                                // Different rings: hierarchical interaction based on ring level
+                                const ringDiff = jRing - iRing;
+                                if (ringDiff === 1) {
+                                    // Outer attracts inner - scaled by hierarchy and cohesion
+                                    matrix[i][j] = (1.5 * cohesionStrength * hierarchyStrength) + Math.random() * 0.8;
+                                } else if (ringDiff === -1) {
+                                    // Inner repels outer - scaled by separation
+                                    matrix[i][j] = (-0.8 * (1 + separationDistance)) - Math.random() * 0.6;
+                                } else {
+                                    // Distant ring repulsion
+                                    matrix[i][j] = (-0.4 * (1 + separationDistance * 1.5)) - Math.random() * 0.4;
+                                }
+                            }
+                            break;
+                    }
+                }
+                
+                // Enhanced edge bias with cluster-appropriate scaling
+                if (edgeBias > 0.5) {
+                    const edgeStrength = Math.pow((edgeBias - 0.5) * 2, 1.2);
+                    if (Math.random() < 0.6) {
+                        if (matrix[i][j] > 0) {
+                            matrix[i][j] *= (1 + edgeStrength * 0.6); // Enhance attractions
+                        } else {
+                            matrix[i][j] *= (1 + edgeStrength * 0.4); // Moderate repulsion enhancement
+                        }
+                    }
+                }
+                
+                // Clamp to valid range
+                matrix[i][j] = Math.max(-5, Math.min(5, matrix[i][j]));
+            }
+        }
+        
+        // Note: separationDistance is now incorporated directly into each cluster type above
+        // This provides more nuanced control for each pattern type
+        
+        // Generated cluster pattern
+        return matrix;
+    }
+    
+    createPredatorPreyPattern(edgeBias, parameters = {}) {
+        const matrix = [];
+        for (let i = 0; i < this.numSpecies; i++) {
+            matrix[i] = new Array(this.numSpecies).fill(0);
+        }
+        
+        // Extract all parameters
+        const ecosystemType = parameters.ecosystemType || 'simple_chain';
+        const huntIntensity = parameters.huntIntensity || 3.0;
+        const escapeIntensity = parameters.escapeIntensity || 2.5;
+        const populationBalance = parameters.populationBalance || 0.4;
+        
+        // Create complex predator-prey ecosystem with multiple trophic levels
+        // Use populationBalance parameter: 0.2 = few predators, 0.8 = many predators
+        const numPredators = Math.max(1, Math.floor(this.numSpecies * populationBalance));
+        const numPrey = Math.max(1, Math.floor(this.numSpecies * (0.8 - populationBalance))); // Inverse relationship
+        const numOmnivores = Math.max(0, this.numSpecies - numPredators - numPrey); // Rest are omnivores
+        
+        // Assign roles
+        const roles = [];
+        for (let i = 0; i < numPredators; i++) roles.push('predator');
+        for (let i = 0; i < numPrey; i++) roles.push('prey');
+        for (let i = 0; i < numOmnivores; i++) roles.push('omnivore');
+        
+        // Shuffle roles for random assignment
+        for (let i = roles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [roles[i], roles[j]] = [roles[j], roles[i]];
+        }
+        
+        // Create relationships based on roles
+        for (let i = 0; i < this.numSpecies; i++) {
+            for (let j = 0; j < this.numSpecies; j++) {
+                if (i === j) {
+                    // Self-attraction varies by role
+                    matrix[i][j] = roles[i] === 'prey' ? 1.5 + Math.random() * 1.0 : // Prey flock strongly
+                                  roles[i] === 'predator' ? 0.5 + Math.random() * 0.5 : // Predators mild flocking
+                                  0.8 + Math.random() * 0.7; // Omnivores moderate flocking
+                } else {
+                    const role1 = roles[i];
+                    const role2 = roles[j];
+                    
+                    if (role1 === 'predator' && role2 === 'prey') {
+                        // Hunt intensity parameter controls predator attraction to prey
+                        const huntIntensity = parameters.huntIntensity || 3.0;
+                        matrix[i][j] = huntIntensity * (0.6 + Math.random() * 0.4); // Scale base hunt drive
+                    } else if (role1 === 'prey' && role2 === 'predator') {
+                        // Escape intensity parameter controls prey repulsion from predators
+                        const escapeIntensity = parameters.escapeIntensity || 2.5;
+                        matrix[i][j] = -escapeIntensity * (1.0 + Math.random() * 0.5); // Scale base fear response
+                    } else if (role1 === 'predator' && role2 === 'predator') {
+                        matrix[i][j] = -1.0 - Math.random() * 1.5; // Territorial competition
+                    } else if (role1 === 'prey' && role2 === 'prey') {
+                        matrix[i][j] = 0.5 + Math.random() * 1.0; // Mutual benefit
+                    } else if (role1 === 'omnivore' || role2 === 'omnivore') {
+                        // Omnivores have complex, mixed relationships
+                        matrix[i][j] = -1.0 + Math.random() * 2.0; // Highly variable
+                    } else {
+                        matrix[i][j] = -0.2 + Math.random() * 0.4; // Neutral
+                    }
+                }
+            }
+        }
+        
+        // Generated predator-prey pattern
+        return matrix;
+    }
+    
+    createTerritorialPattern(edgeBias, parameters = {}) {
+        // Extract all parameters at the beginning
+        const territorySize = parameters.territorySize || 0.3;
+        const boundaryStrength = parameters.boundaryStrength || 1.2;
+        const invasionResponse = parameters.invasionResponse || 2.0;
+        
+        const matrix = [];
+        
+        // Territory size affects self-attraction (larger territories = stronger cohesion)
+        // Enhanced scaling: smaller territories = tighter groups, larger = more spread
+        const baseCohesion = 0.8 + (territorySize * 3.0); // Scale: 0.1→1.1, 1.0→3.8
+        
+        for (let i = 0; i < this.numSpecies; i++) {
+            matrix[i] = new Array(this.numSpecies);
+            for (let j = 0; j < this.numSpecies; j++) {
+                if (i === j) {
+                    // Territorial cohesion influenced by territory size parameter
+                    matrix[i][j] = baseCohesion + Math.random() * territorySize;
+                } else {
+                    // Boundary strength and invasion response control repulsion intensity
+                    // Enhanced scaling for more dramatic territorial effects
+                    const baseRepulsion = Math.pow(boundaryStrength, 1.2) * Math.pow(invasionResponse, 1.1);
+                    matrix[i][j] = -baseRepulsion * (0.7 + Math.random() * 0.6);
+                }
+            }
+        }
+        
+        // Generated territorial pattern
+        
+        return matrix;
+    }
+    
+    createSymbioticPattern(edgeBias, parameters = {}) {
+        // Extract all parameters at the beginning
+        const cooperationStrength = parameters.cooperationStrength || 1.5;
+        const dependencyLevel = parameters.dependencyLevel || 0.7;
+        const mutualismType = parameters.mutualismType || 'obligate';
+        const competitionIntensity = parameters.competitionIntensity || 1.0;
+        
+        const matrix = [];
+        for (let i = 0; i < this.numSpecies; i++) {
+            matrix[i] = new Array(this.numSpecies).fill(0);
+        }
+        
+        // Create pairs that help each other, compete with others
+        const numPairs = Math.floor(this.numSpecies / 2);
+        
+        // Cooperation strength affects partner attraction (enhanced scaling)
+        // Higher dependency creates stronger mutual bonds
+        const baseCooperation = cooperationStrength * Math.pow(1.0 + dependencyLevel, 1.5);
+        
+        for (let p = 0; p < numPairs; p++) {
+            const species1 = p * 2;
+            const species2 = (p * 2 + 1) % this.numSpecies;
+            
+            // Mutual attraction between partners scaled by cooperation parameters
+            const mutualAttraction = baseCooperation * (0.8 + Math.random() * 0.4);
+            matrix[species1][species2] = mutualAttraction;
+            matrix[species2][species1] = mutualAttraction;
+            
+            // Self-attraction varies by mutualism type and dependency
+            const selfAttraction = mutualismType === 'obligate' ? 
+                dependencyLevel * (0.3 + Math.random() * 0.4) : // Obligate: lower self-attraction
+                (1.0 - dependencyLevel) * (0.5 + Math.random() * 0.5); // Facultative: higher self-attraction
+            matrix[species1][species1] = selfAttraction;
+            matrix[species2][species2] = selfAttraction;
+        }
+        
+        // Competition with non-partners scaled by competition intensity
+        for (let i = 0; i < this.numSpecies; i++) {
+            for (let j = 0; j < this.numSpecies; j++) {
+                if (matrix[i][j] === 0 && i !== j) {
+                    // Check if they're partners
+                    const iPair = Math.floor(i / 2);
+                    const jPair = Math.floor(j / 2);
+                    
+                    if (iPair !== jPair) {
+                        // Competition between different pairs scaled by parameter
+                        const competition = competitionIntensity * (0.5 + Math.random() * 1.5);
+                        matrix[i][j] = -competition;
+                    } else {
+                        // Neutral within same pair (non-partners in group)
+                        matrix[i][j] = -0.1 + Math.random() * 0.2;
+                    }
+                }
+            }
+        }
+        
+        // Generated symbiotic pattern
+        
+        return matrix;
+    }
+    
+    createCyclicPattern(edgeBias, parameters = {}) {
+        // Extract all parameters at the beginning
+        const cycleSpeed = parameters.cycleSpeed || 1.0;
+        const dominanceStrength = parameters.dominanceStrength || 2.0;
+        const cycleComplexity = parameters.cycleComplexity || 'simple';
+        const stabilityFactor = parameters.stabilityFactor || 0.5;
+        
+        const matrix = [];
+        for (let i = 0; i < this.numSpecies; i++) {
+            matrix[i] = new Array(this.numSpecies).fill(0);
+        }
+        
+        // Cycle complexity affects step size (simple=1, complex=2+ steps)
+        const stepSize = cycleComplexity === 'simple' ? 1 : 
+                        cycleComplexity === 'complex' ? 2 : 
+                        Math.max(1, Math.floor(this.numSpecies / 3)); // Multi-level
+        
+        // Rock-paper-scissors style relationships with parameter control
+        for (let i = 0; i < this.numSpecies; i++) {
+            const dominates = (i + stepSize) % this.numSpecies;
+            const dominatedBy = (i - stepSize + this.numSpecies) % this.numSpecies;
+            
+            // Attraction to species it dominates (enhanced scaling for dramatic effect)
+            const huntStrength = Math.pow(dominanceStrength, 1.1) * Math.pow(cycleSpeed, 0.8) * (0.8 + Math.random() * 0.7);
+            matrix[i][dominates] = huntStrength;
+            
+            // Repulsion from species that dominates it (asymmetric scaling for dynamic behavior)
+            const fleeStrength = Math.pow(dominanceStrength, 1.2) * (1.0 + cycleSpeed * 0.7) * (0.9 + Math.random() * 0.5);
+            matrix[i][dominatedBy] = -fleeStrength;
+            
+            // Self-attraction scaled by stability factor
+            matrix[i][i] = stabilityFactor * (0.3 + Math.random() * 0.5);
+            
+            // Neutral to other species (affected by cycle complexity)
+            const neutralRange = cycleComplexity === 'simple' ? 0.6 : 
+                               cycleComplexity === 'complex' ? 1.0 : 1.5;
+            for (let j = 0; j < this.numSpecies; j++) {
+                if (j !== i && j !== dominates && j !== dominatedBy && matrix[i][j] === 0) {
+                    matrix[i][j] = (-neutralRange/2) + Math.random() * neutralRange;
+                }
+            }
+        }
+        
+        // Generated cyclic pattern
+        
         return matrix;
     }
     
@@ -847,8 +1555,24 @@ export class SimpleParticleSystem {
         });
         
         if (!this.mousePressed) {
-            console.log(`Shockwave created at (${x.toFixed(1)}, ${y.toFixed(1)}) with strength ${this.shockwaveStrength}`);
+            // Shockwave created
         }
+    }
+    
+    // Calculate toroidal distance (considering wrap-around boundaries)
+    getToroidalDistance(p1, p2) {
+        let dx = p2.x - p1.x;
+        let dy = p2.y - p1.y;
+        
+        // Find shortest distance considering wrap-around
+        if (Math.abs(dx) > this.width / 2) {
+            dx = dx > 0 ? dx - this.width : dx + this.width;
+        }
+        if (Math.abs(dy) > this.height / 2) {
+            dy = dy > 0 ? dy - this.height : dy + this.height;
+        }
+        
+        return { dx, dy, dist2: dx * dx + dy * dy };
     }
     
     updateShockwaves(dt) {
@@ -868,9 +1592,21 @@ export class SimpleParticleSystem {
         
         // Apply force from all active temporal shockwaves
         for (const shockwave of this.activeShockwaves) {
-            const dx = particle.x - shockwave.x;
-            const dy = particle.y - shockwave.y;
-            const dist2 = dx * dx + dy * dy;
+            let dx, dy, dist2;
+            
+            if (this.wrapAroundWalls) {
+                // Use toroidal distance for shockwaves too
+                const shockwavePos = { x: shockwave.x, y: shockwave.y };
+                const toroidal = this.getToroidalDistance(particle, shockwavePos);
+                dx = -toroidal.dx; // Reverse direction (particle relative to shockwave)
+                dy = -toroidal.dy;
+                dist2 = toroidal.dist2;
+            } else {
+                dx = particle.x - shockwave.x;
+                dy = particle.y - shockwave.y;
+                dist2 = dx * dx + dy * dy;
+            }
+            
             const dist = Math.sqrt(dist2);
             
             // Skip if particle is outside shockwave radius
@@ -892,9 +1628,20 @@ export class SimpleParticleSystem {
         
         // Apply continuous force from mouse position if pressed
         if (this.mousePressed) {
-            const dx = particle.x - this.currentMousePos.x;
-            const dy = particle.y - this.currentMousePos.y;
-            const dist2 = dx * dx + dy * dy;
+            let dx, dy, dist2;
+            
+            if (this.wrapAroundWalls) {
+                // Use toroidal distance for mouse interaction too
+                const toroidal = this.getToroidalDistance(particle, this.currentMousePos);
+                dx = -toroidal.dx; // Reverse direction (particle relative to mouse)
+                dy = -toroidal.dy;
+                dist2 = toroidal.dist2;
+            } else {
+                dx = particle.x - this.currentMousePos.x;
+                dy = particle.y - this.currentMousePos.y;
+                dist2 = dx * dx + dy * dy;
+            }
+            
             const dist = Math.sqrt(dist2);
             
             // Apply continuous force if within range
@@ -976,6 +1723,8 @@ export class SimpleParticleSystem {
         // Update each particle with optimized force calculations
         for (let i = 0; i < this.particles.length; i++) {
             const p1 = this.particles[i];
+            const s1 = p1.species;
+            const species1Radius = this.species[s1]?.size || this.particleSize;
             
             // Reset forces
             let fx = 0, fy = 0;
@@ -993,20 +1742,33 @@ export class SimpleParticleSystem {
                 if (i === j) continue;
                 
                 const p2 = this.particles[j];
-                const dx = p2.x - p1.x;
-                const dy = p2.y - p1.y;
-                const dist2 = dx * dx + dy * dy;
+                let dx, dy, dist2;
+                
+                if (this.wrapAroundWalls) {
+                    // Use toroidal distance calculation for wrap-around
+                    const toroidal = this.getToroidalDistance(p1, p2);
+                    dx = toroidal.dx;
+                    dy = toroidal.dy;
+                    dist2 = toroidal.dist2;
+                } else {
+                    // Standard Euclidean distance
+                    dx = p2.x - p1.x;
+                    dy = p2.y - p1.y;
+                    dist2 = dx * dx + dy * dy;
+                }
                 
                 // Critical fix: Prevent division by zero and very small distances
                 const minDist2 = 0.01; // Minimum distance squared to prevent Infinity/NaN
                 if (dist2 < minDist2) continue;
                 
-                const s1 = p1.species;
                 const s2 = p2.species;
                 
-                // Pre-calculate radii squared to avoid sqrt
-                const collisionR = Array.isArray(this.collisionRadius) && this.collisionRadius[s1] && this.collisionRadius[s1][s2] !== undefined 
-                    ? this.collisionRadius[s1][s2] : 15;
+                // Calculate collision distance based on particle sizes
+                const species2Radius = this.species[s2]?.size || this.particleSize;
+                
+                // Collision distance = sum of radii + offset + multiplier
+                const baseCollisionDistance = species1Radius + species2Radius;
+                const collisionR = (baseCollisionDistance + this.collisionOffset) * this.collisionMultiplier;
                 const collisionR2 = collisionR * collisionR;
                 
                 const socialR = Array.isArray(this.socialRadius) && this.socialRadius[s1] && this.socialRadius[s1][s2] !== undefined 
@@ -1018,41 +1780,188 @@ export class SimpleParticleSystem {
                 
                 // Safe distance calculation with minimum threshold
                 const dist = Math.sqrt(dist2);
-                const invDist = 1.0 / Math.max(dist, 0.1); // Prevent division by very small numbers
+                
+                // Prevent division by zero or very small numbers
+                if (dist < 0.1) {
+                    // If particles are too close, apply a strong repulsive force in a random direction
+                    const angle = Math.random() * Math.PI * 2;
+                    const unitX = Math.cos(angle);
+                    const unitY = Math.sin(angle);
+                    const F = -10.0; // Strong repulsion
+                    fx += F * unitX;
+                    fy += F * unitY;
+                    continue;
+                }
+                
+                const invDist = 1.0 / dist;
+                
+                // Normalized direction
+                const unitX = dx * invDist;
+                const unitY = dy * invDist;
                 
                 // Collision force (always repulsive at close range)
                 if (dist2 < collisionR2) {
                     // Safety check for force matrix bounds
                     if (this.collisionForce[s1] && this.collisionForce[s1][s2] !== undefined) {
-                        const force = this.collisionForce[s1][s2] * invDist;
-                        fx += dx * invDist * force;
-                        fy += dy * invDist * force;
+                        // Enhanced collision force that scales with particle size and overlap
+                        const overlap = collisionR - dist;
+                        const baseForce = this.collisionForce[s1][s2];
+                        
+                        // Make force stronger for larger particles and deeper overlaps
+                        const sizeScale = Math.max(1.0, (species1Radius + species2Radius) / 6.0);
+                        const overlapScale = Math.max(1.0, overlap / 2.0);
+                        
+                        const F = baseForce * sizeScale * overlapScale / Math.max(dist, 0.1);
+                        fx += F * unitX;
+                        fy += F * unitY;
                     }
                 }
                 
-                // Social force (can be attractive or repulsive)
+                // Enhanced social force with cluster-promoting behavior
                 if (dist2 < socialR2) {
                     // Safety check for force matrix bounds
                     if (this.socialForce[s1] && this.socialForce[s1][s2] !== undefined) {
-                        const force = this.socialForce[s1][s2] * invDist;
-                        fx += dx * invDist * force;
-                        fy += dy * invDist * force;
+                        const baseForce = this.socialForce[s1][s2];
+                        
+                        // Enhanced force calculation with temporal dynamics and multi-scale interactions
+                        let F;
+                        if (baseForce > 0) {
+                            // Attractive force with multi-zone behavior
+                            const innerZone = socialR * 0.25;  // 25% - strong cohesion zone
+                            const middleZone = socialR * 0.6;  // 60% - balanced interaction zone  
+                            const outerZone = socialR * 0.9;   // 90% - weak attraction zone
+                            
+                            if (dist < innerZone) {
+                                // Inner zone: Strong cohesion with collapse prevention
+                                const cohesionStrength = 1.2;
+                                F = baseForce * cohesionStrength / Math.max(dist, collisionR * 0.8);
+                            } else if (dist < middleZone) {
+                                // Middle zone: Optimal clustering with distance modulation
+                                const idealDist = (innerZone + middleZone) / 2;
+                                const distFromIdeal = Math.abs(dist - idealDist);
+                                const modulation = 1.0 - (distFromIdeal / (middleZone - innerZone)) * 0.3;
+                                F = baseForce * modulation / dist;
+                            } else if (dist < outerZone) {
+                                // Outer zone: Weak long-range attraction
+                                const weakening = (outerZone - dist) / (outerZone - middleZone);
+                                F = baseForce * weakening * 0.4 / dist;
+                            } else {
+                                // Beyond outer zone: Very weak attraction with temporal modulation
+                                const timePhase = this.time * 0.0008 + (s1 + s2) * 0.3; // Slow oscillation
+                                const temporalMod = 0.7 + 0.3 * Math.sin(timePhase);
+                                F = baseForce * 0.1 * temporalMod / dist;
+                            }
+                            
+                            // Add temporal breathing effect for more organic behavior
+                            const breathingPhase = this.time * 0.001 + s1 * 0.5;
+                            const breathingMod = 0.9 + 0.1 * Math.sin(breathingPhase);
+                            F *= breathingMod;
+                            
+                        } else {
+                            // Repulsive force with distance zones and temporal modulation
+                            const strongRepulsionZone = socialR * 0.3;
+                            const weakRepulsionZone = socialR * 0.7;
+                            
+                            if (dist < strongRepulsionZone) {
+                                // Strong repulsion with safety distance
+                                const repulsionStrength = 1.5;
+                                F = baseForce * repulsionStrength / Math.max(dist, collisionR * 0.3);
+                            } else if (dist < weakRepulsionZone) {
+                                // Moderate repulsion with distance falloff
+                                const falloff = (weakRepulsionZone - dist) / (weakRepulsionZone - strongRepulsionZone);
+                                F = baseForce * falloff / dist;
+                            } else {
+                                // Weak or no repulsion at long range
+                                const timePhase = this.time * 0.0012 + (s1 + s2) * 0.4;
+                                const temporalMod = 0.5 + 0.5 * Math.sin(timePhase);
+                                F = baseForce * 0.2 * temporalMod / dist;
+                            }
+                        }
+                        
+                        fx += F * unitX;
+                        fy += F * unitY;
                     }
                 }
             }
             
-            // Apply forces with NaN protection
-            const forceX = fx * this.forceFactor;
-            const forceY = fy * this.forceFactor;
+            // Add environmental pressure (global center force)
+            if (this.environmentalPressure !== 0) {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const dcx = centerX - p1.x;
+                const dcy = centerY - p1.y;
+                const centerDist = Math.sqrt(dcx * dcx + dcy * dcy);
+                if (centerDist > 0.1) {
+                    const centerForce = this.environmentalPressure * 0.1; // Scale down
+                    fx += (dcx / centerDist) * centerForce;
+                    fy += (dcy / centerDist) * centerForce;
+                }
+            }
+            
+            // Add chaos/randomness
+            if (this.chaosLevel > 0) {
+                fx += (Math.random() - 0.5) * this.chaosLevel * 2;
+                fy += (Math.random() - 0.5) * this.chaosLevel * 2;
+            }
+            
+            // Safety check for NaN forces
+            if (isNaN(fx) || isNaN(fy)) {
+                console.warn(`Forces became NaN for particle ${i}: fx=${fx}, fy=${fy}`);
+                fx = 0;
+                fy = 0;
+            }
+            
+            // Apply forces with per-species mobility and NaN protection
+            const species = this.species[p1.species];
+            const mobility = species?.mobility || 1.0;
+            const forceX = fx * this.forceFactor * mobility;
+            const forceY = fy * this.forceFactor * mobility;
             
             if (!isNaN(forceX) && !isNaN(forceY)) {
                 p1.vx += forceX;
                 p1.vy += forceY;
             }
             
-            // Apply friction
-            p1.vx *= this.friction;
-            p1.vy *= this.friction;
+            // Apply sophisticated friction with multi-factor dampening
+            const speciesFriction = species?.inertia || this.friction;
+            const velocity = Math.sqrt(p1.vx * p1.vx + p1.vy * p1.vy);
+            
+            // Multi-factor dampening for more organic cluster behavior
+            let dampening = speciesFriction;
+            
+            // Velocity-dependent dampening with smooth transitions
+            if (velocity > 2.0) {
+                // Progressive dampening for high-velocity particles
+                const excessVelocity = velocity - 2.0;
+                const velocityFactor = Math.min(excessVelocity / 4.0, 1.0); // Cap at 1.0
+                const extraDampening = 0.85 + velocityFactor * 0.1; // 0.85-0.95 range
+                dampening *= extraDampening;
+            } else if (velocity < 0.5) {
+                // Slight boost for very slow particles to prevent stagnation
+                dampening *= 1.02;
+            }
+            
+            // Species-specific dampening characteristics
+            const speciesCharacteristic = Math.sin(p1.species * 0.7 + this.time * 0.0005) * 0.02;
+            dampening *= (1.0 + speciesCharacteristic);
+            
+            // Environmental context dampening (particles near edges behave differently)
+            // Skip edge dampening in wrap-around mode since there are no "edges"
+            if (!this.wrapAroundWalls) {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const distFromCenter = Math.sqrt((p1.x - centerX) ** 2 + (p1.y - centerY) ** 2);
+                const maxDistFromCenter = Math.sqrt(centerX ** 2 + centerY ** 2);
+                const edgeProximity = distFromCenter / maxDistFromCenter;
+                
+                // Particles near edges have slightly different dynamics
+                if (edgeProximity > 0.8) {
+                    dampening *= 0.98; // Slightly more dampening near edges
+                }
+            }
+            
+            p1.vx *= dampening;
+            p1.vy *= dampening;
             
             // Velocity sanity check
             if (isNaN(p1.vx) || isNaN(p1.vy)) {
@@ -1074,14 +1983,60 @@ export class SimpleParticleSystem {
                 p1.vy = (Math.random() - 0.5) * 2;
             }
             
-            // Wall collisions with damping
-            if (p1.x < this.particleSize || p1.x > this.width - this.particleSize) {
-                p1.vx *= -this.wallDamping;
-                p1.x = Math.max(this.particleSize, Math.min(this.width - this.particleSize, p1.x));
-            }
-            if (p1.y < this.particleSize || p1.y > this.height - this.particleSize) {
-                p1.vy *= -this.wallDamping;
-                p1.y = Math.max(this.particleSize, Math.min(this.height - this.particleSize, p1.y));
+            // Handle wall behavior based on settings
+            if (this.wrapAroundWalls) {
+                // Wrap-around boundaries (toroidal space)
+                if (p1.x < 0) {
+                    p1.x = this.width;
+                } else if (p1.x > this.width) {
+                    p1.x = 0;
+                }
+                if (p1.y < 0) {
+                    p1.y = this.height;
+                } else if (p1.y > this.height) {
+                    p1.y = 0;
+                }
+            } else {
+                // Apply repulsive force near edges (Solution 1)
+                if (this.repulsiveForce > 0) {
+                    const repulsiveZone = 50; // Distance from edge where repulsion starts
+                    let repulsiveFx = 0, repulsiveFy = 0;
+                    
+                    // Left edge repulsion
+                    if (p1.x < repulsiveZone) {
+                        const intensity = (repulsiveZone - p1.x) / repulsiveZone;
+                        repulsiveFx += this.repulsiveForce * intensity * 20;
+                    }
+                    // Right edge repulsion
+                    if (p1.x > this.width - repulsiveZone) {
+                        const intensity = (p1.x - (this.width - repulsiveZone)) / repulsiveZone;
+                        repulsiveFx -= this.repulsiveForce * intensity * 20;
+                    }
+                    // Top edge repulsion
+                    if (p1.y < repulsiveZone) {
+                        const intensity = (repulsiveZone - p1.y) / repulsiveZone;
+                        repulsiveFy += this.repulsiveForce * intensity * 20;
+                    }
+                    // Bottom edge repulsion
+                    if (p1.y > this.height - repulsiveZone) {
+                        const intensity = (p1.y - (this.height - repulsiveZone)) / repulsiveZone;
+                        repulsiveFy -= this.repulsiveForce * intensity * 20;
+                    }
+                    
+                    // Apply repulsive forces
+                    p1.vx += repulsiveFx * dt;
+                    p1.vy += repulsiveFy * dt;
+                }
+                
+                // Traditional wall collisions with damping
+                if (p1.x < this.particleSize || p1.x > this.width - this.particleSize) {
+                    p1.vx *= -this.wallDamping;
+                    p1.x = Math.max(this.particleSize, Math.min(this.width - this.particleSize, p1.x));
+                }
+                if (p1.y < this.particleSize || p1.y > this.height - this.particleSize) {
+                    p1.vy *= -this.wallDamping;
+                    p1.y = Math.max(this.particleSize, Math.min(this.height - this.particleSize, p1.y));
+                }
             }
             
             // Update age for visual effects
@@ -1121,6 +2076,57 @@ export class SimpleParticleSystem {
         }
         
         return this.gradientCache.get(cacheKey);
+    }
+    
+    getOrCreateHaloGradient(speciesId, size, haloRadius, baseIntensity) {
+        const species = this.species[speciesId];
+        const color = species.color;
+        const baseHaloSize = size * 3.0 * haloRadius;
+        // Remove trail state from cache key for better performance
+        const cacheKey = `halo-${speciesId}-${baseHaloSize}-${baseIntensity.toFixed(4)}`;
+        
+        if (!this.haloGradientCache.has(cacheKey)) {
+            const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, baseHaloSize);
+            // Use smoother gradient stops for better quality
+            gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${baseIntensity})`);
+            gradient.addColorStop(0.3, `rgba(${color.r}, ${color.g}, ${color.b}, ${baseIntensity * 0.6})`);
+            gradient.addColorStop(0.7, `rgba(${color.r}, ${color.g}, ${color.b}, ${baseIntensity * 0.2})`);
+            gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+            this.haloGradientCache.set(cacheKey, gradient);
+        }
+        
+        return this.haloGradientCache.get(cacheKey);
+    }
+    
+    renderSpeciesHalo(speciesParticles, speciesId, size, color, haloIntensity, haloRadius) {
+        if (haloIntensity <= 0 || speciesParticles.length === 0) return;
+        
+        // Calculate trail-adjusted intensity more efficiently
+        let adjustedIntensity = haloIntensity;
+        if (this.trailEnabled && this.blur < 0.98) {
+            // Simplified trail compensation - reduces grainy artifacts
+            adjustedIntensity = haloIntensity * (1 - this.blur * 0.8);
+            adjustedIntensity = Math.max(0.001, Math.min(adjustedIntensity, 1.0));
+        }
+        
+        const baseHaloSize = size * 3.0 * haloRadius;
+        const haloGradient = this.getOrCreateHaloGradient(speciesId, size, haloRadius, haloIntensity);
+        
+        // Set blend mode for better visual quality
+        this.ctx.save();
+        this.ctx.globalCompositeOperation = this.trailEnabled ? 'screen' : 'source-over';
+        this.ctx.globalAlpha = adjustedIntensity;
+        this.ctx.fillStyle = haloGradient;
+        
+        // Optimized batch rendering - reduce transform calls
+        for (const particle of speciesParticles) {
+            this.ctx.save();
+            this.ctx.translate(particle.x, particle.y);
+            this.ctx.fillRect(-baseHaloSize, -baseHaloSize, baseHaloSize * 2, baseHaloSize * 2);
+            this.ctx.restore();
+        }
+        
+        this.ctx.restore();
     }
     
     renderCurrentState() {
@@ -1214,6 +2220,14 @@ export class SimpleParticleSystem {
                     }
                 }
                 
+                // Draw per-species halo if enabled (optimized for current particles only)
+                const speciesHaloIntensity = this.speciesHaloIntensity[speciesId] || 0;
+                const speciesHaloRadius = this.speciesHaloRadius[speciesId] || 1.0;
+                
+                if (speciesHaloIntensity > 0) {
+                    this.renderSpeciesHalo(speciesParticles, speciesId, size, color, speciesHaloIntensity, speciesHaloRadius);
+                }
+                
                 // Draw standard glow
                 const glowSize = baseGlowSize * speciesGlowSize;
                 const gradient = this.getOrCreateGradient(speciesId, size);
@@ -1287,6 +2301,17 @@ export class SimpleParticleSystem {
                         this.ctx.fill();
                     }
                     
+                    this.ctx.globalCompositeOperation = 'source-over';
+                }
+                
+                // Draw per-species halo if enabled (optimized normal mode)
+                const speciesHaloIntensity = this.speciesHaloIntensity[speciesId] || 0;
+                const speciesHaloRadius = this.speciesHaloRadius[speciesId] || 1.0;
+                
+                if (speciesHaloIntensity > 0) {
+                    this.ctx.globalCompositeOperation = 'lighter';
+                    this.renderSpeciesHalo(speciesParticles, speciesId, species.size, color, speciesHaloIntensity, speciesHaloRadius);
+                    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                     this.ctx.globalCompositeOperation = 'source-over';
                 }
                 
@@ -1389,12 +2414,25 @@ export class SimpleParticleSystem {
             // Load per-species glow if available
             this.speciesGlowSize[i] = def.glowSize !== undefined ? def.glowSize : 1.0;
             this.speciesGlowIntensity[i] = def.glowIntensity !== undefined ? def.glowIntensity : 0;
+            // Load per-species dynamics if available
+            this.species[i].mobility = def.mobility !== undefined ? def.mobility : 1.5;
+            this.species[i].inertia = def.inertia !== undefined ? def.inertia : 0.85;
         });
         
         // Load PHYSICS Section
         this.friction = 1.0 - preset.physics.friction;
-        this.wallDamping = preset.physics.wallDamping;
+        this.wallDamping = preset.physics.wallDamping !== undefined ? preset.physics.wallDamping : 0.8;
         this.forceFactor = preset.physics.forceFactor;
+        
+        // Load WALLS Section (new parameters)
+        if (preset.walls) {
+            this.repulsiveForce = preset.walls.repulsiveForce || 0.3;
+            this.wrapAroundWalls = preset.walls.wrapAroundWalls || false;
+        } else {
+            // Default values for backward compatibility
+            this.repulsiveForce = 0.3;
+            this.wrapAroundWalls = false;
+        }
         
         // Load full matrices if available, otherwise create from single values
         if (preset.physics.collisionRadius && Array.isArray(preset.physics.collisionRadius)) {
@@ -1409,6 +2447,20 @@ export class SimpleParticleSystem {
         } else {
             const socialR = preset.physics.socialRadiusValue || preset.physics.socialRadius || 50;
             this.socialRadius = this.createMatrix(socialR, socialR);
+        }
+        
+        // Load enhanced physics parameters
+        if (preset.physics.collisionMultiplier !== undefined) {
+            this.collisionMultiplier = preset.physics.collisionMultiplier;
+        }
+        if (preset.physics.collisionOffset !== undefined) {
+            this.collisionOffset = preset.physics.collisionOffset;
+        }
+        if (preset.physics.environmentPressure !== undefined) {
+            this.environmentalPressure = preset.physics.environmentPressure; // Note: property has different name
+        }
+        if (preset.physics.chaosLevel !== undefined) {
+            this.chaosLevel = preset.physics.chaosLevel;
         }
         
         // Load shockwave settings from physics section
@@ -1428,7 +2480,7 @@ export class SimpleParticleSystem {
         // Load VISUAL Section
         this.blur = preset.visual.blur;
         this.particleSize = preset.visual.particleSize;
-        this.perSpeciesSize = preset.visual.perSpeciesSize !== undefined ? preset.visual.perSpeciesSize : false;
+        this.perSpeciesSize = true; // Always use per-species size
         this.trailEnabled = preset.visual.trailEnabled;
         
         // Background color system
@@ -1454,6 +2506,23 @@ export class SimpleParticleSystem {
                 this.speciesGlowSize = [...preset.effects.speciesGlowArrays.sizes] || [...this.speciesGlowSize];
                 this.speciesGlowIntensity = [...preset.effects.speciesGlowArrays.intensities] || [...this.speciesGlowIntensity];
             }
+            
+            // Species Halo Effect
+            if (preset.effects.speciesHaloArrays) {
+                this.speciesHaloIntensity = [...preset.effects.speciesHaloArrays.intensities] || [...this.speciesHaloIntensity];
+                this.speciesHaloRadius = [...preset.effects.speciesHaloArrays.radii] || [...this.speciesHaloRadius];
+            }
+            
+            // Per-Species Trail Effect
+            if (preset.effects.linkAllSpeciesTrails !== undefined) {
+                this.linkAllSpeciesTrails = preset.effects.linkAllSpeciesTrails;
+            } else if (preset.effects.perSpeciesTrailEnabled !== undefined) {
+                // Backward compatibility: convert old property to new property
+                this.linkAllSpeciesTrails = !preset.effects.perSpeciesTrailEnabled;
+            }
+            if (preset.effects.speciesTrailArrays) {
+                this.speciesTrailLength = [...preset.effects.speciesTrailArrays.lengths] || [...this.speciesTrailLength];
+            }
         } else {
             // Fallback to old structure
             this.renderMode = preset.renderMode || 'normal';
@@ -1464,6 +2533,13 @@ export class SimpleParticleSystem {
         // Load FORCES Section
         this.collisionForce = preset.forces.collision;
         this.socialForce = preset.forces.social;
+        
+        // Load force pattern configuration if available
+        if (preset.forces.pattern) {
+            this.forcePatternType = preset.forces.pattern.type || 'random';
+            this.forceDistribution = preset.forces.pattern.edgeBias || 0.8;
+            this.forcePatternParameters = preset.forces.pattern.parameters || {};
+        }
         
         // Ensure arrays are properly sized
         this.ensureGlowArraysSize();
@@ -1614,7 +2690,9 @@ export class SimpleParticleSystem {
                     particleCount: s.particleCount || this.particlesPerSpecies,
                     startPosition: s.startPosition || { type: 'cluster', center: { x: 0.5, y: 0.5 }, radius: 0.1 },
                     glowSize: this.speciesGlowSize[i] || 1.0,
-                    glowIntensity: this.speciesGlowIntensity[i] || 0
+                    glowIntensity: this.speciesGlowIntensity[i] || 0,
+                    mobility: s.mobility || 1.5,
+                    inertia: s.inertia || 0.85
                 }))
             },
             
@@ -1622,7 +2700,6 @@ export class SimpleParticleSystem {
             physics: {
                 // Convert friction from physics value (0.8-1.0) to UI value (0-0.2)
                 friction: 1.0 - this.friction,
-                wallDamping: this.wallDamping,
                 forceFactor: this.forceFactor,
                 // Store full matrices, not just [0][0] values
                 collisionRadius: this.collisionRadius,
@@ -1630,11 +2707,23 @@ export class SimpleParticleSystem {
                 // Store single values for UI compatibility
                 collisionRadiusValue: this.collisionRadius[0][0],
                 socialRadiusValue: this.socialRadius[0][0],
+                // Enhanced physics parameters
+                collisionMultiplier: this.collisionMultiplier || 1.0,
+                collisionOffset: this.collisionOffset || 0.0,  // Add missing collision offset
+                environmentPressure: this.environmentalPressure || 0.0,  // Note: property has different name
+                chaosLevel: this.chaosLevel || 0.0,
                 // Shockwave settings
                 shockwaveEnabled: this.shockwaveEnabled,
                 shockwaveStrength: this.shockwaveStrength,
                 shockwaveSize: this.shockwaveSize,
                 shockwaveFalloff: this.shockwaveFalloff
+            },
+            
+            // WALLS Section
+            walls: {
+                wallDamping: this.wallDamping,
+                repulsiveForce: this.repulsiveForce,
+                wrapAroundWalls: this.wrapAroundWalls
             },
             
             // VISUAL Section
@@ -1666,13 +2755,31 @@ export class SimpleParticleSystem {
                 speciesGlowArrays: {
                     sizes: [...this.speciesGlowSize],
                     intensities: [...this.speciesGlowIntensity]
+                },
+                
+                // Species Halo Effect
+                speciesHaloEnabled: this.speciesHaloIntensity.some(intensity => intensity > 0),
+                speciesHaloArrays: {
+                    intensities: [...this.speciesHaloIntensity],
+                    radii: [...this.speciesHaloRadius]
+                },
+                
+                // Per-Species Trail Effect
+                linkAllSpeciesTrails: this.linkAllSpeciesTrails,
+                speciesTrailArrays: {
+                    lengths: [...this.speciesTrailLength]
                 }
             },
             
             // FORCES Section
             forces: {
                 collision: this.collisionForce,
-                social: this.socialForce
+                social: this.socialForce,
+                pattern: {
+                    type: this.forcePatternType || 'random',
+                    edgeBias: this.forceDistribution || 0.8,
+                    parameters: this.forcePatternParameters || {}
+                }
             },
             
             // RENDER MODE & GLOBAL SETTINGS
@@ -1689,6 +2796,8 @@ export class SimpleParticleSystem {
         return {
             blur: this.blur,
             trailEnabled: this.trailEnabled,
+            linkAllSpeciesTrails: this.linkAllSpeciesTrails,
+            speciesTrailLength: this.speciesTrailLength,
             particleSize: this.particleSize,
             friction: this.friction,
             wallDamping: this.wallDamping,
@@ -1706,12 +2815,20 @@ export class SimpleParticleSystem {
         this.numSpecies = 5;
         this.particlesPerSpecies = 150;
         this.particleSize = 3.0;
-        this.perSpeciesSize = false;
+        this.perSpeciesSize = true;
         this.blur = 0.97;
         this.trailEnabled = true;
         this.friction = 0.95; // Physics value (0.05 UI value)
-        this.wallDamping = 0.9;
         this.forceFactor = 0.5;
+        
+        // Collision defaults
+        this.collisionMultiplier = 1.0;
+        this.collisionOffset = 0.0;
+        
+        // Wall behavior defaults
+        this.wallDamping = 0.9;
+        this.repulsiveForce = 0.3;
+        this.wrapAroundWalls = false;
         
         // Shockwave defaults
         this.shockwaveEnabled = true;
@@ -1741,6 +2858,14 @@ export class SimpleParticleSystem {
         this.speciesGlowSize = new Array(20).fill(1.0);
         this.speciesGlowIntensity = new Array(20).fill(0);
         
+        // Reset species halo arrays
+        this.speciesHaloIntensity = new Array(20).fill(0);
+        this.speciesHaloRadius = new Array(20).fill(1.0);
+        
+        // Reset per-species trail arrays
+        this.linkAllSpeciesTrails = true;
+        this.speciesTrailLength = new Array(20).fill(0.95);
+        
         // Reinitialize species and particles
         this.initializeSpecies();
         this.initializeParticles();
@@ -1756,17 +2881,56 @@ export class SimpleParticleSystem {
         this.gridHeight = Math.ceil(height / this.gridSize);
         this.initSpatialGrid();
         this.gradientCache.clear(); // Clear cached gradients on resize
+        this.haloGradientCache.clear();
     }
     
     // Update parameters from UI
     setParameter(name, value) {
-        this[name] = value;
+        if (name === 'particleSize') {
+            this.particleSize = value;
+            // Update all species sizes if not in per-species mode
+            this.updateSpeciesSizes();
+        } else {
+            this[name] = value;
+        }
+    }
+
+    // Update species sizes based on current particleSize
+    updateSpeciesSizes() {
+        if (!this.species || this.species.length === 0) return;
+        
+        for (let i = 0; i < this.species.length; i++) {
+            if (this.species[i]) {
+                if (this.perSpeciesSize) {
+                    // Keep varied sizes in per-species mode
+                    if (!this.species[i].size || this.species[i].size <= 0) {
+                        this.species[i].size = this.particleSize + (Math.random() - 0.5) * this.particleSize * 0.5;
+                    }
+                } else {
+                    // Synchronize to global particle size
+                    this.species[i].size = this.particleSize;
+                }
+            }
+        }
     }
     
     setSocialForce(i, j, value) {
         if (this.socialForce[i] && j < this.socialForce[i].length) {
             this.socialForce[i][j] = value;
         }
+    }
+    
+    // Apply force pattern with configurable parameters
+    applyForcePattern(patternType, edgeBias = 0.8, userParameters = {}) {
+        // Store configuration for preset saving
+        this.forcePatternType = patternType;
+        this.forceDistribution = edgeBias;
+        this.forcePatternParameters = userParameters;
+        
+        // Generate and apply the force pattern
+        this.socialForce = this.createForcePattern(patternType, edgeBias, userParameters);
+        
+        // Applied force pattern
     }
     
     // Mute/freeze functionality
