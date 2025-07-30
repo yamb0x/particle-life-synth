@@ -287,34 +287,35 @@ class CloudStorage {
     const { 
       userId = null, 
       status = null, 
-      limit: queryLimit = 100,
-      orderByField = 'updatedAt',
-      skipOrdering = false  // Add option to skip ordering to avoid index requirements
+      limit: queryLimit = 200  // Increased limit
     } = options;
 
     try {
+      // Use the simplest possible query to avoid index issues
       let q = this.firebase.collection(this.db, COLLECTIONS.PRESETS);
       
-      // Build query
+      // Build query with minimal constraints to avoid composite index requirements
       const constraints = [];
       
-      if (userId) {
-        constraints.push(this.firebase.where('userId', '==', userId));
-      }
-      
-      if (status) {
+      // Only filter by status if specified (most common filter)
+      if (status && !userId) {
         constraints.push(this.firebase.where('status', '==', status));
+        constraints.push(this.firebase.limit(queryLimit));
+      } else if (userId && !status) {
+        // Simple userId filter without ordering
+        constraints.push(this.firebase.where('userId', '==', userId));
+        constraints.push(this.firebase.limit(queryLimit));
+      } else if (!userId && !status) {
+        // Get all presets with just a limit
+        constraints.push(this.firebase.limit(queryLimit));
+      } else {
+        // For complex queries, do two separate queries and combine results
+        return await this.getAllPresetsWithFallback(userId, status, queryLimit);
       }
       
-      // Only add orderBy if not skipping and not filtering by userId
-      // (userId + orderBy requires composite index)
-      if (!skipOrdering && !userId) {
-        constraints.push(this.firebase.orderBy(orderByField, 'desc'));
+      if (constraints.length > 0) {
+        q = this.firebase.query(q, ...constraints);
       }
-      
-      constraints.push(this.firebase.limit(queryLimit));
-      
-      q = this.firebase.query(q, ...constraints);
       
       const querySnapshot = await this.firebase.getDocs(q);
       const presets = [];
@@ -325,9 +326,60 @@ class CloudStorage {
         presets.push({ id: doc.id, ...parsed });
       });
       
+      // Sort in memory instead of using orderBy to avoid index requirements
+      presets.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt || 0);
+        const dateB = new Date(b.updatedAt || b.createdAt || 0);
+        return dateB - dateA; // Most recent first
+      });
+      
       return presets;
     } catch (error) {
       console.error('Failed to get presets from cloud:', error.message);
+      // Fallback to getting all presets without filters
+      return await this.getAllPresetsWithFallback(null, null, queryLimit);
+    }
+  }
+
+  // Fallback method that handles complex queries by doing separate queries
+  async getAllPresetsWithFallback(userId, status, limit) {
+    try {
+      // Get all presets without complex filtering
+      const q = this.firebase.query(
+        this.firebase.collection(this.db, COLLECTIONS.PRESETS),
+        this.firebase.limit(limit)
+      );
+      
+      const querySnapshot = await this.firebase.getDocs(q);
+      const allPresets = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const parsed = this.parseFromFirestore(data);
+        allPresets.push({ id: doc.id, ...parsed });
+      });
+      
+      // Filter in memory
+      let filteredPresets = allPresets;
+      
+      if (userId) {
+        filteredPresets = filteredPresets.filter(p => p.userId === userId);
+      }
+      
+      if (status) {
+        filteredPresets = filteredPresets.filter(p => p.status === status);
+      }
+      
+      // Sort by date
+      filteredPresets.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt || 0);
+        const dateB = new Date(b.updatedAt || b.createdAt || 0);
+        return dateB - dateA;
+      });
+      
+      return filteredPresets;
+    } catch (error) {
+      console.error('Fallback query also failed:', error.message);
       return [];
     }
   }
@@ -431,33 +483,68 @@ class CloudStorage {
     
     this.initialize().then(() => {
       if (!this.initialized || !this.currentUser) {
-        // Silently skip subscription if not connected
+        // Call callback with empty array if not connected
+        callback([]);
         return null;
       }
       
-      // Use polling instead of real-time subscription to avoid WebChannel errors
+      // Use polling with exponential backoff for resilience
+      let pollInterval = 10000; // Start with 10 seconds
+      const maxInterval = 60000; // Max 60 seconds
+      let pollAttempts = 0;
+      
       const pollPresets = async () => {
         try {
-          const presets = await this.getAllPresets({ userId, status });
+          const presets = await this.getAllPresets({ userId, status, limit: 200 });
           callback(presets);
+          
+          // Reset interval on success
+          pollInterval = 10000;
+          pollAttempts = 0;
         } catch (error) {
-          // Silently handle polling errors
+          console.warn('Polling failed, retrying with longer interval:', error.message);
+          pollAttempts++;
+          
+          // Exponential backoff
+          pollInterval = Math.min(pollInterval * Math.pow(1.5, pollAttempts), maxInterval);
+          
+          // Call callback with empty array on persistent failures
+          if (pollAttempts > 3) {
+            callback([]);
+          }
         }
       };
       
       // Initial load
       pollPresets();
       
-      // Poll every 30 seconds instead of real-time updates
-      const intervalId = setInterval(pollPresets, 30000);
+      // Dynamic polling with adaptive intervals
+      let currentIntervalId;
+      const scheduleNextPoll = () => {
+        if (currentIntervalId) {
+          clearTimeout(currentIntervalId);
+        }
+        currentIntervalId = setTimeout(() => {
+          pollPresets();
+          scheduleNextPoll();
+        }, pollInterval);
+      };
+      
+      scheduleNextPoll();
       
       // Store cleanup function
       const listenerId = `presets_${Date.now()}`;
-      this.listeners.set(listenerId, () => clearInterval(intervalId));
+      this.listeners.set(listenerId, () => {
+        if (currentIntervalId) {
+          clearTimeout(currentIntervalId);
+        }
+      });
       
       return listenerId;
-    }).catch(() => {
-      // Silently handle initialization errors
+    }).catch((error) => {
+      console.warn('Failed to initialize preset subscription:', error.message);
+      // Call callback with empty array on initialization failure
+      callback([]);
       return null;
     });
   }

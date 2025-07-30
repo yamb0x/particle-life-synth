@@ -61,29 +61,63 @@ export class HybridPresetManager extends PresetManager {
 
     this.syncInProgress = true;
     try {
-      // Get all public presets from cloud
+      // Get all public presets from cloud with increased limit
       const cloudPresets = await cloudStorage.getAllPresets({ 
         status: PRESET_STATUS.PUBLIC,
-        limit: 100  // Increased limit to get all presets
+        limit: 200  // Increased limit to ensure we get all presets
       });
 
       // Update cloud presets map, filtering out invalid ones
       this.cloudPresets.clear();
+      let validCount = 0;
+      
       for (const preset of cloudPresets) {
         // Skip invalid presets
         if (this.isInvalidPresetName(preset.name)) continue;
         if (preset.name.toLowerCase() === 'randomize') continue;
         
         this.cloudPresets.set(preset.id, preset);
+        validCount++;
       }
 
-      if (this.cloudPresets.size > 0) {
-        console.log(`Cloud sync: ${this.cloudPresets.size} presets loaded`);
+      console.log(`Cloud sync: ${validCount} valid presets loaded (${cloudPresets.length} total retrieved)`);
+      
+      // If we got significantly fewer presets than expected, try fallback
+      if (validCount < 10) {
+        console.log('Low preset count detected, trying fallback sync...');
+        await this.fallbackSyncWithCloud();
       }
     } catch (error) {
-      console.error('Cloud sync failed:', error.message);
+      console.error('Cloud sync failed, trying fallback:', error.message);
+      await this.fallbackSyncWithCloud();
     } finally {
       this.syncInProgress = false;
+    }
+  }
+
+  // Fallback sync method that gets all presets without filtering
+  async fallbackSyncWithCloud() {
+    try {
+      const allPresets = await cloudStorage.getAllPresets({ 
+        limit: 200  // No status filter to get everything
+      });
+
+      let publicCount = 0;
+      for (const preset of allPresets) {
+        // Only include public presets and skip invalid ones
+        if (preset.status === PRESET_STATUS.PUBLIC && 
+            !this.isInvalidPresetName(preset.name) && 
+            preset.name.toLowerCase() !== 'randomize') {
+          this.cloudPresets.set(preset.id, preset);
+          publicCount++;
+        }
+      }
+
+      if (publicCount > 0) {
+        console.log(`Fallback sync: ${publicCount} presets loaded from ${allPresets.length} total`);
+      }
+    } catch (error) {
+      console.error('Fallback sync also failed:', error.message);
     }
   }
 
