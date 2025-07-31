@@ -322,30 +322,33 @@ export class MainUI {
             <!-- 4. WALLS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
-                    <h4 class="section-title">Walls</h4>
+                    <h4 class="section-title">Boundary Behavior</h4>
                 </div>
                 <div class="panel-content">
                     <div class="control-group">
                         <label>
-                            Wall Bounce
+                            <input type="checkbox" id="wrap-around-walls" ${(this.particleSystem.wrapAroundWalls || false) ? 'checked' : ''}>
+                            Toroidal Space (Wrap-Around)
+                        </label>
+                        <span class="info-text">When enabled, particles wrap seamlessly from one edge to the opposite</span>
+                    </div>
+                    <div class="control-group" id="wall-controls" style="${(this.particleSystem.wrapAroundWalls || false) ? 'display: none;' : ''}">
+                        <label>
+                            Wall Bounce Damping
                             <span class="value-display" id="wall-bounce-value">${this.particleSystem.wallDamping.toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="wall-bounce" 
                                min="-1.0" max="3.0" step="0.05" value="${this.particleSystem.wallDamping}">
+                        <span class="info-text">Controls energy loss when particles hit walls</span>
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" id="repulsive-control" style="${(this.particleSystem.wrapAroundWalls || false) ? 'display: none;' : ''}">
                         <label>
-                            Repulsive Force
+                            Boundary Repulsion
                             <span class="value-display" id="repulsive-force-value">${(this.particleSystem.repulsiveForce || 0.3).toFixed(2)}</span>
                         </label>
                         <input type="range" class="range-slider" id="repulsive-force" 
                                min="0" max="1.0" step="0.05" value="${this.particleSystem.repulsiveForce || 0.3}">
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="wrap-around-walls" ${(this.particleSystem.wrapAroundWalls || false) ? 'checked' : ''}>
-                            Remove Walls (Wrap-Around)
-                        </label>
+                        <span class="info-text">Pushes particles away from walls to prevent clustering at boundaries</span>
                     </div>
                 </div>
             </div>
@@ -2637,6 +2640,17 @@ export class MainUI {
                     
                     // Update color name automatically
                     this.updateSpeciesColorName(speciesIndex, hex);
+                    
+                    // Update all UI components that display species names/colors
+                    this.updateSpeciesSelectors(this.particleSystem.numSpecies);
+                    this.updateSpeciesButtons(this.particleSystem.numSpecies);
+                    this.updateDistributionSpeciesSelector(this.particleSystem.numSpecies);
+                    
+                    // Update force editor if it exists
+                    if (this.forceEditor) {
+                        this.forceEditor.setSpecies(this.particleSystem.species);
+                    }
+                    
                     this.triggerAutoSave();
                 }
             });
@@ -2734,6 +2748,11 @@ export class MainUI {
                 species.name = colorName;
             }
         }
+        
+        // Update all UI components that display species names/colors
+        this.updateSpeciesSelectors(this.particleSystem.numSpecies);
+        this.updateSpeciesButtons(this.particleSystem.numSpecies);
+        this.updateDistributionSpeciesSelector(this.particleSystem.numSpecies);
     }
 
     getColorName(hexColor) {
@@ -3073,6 +3092,28 @@ export class MainUI {
         
         document.getElementById('wrap-around-walls').addEventListener('change', (e) => {
             this.particleSystem.wrapAroundWalls = e.target.checked;
+            
+            // Show/hide wall controls based on wrap-around mode
+            const wallControls = document.getElementById('wall-controls');
+            const repulsiveControl = document.getElementById('repulsive-control');
+            
+            if (e.target.checked) {
+                // Wrap-around mode: hide wall controls and disable repulsive force
+                wallControls.style.display = 'none';
+                repulsiveControl.style.display = 'none';
+                this.particleSystem.repulsiveForce = 0;
+            } else {
+                // Wall mode: show wall controls
+                wallControls.style.display = '';
+                repulsiveControl.style.display = '';
+                // Restore repulsive force to default if it was 0
+                if (this.particleSystem.repulsiveForce === 0) {
+                    this.particleSystem.repulsiveForce = 0.3;
+                    document.getElementById('repulsive-force').value = 0.3;
+                    document.getElementById('repulsive-force-value').textContent = '0.30';
+                }
+            }
+            
             this.triggerAutoSave();
         });
         
@@ -3568,9 +3609,6 @@ export class MainUI {
     }
     
     updateSpeciesSelectors(numSpecies) {
-        const colors = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
-                       'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
-        
         const selectors = ['from-species', 'to-species', 'glow-species-selector', 'halo-species-selector', 'trail-species-selector', 'size-species-selector'];
         
         selectors.forEach(selectorId => {
@@ -3581,9 +3619,10 @@ export class MainUI {
             select.innerHTML = '';
             
             for (let i = 0; i < numSpecies; i++) {
+                const species = this.particleSystem.species[i];
                 const option = document.createElement('option');
                 option.value = i;
-                option.textContent = colors[i] || `Species ${i + 1}`;
+                option.textContent = species?.name || `Species ${i + 1}`;
                 select.appendChild(option);
             }
             
@@ -4332,6 +4371,17 @@ export class MainUI {
         document.getElementById('repulsive-force').value = ps.repulsiveForce || 0.3;
         document.getElementById('repulsive-force-value').textContent = (ps.repulsiveForce || 0.3).toFixed(2);
         document.getElementById('wrap-around-walls').checked = ps.wrapAroundWalls || false;
+        
+        // Update wall controls visibility based on wrap-around mode
+        const wallControls = document.getElementById('wall-controls');
+        const repulsiveControl = document.getElementById('repulsive-control');
+        if (ps.wrapAroundWalls) {
+            if (wallControls) wallControls.style.display = 'none';
+            if (repulsiveControl) repulsiveControl.style.display = 'none';
+        } else {
+            if (wallControls) wallControls.style.display = '';
+            if (repulsiveControl) repulsiveControl.style.display = '';
+        }
         // New collision strength control
         document.getElementById('collision-strength').value = ps.collisionMultiplier || 1.0;
         document.getElementById('collision-strength-value').textContent = (ps.collisionMultiplier || 1.0).toFixed(1);
@@ -4597,6 +4647,11 @@ export class MainUI {
             document.getElementById('per-species-halo-intensity-control').style.display = hasHalo ? '' : 'none';
             document.getElementById('per-species-halo-radius-control').style.display = hasHalo ? '' : 'none';
         }
+        
+        // Update species names and related UI components
+        this.updateAllSpeciesNames();
+        this.updateSpeciesButtons(ps.numSpecies);
+        this.updateDistributionSpeciesSelector(ps.numSpecies);
     }
     
     setupSpeciesButtons() {

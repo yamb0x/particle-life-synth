@@ -270,13 +270,34 @@ export class SimpleParticleSystem {
         // Check 3x3 grid around particle
         for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
-                const checkX = gx + dx;
-                const checkY = gy + dy;
-                if (checkX >= 0 && checkX < this.gridWidth && checkY >= 0 && checkY < this.gridHeight) {
-                    const gridIndex = checkY * this.gridWidth + checkX;
+                let checkX = gx + dx;
+                let checkY = gy + dy;
+                
+                if (this.wrapAroundWalls) {
+                    // Handle toroidal wrapping for grid coordinates
+                    if (checkX < 0) checkX = this.gridWidth - 1;
+                    else if (checkX >= this.gridWidth) checkX = 0;
+                    
+                    if (checkY < 0) checkY = this.gridHeight - 1;
+                    else if (checkY >= this.gridHeight) checkY = 0;
+                } else {
+                    // Standard boundary check for non-wrap mode
+                    if (checkX < 0 || checkX >= this.gridWidth || checkY < 0 || checkY >= this.gridHeight) {
+                        continue;
+                    }
+                }
+                
+                const gridIndex = checkY * this.gridWidth + checkX;
+                if (gridIndex >= 0 && gridIndex < this.spatialGrid.length) {
                     nearby.push(...this.spatialGrid[gridIndex]);
                 }
             }
+        }
+        
+        // Debug logging for performance validation (can be removed in production)
+        if (this.debugNearbyParticles && this.frameCount % 60 === 0) {
+            const reduction = ((this.particles.length - nearby.length) / this.particles.length * 100).toFixed(1);
+            console.log(`Wrap-around optimization: checking ${nearby.length}/${this.particles.length} particles (${reduction}% reduction)`);
         }
         
         return nearby;
@@ -1706,6 +1727,7 @@ export class SimpleParticleSystem {
         }
         
         // Update spatial grid for optimized neighbor search
+        // Now supports both regular and toroidal (wrap-around) topology
         this.updateSpatialGrid();
         
         // Trail effect - Smart buffering approach to prevent gray residue
@@ -1723,7 +1745,15 @@ export class SimpleParticleSystem {
         // Update each particle with optimized force calculations
         for (let i = 0; i < this.particles.length; i++) {
             const p1 = this.particles[i];
+            if (!p1) {
+                continue;
+            }
+            
             const s1 = p1.species;
+            if (s1 === undefined || s1 < 0 || s1 >= this.numSpecies) {
+                continue;
+            }
+            
             const species1Radius = this.species[s1]?.size || this.particleSize;
             
             // Reset forces
@@ -1763,6 +1793,12 @@ export class SimpleParticleSystem {
                 
                 const s2 = p2.species;
                 
+                // Safety check for valid species index
+                if (s1 === undefined || s2 === undefined || s1 < 0 || s2 < 0 || 
+                    s1 >= this.numSpecies || s2 >= this.numSpecies) {
+                    continue;
+                }
+                
                 // Calculate collision distance based on particle sizes
                 const species2Radius = this.species[s2]?.size || this.particleSize;
                 
@@ -1771,8 +1807,14 @@ export class SimpleParticleSystem {
                 const collisionR = (baseCollisionDistance + this.collisionOffset) * this.collisionMultiplier;
                 const collisionR2 = collisionR * collisionR;
                 
-                const socialR = Array.isArray(this.socialRadius) && this.socialRadius[s1] && this.socialRadius[s1][s2] !== undefined 
-                    ? this.socialRadius[s1][s2] : 50;
+                // Safe access to social radius matrix
+                let socialR = 50; // default
+                if (Array.isArray(this.socialRadius) && this.socialRadius[s1] && this.socialRadius[s1][s2] !== undefined) {
+                    socialR = this.socialRadius[s1][s2];
+                    if (isNaN(socialR) || socialR <= 0) {
+                        socialR = 50;
+                    }
+                }
                 const socialR2 = socialR * socialR;
                 
                 // Early exit if particle is too far for any interaction
@@ -1812,6 +1854,10 @@ export class SimpleParticleSystem {
                         const overlapScale = Math.max(1.0, overlap / 2.0);
                         
                         const F = baseForce * sizeScale * overlapScale / Math.max(dist, 0.1);
+                        // Safety check for force values
+                        if (isNaN(F) || !isFinite(F)) {
+                            continue;
+                        }
                         fx += F * unitX;
                         fy += F * unitY;
                     }
@@ -1823,8 +1869,11 @@ export class SimpleParticleSystem {
                     if (this.socialForce[s1] && this.socialForce[s1][s2] !== undefined) {
                         const baseForce = this.socialForce[s1][s2];
                         
+                        // Skip if no force between these species
+                        if (baseForce === 0) continue;
+                        
                         // Enhanced force calculation with temporal dynamics and multi-scale interactions
-                        let F;
+                        let F = 0; // Initialize to 0 to prevent undefined
                         if (baseForce > 0) {
                             // Attractive force with multi-zone behavior
                             const innerZone = socialR * 0.25;  // 25% - strong cohesion zone
@@ -1857,12 +1906,16 @@ export class SimpleParticleSystem {
                             const breathingMod = 0.9 + 0.1 * Math.sin(breathingPhase);
                             F *= breathingMod;
                             
-                        } else {
+                        } else if (baseForce < 0) {
                             // Repulsive force with distance zones and temporal modulation
                             const strongRepulsionZone = socialR * 0.3;
                             const weakRepulsionZone = socialR * 0.7;
+                            const maxRepulsionRange = socialR * 0.9; // Don't apply repulsion beyond this
                             
-                            if (dist < strongRepulsionZone) {
+                            if (dist > maxRepulsionRange) {
+                                // Too far - no repulsion
+                                F = 0;
+                            } else if (dist < strongRepulsionZone) {
                                 // Strong repulsion with safety distance
                                 const repulsionStrength = 1.5;
                                 F = baseForce * repulsionStrength / Math.max(dist, collisionR * 0.3);
@@ -1871,13 +1924,19 @@ export class SimpleParticleSystem {
                                 const falloff = (weakRepulsionZone - dist) / (weakRepulsionZone - strongRepulsionZone);
                                 F = baseForce * falloff / dist;
                             } else {
-                                // Weak or no repulsion at long range
-                                const timePhase = this.time * 0.0012 + (s1 + s2) * 0.4;
-                                const temporalMod = 0.5 + 0.5 * Math.sin(timePhase);
-                                F = baseForce * 0.2 * temporalMod / dist;
+                                // Weak repulsion at long range (but within maxRepulsionRange)
+                                const falloff = (maxRepulsionRange - dist) / (maxRepulsionRange - weakRepulsionZone);
+                                F = baseForce * 0.1 * falloff / dist;
                             }
+                        } else {
+                            // baseForce is exactly 0 - no force
+                            F = 0;
                         }
                         
+                        // Safety check for social force values
+                        if (isNaN(F) || !isFinite(F)) {
+                            continue;
+                        }
                         fx += F * unitX;
                         fy += F * unitY;
                     }
@@ -1906,7 +1965,6 @@ export class SimpleParticleSystem {
             
             // Safety check for NaN forces
             if (isNaN(fx) || isNaN(fy)) {
-                console.warn(`Forces became NaN for particle ${i}: fx=${fx}, fy=${fy}`);
                 fx = 0;
                 fy = 0;
             }
@@ -1965,7 +2023,6 @@ export class SimpleParticleSystem {
             
             // Velocity sanity check
             if (isNaN(p1.vx) || isNaN(p1.vy)) {
-                console.warn(`Particle ${i} velocity became NaN, resetting`);
                 p1.vx = (Math.random() - 0.5) * 2;
                 p1.vy = (Math.random() - 0.5) * 2;
             }
@@ -1976,7 +2033,6 @@ export class SimpleParticleSystem {
             
             // Critical safety check: Prevent NaN positions
             if (isNaN(p1.x) || isNaN(p1.y)) {
-                console.warn(`Particle ${i} position became NaN, resetting to center`);
                 p1.x = this.width * 0.5;
                 p1.y = this.height * 0.5;
                 p1.vx = (Math.random() - 0.5) * 2;
@@ -1985,57 +2041,64 @@ export class SimpleParticleSystem {
             
             // Handle wall behavior based on settings
             if (this.wrapAroundWalls) {
-                // Wrap-around boundaries (toroidal space)
+                // Wrap-around boundaries (toroidal space) - improved smooth wrapping
                 if (p1.x < 0) {
-                    p1.x = this.width;
-                } else if (p1.x > this.width) {
-                    p1.x = 0;
+                    p1.x += this.width;
+                } else if (p1.x >= this.width) {
+                    p1.x -= this.width;
                 }
                 if (p1.y < 0) {
-                    p1.y = this.height;
-                } else if (p1.y > this.height) {
-                    p1.y = 0;
+                    p1.y += this.height;
+                } else if (p1.y >= this.height) {
+                    p1.y -= this.height;
                 }
             } else {
-                // Apply repulsive force near edges (Solution 1)
+                // Apply repulsive force near edges - improved smooth falloff
                 if (this.repulsiveForce > 0) {
-                    const repulsiveZone = 50; // Distance from edge where repulsion starts
+                    const repulsiveZone = Math.max(30, this.particleSize * 5); // Adaptive zone based on particle size
                     let repulsiveFx = 0, repulsiveFy = 0;
                     
-                    // Left edge repulsion
+                    // Left edge repulsion - smooth exponential falloff
                     if (p1.x < repulsiveZone) {
-                        const intensity = (repulsiveZone - p1.x) / repulsiveZone;
-                        repulsiveFx += this.repulsiveForce * intensity * 20;
+                        const intensity = Math.pow((repulsiveZone - p1.x) / repulsiveZone, 2);
+                        repulsiveFx += this.repulsiveForce * intensity * 15;
                     }
                     // Right edge repulsion
                     if (p1.x > this.width - repulsiveZone) {
-                        const intensity = (p1.x - (this.width - repulsiveZone)) / repulsiveZone;
-                        repulsiveFx -= this.repulsiveForce * intensity * 20;
+                        const intensity = Math.pow((p1.x - (this.width - repulsiveZone)) / repulsiveZone, 2);
+                        repulsiveFx -= this.repulsiveForce * intensity * 15;
                     }
                     // Top edge repulsion
                     if (p1.y < repulsiveZone) {
-                        const intensity = (repulsiveZone - p1.y) / repulsiveZone;
-                        repulsiveFy += this.repulsiveForce * intensity * 20;
+                        const intensity = Math.pow((repulsiveZone - p1.y) / repulsiveZone, 2);
+                        repulsiveFy += this.repulsiveForce * intensity * 15;
                     }
                     // Bottom edge repulsion
                     if (p1.y > this.height - repulsiveZone) {
-                        const intensity = (p1.y - (this.height - repulsiveZone)) / repulsiveZone;
-                        repulsiveFy -= this.repulsiveForce * intensity * 20;
+                        const intensity = Math.pow((p1.y - (this.height - repulsiveZone)) / repulsiveZone, 2);
+                        repulsiveFy -= this.repulsiveForce * intensity * 15;
                     }
                     
-                    // Apply repulsive forces
-                    p1.vx += repulsiveFx * dt;
-                    p1.vy += repulsiveFy * dt;
+                    // Apply repulsive forces with species-specific mobility consideration
+                    const mobilityFactor = this.species[p1.species]?.mobility || 1.0;
+                    p1.vx += repulsiveFx * dt * mobilityFactor;
+                    p1.vy += repulsiveFy * dt * mobilityFactor;
                 }
                 
-                // Traditional wall collisions with damping
-                if (p1.x < this.particleSize || p1.x > this.width - this.particleSize) {
+                // Traditional wall collisions with damping - improved boundary detection
+                const effectiveSize = this.particleSize * (this.species[p1.species]?.sizeMultiplier || 1.0);
+                
+                if (p1.x < effectiveSize || p1.x > this.width - effectiveSize) {
                     p1.vx *= -this.wallDamping;
-                    p1.x = Math.max(this.particleSize, Math.min(this.width - this.particleSize, p1.x));
+                    p1.x = Math.max(effectiveSize, Math.min(this.width - effectiveSize, p1.x));
+                    // Add slight random angle to prevent particles getting stuck in corners
+                    p1.vy += (Math.random() - 0.5) * 0.1;
                 }
-                if (p1.y < this.particleSize || p1.y > this.height - this.particleSize) {
+                if (p1.y < effectiveSize || p1.y > this.height - effectiveSize) {
                     p1.vy *= -this.wallDamping;
-                    p1.y = Math.max(this.particleSize, Math.min(this.height - this.particleSize, p1.y));
+                    p1.y = Math.max(effectiveSize, Math.min(this.height - effectiveSize, p1.y));
+                    // Add slight random angle to prevent particles getting stuck in corners
+                    p1.vx += (Math.random() - 0.5) * 0.1;
                 }
             }
             
