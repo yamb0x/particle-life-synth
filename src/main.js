@@ -3,6 +3,7 @@ import { HybridPresetManager } from './utils/HybridPresetManager.js';
 import { PresetModal } from './ui/PresetModal.js';
 import { MainUI } from './ui/MainUI.js';
 import { UIStateManager } from './utils/UIStateManager.js';
+import { CollapsibleUIIntegration } from './ui/CollapsibleUIIntegration.js';
 import { DOMHelpers } from './utils/DOMHelpers.js';
 import { CloudSyncUI } from './ui/CloudSyncUI.js';
 import { Logger } from './utils/Logger.js';
@@ -162,6 +163,15 @@ async function init() {
     // Debug mode: Make main UI globally accessible
     if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
         window.mainUI = mainUI;
+    }
+    
+    // Initialize collapsible UI integration
+    const collapsibleUI = new CollapsibleUIIntegration(mainUI);
+    await collapsibleUI.initialize();
+    
+    // Debug mode: Make collapsibleUI globally accessible
+    if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
+        window.collapsibleUI = collapsibleUI;
     }
     
     // Automatically enable cloud sync

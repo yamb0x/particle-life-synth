@@ -36,15 +36,10 @@ const PATTERN_DEFAULTS = {
     }
 };
 
-import { PerformanceMonitor } from '../utils/PerformanceMonitor.js';
-import { NoiseGenerator } from '../utils/NoiseGenerator.js';
-
 export class SimpleParticleSystem {
     constructor(width, height) {
         this.width = width;
         this.height = height;
-        this.halfWidth = width / 2;
-        this.halfHeight = height / 2;
         this.particles = [];
         this.time = 0;
         
@@ -106,27 +101,11 @@ export class SimpleParticleSystem {
         this.collisionMultiplier = 1.0;   // Global multiplier for collision strength (0.5-5.0)
         this.collisionOffset = 0.0;       // Extra spacing between particles (0-10)
         
-        // Breath feature - sinusoidal collision offset modulation
-        this.breathEnabled = false;       // Enable breath behavior
-        this.breathMin = 0.0;            // Minimum collision offset during breath cycle
-        this.breathMax = 5.0;            // Maximum collision offset during breath cycle
-        this.breathTime = 5.0;           // Time in seconds for complete breath cycle
-        this.breathStartTime = 0;        // Start time for breath animation
-        this.cachedBreathOffset = 0.0;   // Cached offset value to avoid repeated calculations
-        
         // Advanced physics for organic behaviors
         this.enableDensityForces = false; // Density-dependent force modulation
         this.enableTimeModulation = false; // Time-varying forces
-        this.chaosLevel = 0.0; // Legacy chaos - kept for backwards compatibility
+        this.chaosLevel = 0.0; // Random force injection (0-1)
         this.environmentalPressure = 0.0; // Global center attraction/repulsion (-1 to 1)
-        
-        // Advanced noise system
-        this.noiseGenerator = new NoiseGenerator();
-        this.noiseEnabled = false;
-        this.noisePattern = 'perlin';
-        this.noiseAmplitude = 0.0;
-        this.noiseScale = 1.0;
-        this.noiseTimeScale = 1.0
         
         // Species settings
         this.numSpecies = 5;
@@ -187,92 +166,6 @@ export class SimpleParticleSystem {
         
         // Mute/freeze functionality for performance saving
         this.muted = false;
-        
-        // Performance monitoring
-        this.performanceMonitor = new PerformanceMonitor();
-        this.performanceMode = 'auto'; // 'high', 'medium', 'low', 'auto'
-        this.qualitySettings = {
-            high: {
-                trailEnabled: true,
-                perSpeciesTrails: true,
-                haloEnabled: true,
-                particleGlow: true
-            },
-            medium: {
-                trailEnabled: true,
-                perSpeciesTrails: false,
-                haloEnabled: true,
-                particleGlow: false
-            },
-            low: {
-                trailEnabled: false,
-                perSpeciesTrails: false,
-                haloEnabled: false,
-                particleGlow: false
-            }
-        };
-        
-        // Initialize offscreen canvas for trail caching
-        this.initializeTrailCache();
-    }
-    
-    initializeTrailCache() {
-        // Create offscreen canvas for trail caching
-        if (typeof document !== 'undefined') {
-            this.trailOffscreenCanvas = document.createElement('canvas');
-            this.trailOffscreenCanvas.width = this.width;
-            this.trailOffscreenCanvas.height = this.height;
-            this.trailOffscreenCtx = this.trailOffscreenCanvas.getContext('2d');
-        }
-    }
-    
-    getCurrentCollisionOffset() {
-        return this.breathEnabled ? this.cachedBreathOffset : this.collisionOffset;
-    }
-    
-    updateBreathOffset() {
-        if (!this.breathEnabled) {
-            this.cachedBreathOffset = this.collisionOffset;
-            return;
-        }
-        
-        const currentTime = this.time / 60; // Convert to seconds
-        const cyclePosition = (currentTime - this.breathStartTime) / this.breathTime;
-        const breathPhase = cyclePosition * Math.PI * 2;
-        
-        // Sinusoidal interpolation between min and max
-        const breathValue = (Math.sin(breathPhase) + 1) / 2; // 0 to 1
-        this.cachedBreathOffset = this.breathMin + (this.breathMax - this.breathMin) * breathValue;
-    }
-    
-    getPerformanceMetrics() {
-        const metrics = this.performanceMonitor.getMetrics();
-        const avgFrameTime = metrics.frameTime || 16.67;
-        
-        let level = 'high';
-        let bottleneck = 'none';
-        
-        if (avgFrameTime > 33) {
-            level = 'low';
-            if (metrics.physicsTime > metrics.renderTime) {
-                bottleneck = 'physics';
-            } else {
-                bottleneck = 'rendering';
-            }
-        } else if (avgFrameTime > 20) {
-            level = 'medium';
-            if (this.trailEnabled && metrics.trailTime > 5) {
-                bottleneck = 'trails';
-            }
-        }
-        
-        return {
-            fps: Math.round(1000 / avgFrameTime),
-            frameTime: avgFrameTime,
-            level: level,
-            bottleneck: bottleneck,
-            details: metrics
-        };
     }
     
     initSpatialGrid() {
@@ -1820,9 +1713,6 @@ export class SimpleParticleSystem {
         }
         
         this.time += dt;
-        
-        // Update breath offset if enabled
-        this.updateBreathOffset();
         
         // Update shockwaves
         this.updateShockwaves(dt);

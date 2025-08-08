@@ -181,6 +181,22 @@
                 <button class="btn btn-secondary btn-sm" onclick="fixSliderSync()">Fix Slider Sync</button>
             </div>
             
+            <!-- Boundary Behavior Testing -->
+            <div class="section">
+                <h3>🏛️ Boundary Behavior</h3>
+                <button class="btn btn-primary btn-sm" onclick="testBoundaryBehavior()">Test Boundary System</button>
+                <button class="btn btn-secondary btn-sm" onclick="testRepulsiveForce()">Test Repulsive Force</button>
+                <button class="btn btn-secondary btn-sm" onclick="testWrapAroundMode()">Test Wrap-Around</button>
+                <button class="btn btn-secondary btn-sm" onclick="stressBoundarySystem()">Stress Test Boundaries</button>
+                
+                <div class="status-grid" id="boundary-status">
+                    <div class="status-item">Repulsive Force: <span class="status-value" id="repulsive-value">--</span></div>
+                    <div class="status-item">Wrap Mode: <span class="status-value" id="wrap-mode">--</span></div>
+                    <div class="status-item">Particles Near Edges: <span class="status-value" id="edge-particles">--</span></div>
+                    <div class="status-item">Boundary Performance: <span class="status-value" id="boundary-perf">--</span></div>
+                </div>
+            </div>
+            
             <!-- Performance Monitoring -->
             <div class="section">
                 <h3>⚡ Performance Monitor</h3>
@@ -227,7 +243,9 @@
                 <button class="btn btn-secondary btn-sm" onclick="validateColorPickerModal()">Test Issue #15 Fix</button>
                 <button class="btn btn-secondary btn-sm" onclick="validateSpeciesCountFix()">Test Issue #16 Fix</button>
                 <button class="btn btn-secondary btn-sm" onclick="validateUIStateManager()">Test UIStateManager</button>
+                <button class="btn btn-secondary btn-sm" onclick="testCollapsibleScrolling()">Test Scrolling Fix</button>
                 <button class="btn btn-secondary btn-sm" onclick="validateDOMHelpers()">Test DOMHelpers</button>
+                <button class="btn btn-secondary btn-sm" onclick="testUndoSystem()">Test Undo System (Ctrl+Z)</button>
             </div>
             
             <!-- Console & Logs -->
@@ -286,7 +304,7 @@
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
-            return { win, doc, particleSystem: win.particleSystem };
+            return { win, doc, particleSystem: win.particleSystem, mainUI: win.mainUI, undoManager: win.undoManager };
         }
         
         // System Diagnostics
@@ -1259,6 +1277,145 @@
             }
         }
         
+        async function testCollapsibleScrolling() {
+            log('📜 Testing collapsible section scrolling fix...', 'info');
+            
+            try {
+                const { doc } = await getApp();
+                const container = doc.querySelector('.main-ui-container');
+                
+                if (!container) {
+                    log('✗ Main UI container not found', 'error');
+                    return;
+                }
+                
+                // Get initial container state
+                log(`Container dimensions: ${container.clientHeight}px (client) x ${container.scrollHeight}px (scroll)`, 'info');
+                log(`Container scrollable: ${container.scrollHeight > container.clientHeight}`, 'info');
+                
+                // Find particles and forces sections
+                const particlesSection = doc.querySelector('[data-section-id="particles"]');
+                const forcesSection = doc.querySelector('[data-section-id="forces"]');
+                
+                if (!particlesSection || !forcesSection) {
+                    log('✗ Could not find particles or forces sections', 'error');
+                    return;
+                }
+                
+                // Open particles section
+                const particlesHeader = particlesSection.querySelector('.collapsible-header');
+                if (particlesHeader) {
+                    // Check initial state
+                    const wasOpen = particlesSection.classList.contains('open');
+                    log(`Particles section was ${wasOpen ? 'open' : 'closed'}`, 'info');
+                    
+                    // If already open, close it first
+                    if (wasOpen) {
+                        log('Closing particles section first...', 'info');
+                        particlesHeader.click();
+                        await new Promise(resolve => setTimeout(resolve, 400));
+                    }
+                    
+                    // Now open it
+                    log('Opening particles section...', 'info');
+                    particlesHeader.click();
+                    await new Promise(resolve => setTimeout(resolve, 800)); // Wait for animation
+                    
+                    // Check if it actually opened
+                    const isOpen = particlesSection.classList.contains('open');
+                    log(`Particles section is now ${isOpen ? 'open' : 'closed'}`, 'info');
+                    
+                    const particlesContent = particlesSection.querySelector('.collapsible-content');
+                    const particlesHeight = particlesContent ? window.getComputedStyle(particlesContent).maxHeight : 'unknown';
+                    log(`Particles section max-height: ${particlesHeight}`, 'info');
+                    
+                    // Also check the actual scrollHeight of the content
+                    if (particlesContent) {
+                        const inner = particlesContent.querySelector('.collapsible-content-inner');
+                        if (inner) {
+                            log(`Particles inner content scrollHeight: ${inner.scrollHeight}px`, 'info');
+                        }
+                    }
+                    
+                    // Check container scroll state after opening
+                    log(`After opening particles - Container scrollable: ${container.scrollHeight > container.clientHeight}`, 'info');
+                    log(`Container scroll height: ${container.scrollHeight}px, client height: ${container.clientHeight}px`, 'info');
+                    
+                    // Try to scroll to bottom to check if all controls are accessible
+                    const originalScrollTop = container.scrollTop;
+                    container.scrollTop = container.scrollHeight;
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const scrolled = container.scrollTop > originalScrollTop;
+                    if (scrolled) {
+                        log('✓ Container can scroll after opening particles section', 'success');
+                        
+                        // Check if specific controls are visible
+                        const collisionOffset = doc.querySelector('#collision-offset');
+                        const breathToggle = doc.querySelector('#collision-offset-breath');
+                        const breathControls = doc.querySelector('#breath-controls');
+                        
+                        if (collisionOffset) {
+                            const rect = collisionOffset.getBoundingClientRect();
+                            const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                            log(`Collision Offset control ${inView ? '✓ visible' : '✗ not visible'} (top: ${rect.top}, bottom: ${rect.bottom})`, inView ? 'success' : 'error');
+                        } else {
+                            log('✗ Collision Offset control not found', 'error');
+                        }
+                        
+                        if (breathToggle) {
+                            const rect = breathToggle.getBoundingClientRect();
+                            const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                            log(`Breath Toggle ${inView ? '✓ visible' : '✗ not visible'} (top: ${rect.top}, bottom: ${rect.bottom})`, inView ? 'success' : 'error');
+                        } else {
+                            log('✗ Breath Toggle not found', 'error');
+                        }
+                        
+                        if (breathControls) {
+                            const rect = breathControls.getBoundingClientRect();
+                            const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                            log(`Breath Controls ${inView ? '✓ visible' : '✗ not visible'} (top: ${rect.top}, bottom: ${rect.bottom})`, inView ? 'success' : 'error');
+                        } else {
+                            log('✗ Breath Controls not found', 'error');
+                        }
+                        
+                        // Restore scroll position
+                        container.scrollTop = originalScrollTop;
+                    } else {
+                        log('⚠️ Container did not scroll - may indicate the issue persists', 'warning');
+                    }
+                    
+                    // Close particles section
+                    particlesHeader.click();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                // Test forces section too
+                const forcesHeader = forcesSection.querySelector('.collapsible-header');
+                if (forcesHeader) {
+                    log('Opening forces section...', 'info');
+                    forcesHeader.click();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const forcesContent = forcesSection.querySelector('.collapsible-content');
+                    const forcesHeight = forcesContent ? window.getComputedStyle(forcesContent).maxHeight : 'unknown';
+                    log(`Forces section max-height: ${forcesHeight}`, 'info');
+                    
+                    log(`After opening forces - Container scrollable: ${container.scrollHeight > container.clientHeight}`, 'info');
+                    log(`Container scroll height: ${container.scrollHeight}px, client height: ${container.clientHeight}px`, 'info');
+                    
+                    // Close forces section
+                    forcesHeader.click();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                log('✅ Collapsible scrolling test completed', 'success');
+                
+            } catch (error) {
+                log(`✗ Collapsible scrolling test failed: ${error.message}`, 'error');
+            }
+        }
+        
         async function validateDOMHelpers() {
             log('🔧 Validating DOM Helpers...', 'info');
             
@@ -1364,6 +1521,289 @@
             }
         }
         
+        // Boundary Behavior Testing Functions
+        async function testBoundaryBehavior() {
+            log('🏛️ Testing boundary behavior system...', 'info');
+            
+            try {
+                const ps = window.particleSystem;
+                if (!ps) {
+                    log('✗ No particle system found', 'error');
+                    return;
+                }
+                
+                // Test both repulsive and wrap-around modes
+                await testRepulsiveForce();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await testWrapAroundMode();
+                
+                updateBoundaryStatus();
+                log('✅ Boundary behavior test completed', 'success');
+                
+            } catch (error) {
+                log(`✗ Boundary behavior test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRepulsiveForce() {
+            log('⚡ Testing repulsive force effectiveness...', 'info');
+            
+            try {
+                const ps = window.particleSystem;
+                
+                // Disable wrap-around and enable repulsive force
+                ps.wrapAroundWalls = false;
+                ps.repulsiveForce = 1.0; // Max strength
+                
+                // Create test particles near edges
+                const testParticles = [];
+                for (let i = 0; i < 10; i++) {
+                    const particle = {
+                        x: Math.random() * 30, // Near left edge
+                        y: Math.random() * ps.height,
+                        vx: 1.0, // Moving toward edge
+                        vy: 0,
+                        species: 0
+                    };
+                    testParticles.push(particle);
+                    ps.particles.push(particle);
+                }
+                
+                // Run simulation for a bit and check if particles are repelled
+                const initialPositions = testParticles.map(p => ({ x: p.x, y: p.y }));
+                
+                // Simulate for 100ms
+                for (let i = 0; i < 10; i++) {
+                    ps.update(0.016);
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+                
+                // Check if particles moved away from edge
+                let repelledCount = 0;
+                testParticles.forEach((p, idx) => {
+                    if (p.x > initialPositions[idx].x + 5) { // Moved at least 5px away
+                        repelledCount++;
+                    }
+                });
+                
+                // Clean up test particles
+                testParticles.forEach(tp => {
+                    const index = ps.particles.indexOf(tp);
+                    if (index > -1) ps.particles.splice(index, 1);
+                });
+                
+                const effectiveness = (repelledCount / testParticles.length) * 100;
+                log(`📊 Repulsive force effectiveness: ${effectiveness.toFixed(1)}% (${repelledCount}/${testParticles.length})`, 
+                    effectiveness > 70 ? 'success' : 'warning');
+                
+                return effectiveness > 70;
+                
+            } catch (error) {
+                log(`✗ Repulsive force test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testWrapAroundMode() {
+            log('🔄 Testing wrap-around mode smoothness...', 'info');
+            
+            try {
+                const ps = window.particleSystem;
+                
+                // Enable wrap-around mode
+                ps.wrapAroundWalls = true;
+                ps.repulsiveForce = 0;
+                
+                // Create test particles at boundaries
+                const testParticles = [];
+                const testCases = [
+                    { x: -5, y: ps.height / 2, vx: -2, vy: 0 }, // Past left edge
+                    { x: ps.width + 5, y: ps.height / 2, vx: 2, vy: 0 }, // Past right edge
+                    { x: ps.width / 2, y: -5, vx: 0, vy: -2 }, // Past top edge
+                    { x: ps.width / 2, y: ps.height + 5, vx: 0, vy: 2 } // Past bottom edge
+                ];
+                
+                testCases.forEach(testCase => {
+                    const particle = { ...testCase, species: 0 };
+                    testParticles.push(particle);
+                    ps.particles.push(particle);
+                });
+                
+                // Record initial out-of-bounds states
+                const initialOOB = testParticles.map(p => ({
+                    outOfBounds: p.x < 0 || p.x > ps.width || p.y < 0 || p.y > ps.height,
+                    x: p.x, y: p.y
+                }));
+                
+                // Simulate for one frame to test wrapping
+                ps.update(0.016);
+                
+                // Check if particles are now in bounds
+                let wrappedCorrectly = 0;
+                testParticles.forEach((p, idx) => {
+                    const nowInBounds = p.x >= 0 && p.x <= ps.width && p.y >= 0 && p.y <= ps.height;
+                    if (initialOOB[idx].outOfBounds && nowInBounds) {
+                        wrappedCorrectly++;
+                    }
+                });
+                
+                // Clean up test particles
+                testParticles.forEach(tp => {
+                    const index = ps.particles.indexOf(tp);
+                    if (index > -1) ps.particles.splice(index, 1);
+                });
+                
+                const wrappingSuccess = (wrappedCorrectly / testParticles.length) * 100;
+                log(`🔄 Wrap-around success rate: ${wrappingSuccess.toFixed(1)}% (${wrappedCorrectly}/${testParticles.length})`, 
+                    wrappingSuccess > 80 ? 'success' : 'warning');
+                
+                return wrappingSuccess > 80;
+                
+            } catch (error) {
+                log(`✗ Wrap-around test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function stressBoundarySystem() {
+            log('🏋️ Stress testing boundary system with high particle count...', 'info');
+            
+            try {
+                const ps = window.particleSystem;
+                
+                // Save original settings
+                const originalCount = ps.particles.length;
+                const originalRepulsive = ps.repulsiveForce;
+                const originalWrap = ps.wrapAroundWalls;
+                
+                // Test with high particle count and maximum repulsion
+                ps.repulsiveForce = 1.0;
+                ps.wrapAroundWalls = false;
+                
+                // Add many particles near edges
+                const stressParticles = [];
+                for (let i = 0; i < 200; i++) {
+                    const edge = Math.floor(Math.random() * 4);
+                    let x, y, vx, vy;
+                    
+                    switch (edge) {
+                        case 0: // Left edge
+                            x = Math.random() * 50;
+                            y = Math.random() * ps.height;
+                            vx = Math.random() - 0.5;
+                            vy = (Math.random() - 0.5) * 4;
+                            break;
+                        case 1: // Right edge
+                            x = ps.width - Math.random() * 50;
+                            y = Math.random() * ps.height;
+                            vx = Math.random() - 0.5;
+                            vy = (Math.random() - 0.5) * 4;
+                            break;
+                        case 2: // Top edge
+                            x = Math.random() * ps.width;
+                            y = Math.random() * 50;
+                            vx = (Math.random() - 0.5) * 4;
+                            vy = Math.random() - 0.5;
+                            break;
+                        case 3: // Bottom edge
+                            x = Math.random() * ps.width;
+                            y = ps.height - Math.random() * 50;
+                            vx = (Math.random() - 0.5) * 4;
+                            vy = Math.random() - 0.5;
+                            break;
+                    }
+                    
+                    const particle = { x, y, vx, vy, species: Math.floor(Math.random() * ps.numSpecies) };
+                    stressParticles.push(particle);
+                    ps.particles.push(particle);
+                }
+                
+                // Monitor performance during stress test
+                const startTime = performance.now();
+                let frameCount = 0;
+                
+                for (let i = 0; i < 60; i++) { // 1 second at 60fps
+                    ps.update(0.016);
+                    frameCount++;
+                    
+                    if (i % 10 === 0) { // Update every 10 frames
+                        updateBoundaryStatus();
+                        await new Promise(resolve => setTimeout(resolve, 16));
+                    }
+                }
+                
+                const endTime = performance.now();
+                const avgFrameTime = (endTime - startTime) / frameCount;
+                const fps = 1000 / avgFrameTime;
+                
+                // Clean up stress test particles
+                stressParticles.forEach(sp => {
+                    const index = ps.particles.indexOf(sp);
+                    if (index > -1) ps.particles.splice(index, 1);
+                });
+                
+                // Restore original settings
+                ps.repulsiveForce = originalRepulsive;
+                ps.wrapAroundWalls = originalWrap;
+                
+                const performanceRating = fps > 30 ? 'Excellent' : fps > 20 ? 'Good' : fps > 10 ? 'Fair' : 'Poor';
+                log(`📊 Stress test completed: ${fps.toFixed(1)} FPS (${performanceRating})`, 
+                    fps > 30 ? 'success' : fps > 20 ? 'info' : 'warning');
+                
+                updateBoundaryStatus();
+                
+            } catch (error) {
+                log(`✗ Stress test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateBoundaryStatus() {
+            try {
+                const ps = window.particleSystem;
+                if (!ps) return;
+                
+                // Update repulsive force value
+                const repulsiveDisplay = document.getElementById('repulsive-value');
+                if (repulsiveDisplay) {
+                    repulsiveDisplay.textContent = ps.repulsiveForce ? ps.repulsiveForce.toFixed(2) : '0.00';
+                }
+                
+                // Update wrap mode
+                const wrapDisplay = document.getElementById('wrap-mode');
+                if (wrapDisplay) {
+                    wrapDisplay.textContent = ps.wrapAroundWalls ? 'ON' : 'OFF';
+                }
+                
+                // Count particles near edges
+                const edgeThreshold = 100;
+                let edgeParticles = 0;
+                ps.particles.forEach(p => {
+                    if (p.x < edgeThreshold || p.x > ps.width - edgeThreshold ||
+                        p.y < edgeThreshold || p.y > ps.height - edgeThreshold) {
+                        edgeParticles++;
+                    }
+                });
+                
+                const edgeDisplay = document.getElementById('edge-particles');
+                if (edgeDisplay) {
+                    edgeDisplay.textContent = `${edgeParticles}/${ps.particles.length}`;
+                }
+                
+                // Show boundary performance rating
+                const perfDisplay = document.getElementById('boundary-perf');
+                if (perfDisplay) {
+                    const fps = ps.avgFrameTime ? (1000 / ps.avgFrameTime).toFixed(0) : '--';
+                    perfDisplay.textContent = `${fps} FPS`;
+                }
+                
+            } catch (error) {
+                console.warn('Failed to update boundary status:', error);
+            }
+        }
+        
+        // Update boundary status periodically
+        setInterval(updateBoundaryStatus, 1000);
+        
         async function runAllValidations() {
             log('🚀 Running all validation tests...', 'info');
             
@@ -1380,8 +1820,168 @@
             await new Promise(resolve => setTimeout(resolve, 500));
             
             await validateSpeciesCountFix();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testUndoSystem();
             
             log('🎯 All validations completed', 'info');
+        }
+        
+        async function testUndoSystem() {
+            log('🔄 Testing Undo System (Ctrl+Z)...', 'info');
+            
+            try {
+                const { doc, particleSystem, mainUI, undoManager } = await getApp();
+                
+                if (!undoManager) {
+                    log('✗ UndoManager not found - check if feature is properly integrated', 'error');
+                    return;
+                }
+                
+                log(`✓ UndoManager found with ${undoManager.getUndoCount()} operations in history`, 'success');
+                
+                // Test 1: Randomize Values and Undo
+                log('Testing randomize values + undo...', 'info');
+                const originalParticleCount = particleSystem.particlesPerSpecies;
+                const originalSpeciesCount = particleSystem.numSpecies;
+                
+                // Capture initial state for comparison
+                const initialState = particleSystem.exportPreset();
+                
+                // Perform destructive operation: randomize values
+                mainUI.randomizeValues();
+                await new Promise(resolve => setTimeout(resolve, 100)); // Let state settle
+                
+                const afterRandomizeState = particleSystem.exportPreset();
+                const changedValues = [];
+                
+                if (afterRandomizeState.particlesPerSpecies !== initialState.particlesPerSpecies) {
+                    changedValues.push('particlesPerSpecies');
+                }
+                if (afterRandomizeState.numSpecies !== initialState.numSpecies) {
+                    changedValues.push('numSpecies');
+                }
+                if (JSON.stringify(afterRandomizeState.socialForce) !== JSON.stringify(initialState.socialForce)) {
+                    changedValues.push('socialForce');
+                }
+                
+                log(`Values changed after randomization: ${changedValues.join(', ')}`, 'info');
+                
+                // Test undo
+                const canUndo = undoManager.canUndo();
+                if (!canUndo) {
+                    log('✗ Cannot undo - no operations in undo stack', 'error');
+                    return;
+                }
+                
+                const lastOp = undoManager.getLastOperation();
+                log(`Last operation: ${lastOp.type} - ${lastOp.description}`, 'info');
+                
+                // Perform undo
+                const undoSuccess = undoManager.undo();
+                if (!undoSuccess) {
+                    log('✗ Undo operation failed', 'error');
+                    return;
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 100)); // Let state settle
+                
+                // Check if state was restored
+                const afterUndoState = particleSystem.exportPreset();
+                
+                let restored = true;
+                const restoredValues = [];
+                
+                if (Math.abs(afterUndoState.particlesPerSpecies - initialState.particlesPerSpecies) < 0.01) {
+                    restoredValues.push('particlesPerSpecies');
+                } else {
+                    restored = false;
+                }
+                
+                if (afterUndoState.numSpecies === initialState.numSpecies) {
+                    restoredValues.push('numSpecies');
+                } else {
+                    restored = false;
+                }
+                
+                if (JSON.stringify(afterUndoState.socialForce) === JSON.stringify(initialState.socialForce)) {
+                    restoredValues.push('socialForce');
+                } else {
+                    restored = false;
+                }
+                
+                if (restored) {
+                    log(`✓ Undo successful - restored: ${restoredValues.join(', ')}`, 'success');
+                } else {
+                    log(`✗ Undo incomplete - only restored: ${restoredValues.join(', ')}`, 'warning');
+                }
+                
+                // Test 2: Force pattern change and undo
+                log('Testing force pattern change + undo...', 'info');
+                
+                const forcePatternSelector = doc.getElementById('force-pattern-selector');
+                if (forcePatternSelector) {
+                    const originalPattern = forcePatternSelector.value;
+                    const patterns = Array.from(forcePatternSelector.options).map(opt => opt.value);
+                    const newPattern = patterns.find(p => p !== originalPattern) || patterns[1];
+                    
+                    // Change pattern
+                    forcePatternSelector.value = newPattern;
+                    forcePatternSelector.dispatchEvent(new Event('change'));
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Undo
+                    if (undoManager.canUndo()) {
+                        undoManager.undo();
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        if (forcePatternSelector.value === originalPattern) {
+                            log('✓ Force pattern undo successful', 'success');
+                        } else {
+                            log(`✗ Force pattern not restored: expected ${originalPattern}, got ${forcePatternSelector.value}`, 'warning');
+                        }
+                    } else {
+                        log('✗ No undo available for force pattern change', 'warning');
+                    }
+                } else {
+                    log('⚠️ Force pattern selector not found - skipping test', 'warning');
+                }
+                
+                // Test 3: Keyboard shortcut
+                const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                const shortcutName = isMac ? 'Cmd+Z' : 'Ctrl+Z';
+                log(`Testing ${shortcutName} keyboard shortcut...`, 'info');
+                
+                // Make another change
+                mainUI.randomizeForces();
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Simulate platform-appropriate undo keypress
+                const undoEvent = new KeyboardEvent('keydown', {
+                    key: 'z',
+                    ctrlKey: !isMac,
+                    metaKey: isMac,
+                    bubbles: true
+                });
+                
+                doc.dispatchEvent(undoEvent);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                log(`✓ ${shortcutName} keyboard shortcut test completed`, 'success');
+                
+                // Summary
+                log(`📊 Undo System Summary:`, 'info');
+                log(`   - UndoManager initialized: ✓`, 'info');
+                log(`   - Undo stack operations: ${undoManager.getUndoCount()}`, 'info');
+                log(`   - Memory usage: ~${Math.round(undoManager.getMemoryUsage() / 1024)}KB`, 'info');
+                log(`   - Supported operations: ${undoManager.supportedOperations.join(', ')}`, 'info');
+                
+                log('🎯 Undo system test completed', 'success');
+                
+            } catch (error) {
+                log(`✗ Undo system test failed: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
         }
         
         async function testSpeciesSync() {

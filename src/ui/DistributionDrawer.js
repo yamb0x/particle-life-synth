@@ -5,6 +5,7 @@ export class DistributionDrawer {
         this.particleSystem = particleSystem;
         this.isCompact = options.compact || false;
         this.onChange = options.onChange || (() => {});
+        this.onBeginChange = options.onBeginChange || (() => {});
         
         // Drawing state
         this.currentSpecies = 0;
@@ -91,6 +92,11 @@ export class DistributionDrawer {
     
     handleMouseDown(e) {
         const pos = this.getMousePosition(e);
+        
+        // Notify that we're about to start changing the distribution
+        if (this.onBeginChange) {
+            this.onBeginChange();
+        }
         
         switch (this.currentMode) {
             case 'draw':

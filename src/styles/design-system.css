@@ -66,6 +66,11 @@
   --z-overlay: 30;
   --z-modal: 40;
   --z-tooltip: 50;
+  
+  /* Collapsible UI Variables */
+  --collapsible-header-height: 32px;
+  --collapsible-max-height: 2000px;
+  --collapsible-transition: 0.3s ease-out;
 }
 
 /* Base Styles */
@@ -849,4 +854,341 @@ input[type="checkbox"]:hover {
   min-width: 20px;
   text-align: right;
   font-family: var(--font-mono);
+}
+
+/* Dual Range Slider Styles */
+.dual-range-slider {
+  position: relative;
+  height: 18px;
+  margin: var(--space-xs) 0;
+}
+
+.dual-range-slider input[type="range"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 18px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  margin: 0;
+}
+
+.dual-range-slider input[type="range"]::-webkit-slider-track {
+  height: 2px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-full);
+}
+
+.dual-range-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: all;
+  position: relative;
+  z-index: 2;
+  transition: all var(--transition-fast);
+}
+
+.dual-range-slider input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--text-primary);
+  transform: scale(1.15);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.dual-range-slider input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-full);
+  border: none;
+}
+
+.dual-range-slider input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: none;
+}
+
+.dual-range-slider input[type="range"]::-moz-range-thumb:hover {
+  background: var(--text-primary);
+  transform: scale(1.15);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.dual-range-slider .range-track {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-full);
+}
+
+.dual-range-slider .range-fill {
+  position: absolute;
+  top: 8px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.dual-range-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  margin-top: var(--space-xs);
+}
+
+.dual-range-values span {
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Control Subgroup Styles */
+.control-subgroup {
+  margin-left: var(--space-md);
+}
+
+.control-subgroup label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  gap: var(--space-sm);
+}
+
+.control-subgroup .dual-range-values {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.section-subtitle {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  display: block;
+  width: 100%;
+}
+
+/* UI Container Initial State - Hide until ready */
+.ui-container {
+  opacity: 0;
+  transform: translateY(15px);
+  transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+}
+
+.ui-container.ui-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Clean Loading: Hide original sections until transformation complete */
+.ui-section {
+  display: none !important;
+}
+
+.collapsible-section {
+  display: block;
+}
+
+/* Collapsible Section Styles */
+.collapsible-section {
+  margin-bottom: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;  /* Keep hidden for rounded corners */
+  transition: all var(--transition-normal);
+  will-change: transform;
+  /* Ensure sections are visible */
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.collapsible-section.open {
+  border-color: var(--border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid transparent;
+  transition: all var(--transition-fast);
+  min-height: var(--collapsible-header-height);
+}
+
+.collapsible-header:hover {
+  background: var(--bg-hover);
+  border-bottom-color: var(--border-subtle);
+}
+
+.collapsible-header.active {
+  border-bottom-color: var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.collapsible-header:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+.collapsible-title-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.collapsible-icon {
+  font-size: var(--font-size-lg);
+  opacity: 0.8;
+  filter: grayscale(50%);
+}
+
+.collapsible-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.collapsible-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapsible-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.collapsible-toggle.open {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--collapsible-transition) cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--bg-secondary);
+  transform: translateZ(0); /* Hardware acceleration */
+}
+
+/* When section is open, ensure content can be seen */
+.collapsible-section.open .collapsible-content {
+  overflow: hidden;  /* Keep hidden for clean animation, scrolling handled by container */
+}
+
+/* Special handling for particles and forces sections to ensure they can expand fully */
+.collapsible-section[data-section-id="particles"] .collapsible-content,
+.collapsible-section[data-section-id="forces"] .collapsible-content {
+  /* When open, these sections get their full height from JS (3000px/2500px) */
+}
+
+.collapsible-content-inner {
+  padding: var(--space-lg);
+  /* Ensure inner content can expand naturally */
+  min-height: 0;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Removed height management - sections now expand to natural height */
+
+/* Performance optimizations for animations */
+.collapsible-section.animating {
+  will-change: max-height, transform;
+  contain: layout style;
+}
+
+.collapsible-section:not(.animating) {
+  will-change: auto;
+  contain: none;
+}
+
+/* Collapsible Section Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Responsive Collapsible Styles */
+@media (max-width: 768px) {
+  .collapsible-header {
+    padding: var(--space-sm) var(--space-md);
+  }
+  
+  .collapsible-title {
+    font-size: var(--font-size-sm);
+  }
+  
+  .collapsible-content-inner {
+    padding: var(--space-md);
+  }
+}
+
+/* Touch-friendly styles for mobile */
+@media (hover: none) {
+  .collapsible-header {
+    min-height: 44px;
+  }
+  
+  .collapsible-toggle {
+    width: 44px;
+    height: 44px;
+  }
 }

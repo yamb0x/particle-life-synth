@@ -1409,6 +1409,9 @@
                 this.addTest('integration', 'fetch-scene-data', 'Fetch Scene Data Button', () => this.testFetchSceneData());
                 this.addTest('integration', 'save-as-new-vs-update', 'Save As New vs Update Preset Logic', () => this.testSaveAsNewVsUpdate());
                 this.addTest('integration', 'modal-button-states', 'Modal Button States Update Correctly', () => this.testModalButtonStates());
+                
+                // Preset navigation keyboard shortcuts test
+                this.addTest('ui', 'preset-navigation-shortcuts', 'Preset Navigation Shortcuts (Shift+Plus/Minus)', () => this.testPresetNavigationShortcuts());
                 this.addTest('integration', 'preset-button-removal', 'Removed Buttons No Longer Present', () => this.testRemovedButtons());
                 this.addTest('integration', 'firebase-integration', 'Firebase Integration Test', () => this.testFirebaseIntegration());
                 
@@ -2834,6 +2837,110 @@
                     
                 } catch (error) {
                     throw new Error(`Modal button states test failed: ${error.message}`);
+                }
+            }
+            
+            async testPresetNavigationShortcuts() {
+                try {
+                    const ctx = await this.getAppContext();
+                    const selector = document.getElementById('preset-selector');
+                    
+                    // Create some test presets with predictable names for stable ordering
+                    const testPresets = [
+                        { name: 'AAA Test Preset', key: 'user_aaa_test' },
+                        { name: 'BBB Test Preset', key: 'user_bbb_test' },
+                        { name: 'CCC Test Preset', key: 'user_ccc_test' }
+                    ];
+                    
+                    // Save test presets
+                    for (const preset of testPresets) {
+                        const presetData = ctx.particleSystem.exportPreset();
+                        presetData.name = preset.name;
+                        await ctx.presetManager.savePreset(preset.key, presetData);
+                    }
+                    
+                    // Update selector to get fresh preset list
+                    ctx.mainUI.updatePresetSelector();
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Record initial preset order
+                    const initialOrder = Array.from(selector.options).map(opt => opt.value);
+                    this.log(`Initial preset order: ${initialOrder.join(', ')}`, 'info');
+                    
+                    // Start from Custom (index 0)
+                    selector.selectedIndex = 0;
+                    
+                    // Test Shift+Plus navigation
+                    const event1 = new KeyboardEvent('keydown', { 
+                        key: '+', 
+                        code: 'Equal', 
+                        shiftKey: true,
+                        bubbles: true 
+                    });
+                    document.dispatchEvent(event1);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const afterFirstNav = selector.selectedIndex;
+                    this.assert(afterFirstNav === 1, `First Shift+Plus should go to index 1, got ${afterFirstNav}`);
+                    
+                    // Navigate forward again
+                    document.dispatchEvent(event1);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const afterSecondNav = selector.selectedIndex;
+                    this.assert(afterSecondNav === 2, `Second Shift+Plus should go to index 2, got ${afterSecondNav}`);
+                    
+                    // Test Shift+Minus navigation backwards
+                    const event2 = new KeyboardEvent('keydown', { 
+                        key: '-', 
+                        code: 'Minus', 
+                        shiftKey: true,
+                        bubbles: true 
+                    });
+                    document.dispatchEvent(event2);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const afterBackNav = selector.selectedIndex;
+                    this.assert(afterBackNav === 1, `Shift+Minus should go back to index 1, got ${afterBackNav}`);
+                    
+                    // Test wrap-around at the end
+                    selector.selectedIndex = selector.options.length - 1;
+                    document.dispatchEvent(event1);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const afterWrapForward = selector.selectedIndex;
+                    this.assert(afterWrapForward === 1, `Should wrap to index 1 (skip Custom), got ${afterWrapForward}`);
+                    
+                    // Test wrap-around at the beginning
+                    selector.selectedIndex = 1;
+                    document.dispatchEvent(event2);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const afterWrapBackward = selector.selectedIndex;
+                    this.assert(afterWrapBackward === selector.options.length - 1, 
+                        `Should wrap to last preset, got ${afterWrapBackward}`);
+                    
+                    // Verify preset order hasn't changed during navigation
+                    const finalOrder = Array.from(selector.options).map(opt => opt.value);
+                    this.assert(
+                        JSON.stringify(initialOrder) === JSON.stringify(finalOrder),
+                        'Preset order should remain stable during navigation'
+                    );
+                    
+                    // Cleanup test presets
+                    for (const preset of testPresets) {
+                        await ctx.presetManager.deletePreset(preset.key);
+                    }
+                    ctx.mainUI.updatePresetSelector();
+                    
+                    return { 
+                        navigation: 'working',
+                        orderStability: 'maintained',
+                        wrapAround: 'functional'
+                    };
+                    
+                } catch (error) {
+                    throw new Error(`Preset navigation shortcuts test failed: ${error.message}`);
                 }
             }
             

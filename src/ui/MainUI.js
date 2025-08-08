@@ -20,6 +20,7 @@ export class MainUI {
         this.forceDistribution = 0.5; // 0 = uniform, 1 = edges
         this.selectedSpeciesForSize = 0; // Track selected species for size control
         this.patternParameterStates = {}; // Store parameter values for each pattern
+        this.cachedPresetOrder = []; // Cache preset order for stable navigation
         
         // Ensure new wall properties are initialized
         if (this.particleSystem.repulsiveForce === undefined) {
@@ -48,9 +49,10 @@ export class MainUI {
             // Physics controls
             'force-strength', 'force-strength-value', 'friction', 'friction-value',
             'collision-strength', 'collision-strength-value', 'collision-offset', 'collision-offset-value', 'link-all-sizes',
+            'breath-enabled', 'breath-controls', 'breath-min', 'breath-min-value', 'breath-max', 'breath-max-value', 'breath-time', 'breath-time-value',
             'social-radius', 'social-radius-value',
             // Advanced Physics controls
-            'environmental-pressure', 'environmental-pressure-value', 'chaos-level', 'chaos-level-value',
+            'environmental-pressure', 'environmental-pressure-value',
             // Shockwave controls
             'shockwave-enabled', 'shockwave-controls', 'shockwave-strength', 'shockwave-strength-value',
             'shockwave-size', 'shockwave-size-value', 'shockwave-falloff', 'shockwave-falloff-value',
@@ -223,6 +225,37 @@ export class MainUI {
                                min="0" max="10" step="0.5" value="0.0">
                         <span class="info-text">Extra spacing between particles (independent of size)</span>
                     </div>
+                    
+                    <!-- Breath Settings -->
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="breath-enabled" ${this.particleSystem.breathEnabled ? 'checked' : ''}>
+                            Enable Breath Effect
+                        </label>
+                        <span class="info-text">Automatically oscillates collision offset for organic movement</span>
+                    </div>
+                    <div class="control-group" id="breath-controls" style="${!this.particleSystem.breathEnabled ? 'display: none;' : ''}">
+                        <div class="dual-range-slider">
+                            <label>Breath Range (Min - Max)
+                                <div class="dual-range-values">
+                                    <span id="breath-min-value">${this.particleSystem.breathMin.toFixed(1)}</span>
+                                    <span id="breath-max-value">${this.particleSystem.breathMax.toFixed(1)}</span>
+                                </div>
+                            </label>
+                            <div class="range-track"></div>
+                            <div class="range-fill" id="breath-range-fill"></div>
+                            <input type="range" id="breath-min" min="0" max="8" step="0.1" value="${this.particleSystem.breathMin}">
+                            <input type="range" id="breath-max" min="0" max="10" step="0.1" value="${this.particleSystem.breathMax}">
+                        </div>
+                        <div class="control-group">
+                            <label>
+                                Breath Cycle Time
+                                <span class="value-display" id="breath-time-value">${this.particleSystem.breathTime.toFixed(1)}s</span>
+                            </label>
+                            <input type="range" class="range-slider" id="breath-time" 
+                                   min="1.0" max="20.0" step="0.5" value="${this.particleSystem.breathTime}">
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -270,52 +303,6 @@ export class MainUI {
                             <span class="slider-label-right">Attract</span>
                         </div>
                     </div>
-                    <div class="control-group">
-                        <label>
-                            Chaos Level
-                            <span class="value-display" id="chaos-level-value">0.0</span>
-                        </label>
-                        <input type="range" class="range-slider" id="chaos-level" 
-                               min="0.0" max="0.5" step="0.02" value="0.0">
-                        <div class="slider-labels">
-                            <span class="slider-label-left">Stable</span>
-                            <span class="slider-label-right">Chaotic</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Shockwave Controls -->
-                    <div class="control-group">
-                        <label>
-                            Shockwave Enabled
-                            <input type="checkbox" id="shockwave-enabled" ${this.particleSystem.shockwaveEnabled ? 'checked' : ''}>
-                        </label>
-                    </div>
-                    <div class="control-group" id="shockwave-controls" ${!this.particleSystem.shockwaveEnabled ? 'style="display: none;"' : ''}>
-                        <div class="control-group">
-                            <label>
-                                Shockwave Strength
-                                <span class="value-display" id="shockwave-strength-value">${this.particleSystem.shockwaveStrength}</span>
-                            </label>
-                            <input type="range" class="range-slider" id="shockwave-strength" 
-                                   min="10" max="200" step="5" value="${this.particleSystem.shockwaveStrength}">
-                        </div>
-                        <div class="control-group">
-                            <label>
-                                Shockwave Size
-                                <span class="value-display" id="shockwave-size-value">${this.particleSystem.shockwaveSize}</span>
-                            </label>
-                            <input type="range" class="range-slider" id="shockwave-size" 
-                                   min="40" max="600" step="10" value="${this.particleSystem.shockwaveSize}">
-                        </div>
-                        <div class="control-group">
-                            <label>
-                                Shockwave Falloff
-                                <span class="value-display" id="shockwave-falloff-value">${this.particleSystem.shockwaveFalloff.toFixed(1)}</span>
-                            </label>
-                            <input type="range" class="range-slider" id="shockwave-falloff" 
-                                   min="0.5" max="5.0" step="0.1" value="${this.particleSystem.shockwaveFalloff}">
-                        </div>
-                    </div>
                 </div>
             </div>
             
@@ -353,7 +340,51 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 5. FORCE RELATIONSHIPS Section -->
+            <!-- 5. MOUSE INTERACTIONS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
+                    <h4 class="section-title">Mouse Interactions</h4>
+                </div>
+                <div class="panel-content">
+                    <!-- Shockwave Controls -->
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="shockwave-enabled" ${this.particleSystem.shockwaveEnabled ? 'checked' : ''}>
+                            Enable Shockwave on Click
+                        </label>
+                        <span class="info-text">Click on canvas to create particle-repelling shockwaves</span>
+                    </div>
+                    <div class="control-group" id="shockwave-controls" ${!this.particleSystem.shockwaveEnabled ? 'style="display: none;"' : ''}>
+                        <div class="control-group">
+                            <label>
+                                Shockwave Strength
+                                <span class="value-display" id="shockwave-strength-value">${this.particleSystem.shockwaveStrength}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="shockwave-strength" 
+                                   min="10" max="200" step="5" value="${this.particleSystem.shockwaveStrength}">
+                        </div>
+                        <div class="control-group">
+                            <label>
+                                Shockwave Size (radius)
+                                <span class="value-display" id="shockwave-size-value">${this.particleSystem.shockwaveSize}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="shockwave-size" 
+                                   min="40" max="600" step="10" value="${this.particleSystem.shockwaveSize}">
+                        </div>
+                        <div class="control-group">
+                            <label>
+                                Shockwave Falloff
+                                <span class="value-display" id="shockwave-falloff-value">${this.particleSystem.shockwaveFalloff.toFixed(1)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="shockwave-falloff" 
+                                   min="0.5" max="5.0" step="0.1" value="${this.particleSystem.shockwaveFalloff}">
+                            <span class="info-text">Higher values = sharper falloff</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 6. FORCE RELATIONSHIPS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Force Relationships</h4>
@@ -424,7 +455,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 5. EFFECTS Section -->
+            <!-- 7. EFFECTS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Effects</h4>
@@ -545,7 +576,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 6. COLORS Section -->
+            <!-- 8. COLORS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Colors</h4>
@@ -582,7 +613,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 7. ASPECT RATIO Section -->
+            <!-- 9. ASPECT RATIO Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Aspect Ratio</h4>
@@ -646,7 +677,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 8. ACTIONS Section -->
+            <!-- 10. ACTIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Actions</h4>
@@ -707,17 +738,22 @@ export class MainUI {
             }
             
             .main-ui-container {
-                position: fixed;
+                position: absolute;
                 top: 10px;
                 right: 10px;
                 width: 320px;
-                max-height: calc(100vh - 20px);
-                overflow-y: auto;
+                height: auto;
+                min-height: calc(100vh - 20px);
+                overflow: visible;
                 z-index: var(--z-sticky);
                 transition: transform var(--transition-normal), opacity var(--transition-normal);
                 display: flex;
                 flex-direction: column;
                 gap: var(--space-md);
+            }
+            
+            body {
+                overflow-y: auto;
             }
             
             .main-ui-container.hidden {
@@ -1666,16 +1702,19 @@ export class MainUI {
         if (!selector) return;
         
         const options = Array.from(selector.options);
-        if (options.length <= 1) return;
+        if (options.length <= 1) return; // Only Custom option exists
         
         const currentIndex = selector.selectedIndex;
         
-        // Skip the first option (Custom) and wrap around if at the end
+        // Calculate next index, skipping Custom (index 0)
         let nextIndex = currentIndex + 1;
         if (nextIndex >= options.length) {
-            nextIndex = 1; // Skip index 0 (Custom)
+            nextIndex = 1; // Wrap to first real preset (skip Custom at index 0)
+        } else if (nextIndex === 0) {
+            nextIndex = 1; // Skip Custom
         }
         
+        // Apply the preset
         if (nextIndex < options.length && options[nextIndex]) {
             selector.selectedIndex = nextIndex;
             const presetKey = options[nextIndex].value;
@@ -1683,6 +1722,7 @@ export class MainUI {
             if (presetKey) {
                 const preset = this.presetManager.getPreset(presetKey);
                 if (preset) {
+                    console.log(`Loading next preset: ${preset.name} (index ${nextIndex})`);
                     this.particleSystem.loadFullPreset(preset);
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
@@ -1697,14 +1737,17 @@ export class MainUI {
         if (!selector) return;
         
         const options = Array.from(selector.options);
+        if (options.length <= 1) return; // Only Custom option exists
+        
         const currentIndex = selector.selectedIndex;
         
-        // Skip the first option (Custom) and wrap around if at the beginning
+        // Calculate previous index, skipping Custom (index 0)
         let prevIndex = currentIndex - 1;
         if (prevIndex <= 0) {
-            prevIndex = options.length - 1; // Go to last preset
+            prevIndex = options.length - 1; // Wrap to last preset
         }
         
+        // Apply the preset
         if (prevIndex > 0 && options[prevIndex]) {
             selector.selectedIndex = prevIndex;
             const presetKey = options[prevIndex].value;
@@ -1712,6 +1755,7 @@ export class MainUI {
             if (presetKey) {
                 const preset = this.presetManager.getPreset(presetKey);
                 if (preset) {
+                    console.log(`Loading previous preset: ${preset.name} (index ${prevIndex})`);
                     this.particleSystem.loadFullPreset(preset);
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
@@ -3132,6 +3176,65 @@ export class MainUI {
             document.getElementById('collision-offset-value').textContent = value.toFixed(1);
             this.triggerAutoSave();
         });
+
+        // Breath controls
+        document.getElementById('breath-enabled').addEventListener('change', (e) => {
+            this.particleSystem.breathEnabled = e.target.checked;
+            const controls = document.getElementById('breath-controls');
+            if (controls) {
+                controls.style.display = e.target.checked ? 'block' : 'none';
+            }
+            if (e.target.checked) {
+                this.particleSystem.breathStartTime = performance.now();
+            }
+            this.triggerAutoSave();
+        });
+
+        // Dual range slider for breath range
+        const updateBreathRange = () => {
+            const minSlider = document.getElementById('breath-min');
+            const maxSlider = document.getElementById('breath-max');
+            const minValue = parseFloat(minSlider.value);
+            const maxValue = parseFloat(maxSlider.value);
+            
+            // Ensure min doesn't exceed max and vice versa
+            if (minValue >= maxValue) {
+                minSlider.value = Math.max(0, maxValue - 0.1);
+            }
+            if (maxValue <= minValue) {
+                maxSlider.value = Math.min(10, minValue + 0.1);
+            }
+            
+            const finalMin = parseFloat(minSlider.value);
+            const finalMax = parseFloat(maxSlider.value);
+            
+            this.particleSystem.breathMin = finalMin;
+            this.particleSystem.breathMax = finalMax;
+            
+            document.getElementById('breath-min-value').textContent = finalMin.toFixed(1);
+            document.getElementById('breath-max-value').textContent = finalMax.toFixed(1);
+            
+            // Update range fill visualization
+            const fill = document.getElementById('breath-range-fill');
+            if (fill) {
+                const minPercent = (finalMin / 10) * 100;
+                const maxPercent = (finalMax / 10) * 100;
+                fill.style.left = minPercent + '%';
+                fill.style.width = (maxPercent - minPercent) + '%';
+            }
+            
+            this.triggerAutoSave();
+        };
+
+        document.getElementById('breath-min').addEventListener('input', updateBreathRange);
+        document.getElementById('breath-max').addEventListener('input', updateBreathRange);
+
+        document.getElementById('breath-time').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            this.particleSystem.breathTime = value;
+            document.getElementById('breath-time-value').textContent = value.toFixed(1) + 's';
+            this.triggerAutoSave();
+        });
         
         document.getElementById('social-radius').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
@@ -3153,12 +3256,6 @@ export class MainUI {
             this.triggerAutoSave();
         });
         
-        document.getElementById('chaos-level').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.chaosLevel = value;
-            document.getElementById('chaos-level-value').textContent = value.toFixed(2);
-            this.triggerAutoSave();
-        });
         
         // Shockwave controls
         document.getElementById('shockwave-enabled').addEventListener('change', (e) => {
@@ -4390,14 +4487,36 @@ export class MainUI {
         document.getElementById('collision-offset').value = ps.collisionOffset || 0.0;
         document.getElementById('collision-offset-value').textContent = (ps.collisionOffset || 0.0).toFixed(1);
         
+        // Breath controls
+        document.getElementById('breath-enabled').checked = ps.breathEnabled || false;
+        const breathControls = document.getElementById('breath-controls');
+        if (breathControls) {
+            breathControls.style.display = ps.breathEnabled ? 'block' : 'none';
+        }
+        document.getElementById('breath-min').value = ps.breathMin || 0.0;
+        document.getElementById('breath-max').value = ps.breathMax || 5.0;
+        document.getElementById('breath-time').value = ps.breathTime || 5.0;
+        
+        // Update breath UI display
+        document.getElementById('breath-min-value').textContent = (ps.breathMin || 0.0).toFixed(1);
+        document.getElementById('breath-max-value').textContent = (ps.breathMax || 5.0).toFixed(1);
+        document.getElementById('breath-time-value').textContent = (ps.breathTime || 5.0).toFixed(1) + 's';
+        
+        // Update range fill visualization
+        const breathFill = document.getElementById('breath-range-fill');
+        if (breathFill) {
+            const minPercent = ((ps.breathMin || 0.0) / 10) * 100;
+            const maxPercent = ((ps.breathMax || 5.0) / 10) * 100;
+            breathFill.style.left = minPercent + '%';
+            breathFill.style.width = (maxPercent - minPercent) + '%';
+        }
+        
         document.getElementById('social-radius').value = ps.socialRadius[0]?.[0] || 50;
         document.getElementById('social-radius-value').textContent = ps.socialRadius[0]?.[0] || 50;
         
         // Advanced Physics controls
         document.getElementById('environmental-pressure').value = ps.environmentalPressure || 0.0;
         document.getElementById('environmental-pressure-value').textContent = (ps.environmentalPressure || 0.0).toFixed(1);
-        document.getElementById('chaos-level').value = ps.chaosLevel || 0.0;
-        document.getElementById('chaos-level-value').textContent = (ps.chaosLevel || 0.0).toFixed(2);
         
         // Force distribution and pattern
         this.forceDistribution = ps.forceDistribution || 0.8;
@@ -4494,19 +4613,56 @@ export class MainUI {
         const selector = document.getElementById('preset-selector');
         if (!selector) return;
         
-        // Clear all options except Custom
-        selector.innerHTML = '<option value="">Custom</option>';
+        // Save current selection
+        const currentValue = selector.value;
         
-        // Add user presets
+        // Get fresh preset list
         const userPresets = this.presetManager.getUserPresets();
+        
+        // Build a map of current presets for quick lookup
+        const presetMap = new Map();
         userPresets.forEach(preset => {
-            const option = document.createElement('option');
-            option.value = preset.key;
-            option.textContent = preset.name;
-            selector.appendChild(option);
+            presetMap.set(preset.key, preset);
         });
         
-        // No separator needed since no random option exists
+        // Update cached order: keep existing order, add new ones at the end
+        const newCachedOrder = [];
+        
+        // First, keep all presets that still exist in their original order
+        this.cachedPresetOrder.forEach(key => {
+            if (presetMap.has(key)) {
+                newCachedOrder.push(key);
+            }
+        });
+        
+        // Then add any new presets that aren't in the cache
+        userPresets.forEach(preset => {
+            if (!newCachedOrder.includes(preset.key)) {
+                newCachedOrder.push(preset.key);
+            }
+        });
+        
+        // Update the cache
+        this.cachedPresetOrder = newCachedOrder;
+        
+        // Clear and rebuild selector options
+        selector.innerHTML = '<option value="">Custom</option>';
+        
+        // Add presets in stable cached order
+        this.cachedPresetOrder.forEach(key => {
+            const preset = presetMap.get(key);
+            if (preset) {
+                const option = document.createElement('option');
+                option.value = preset.key;
+                option.textContent = preset.name;
+                selector.appendChild(option);
+            }
+        });
+        
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(selector.options).some(opt => opt.value === currentValue)) {
+            selector.value = currentValue;
+        }
     }
     
     applyDistributionToParticleSystem() {
