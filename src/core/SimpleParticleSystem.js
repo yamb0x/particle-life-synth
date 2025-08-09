@@ -924,6 +924,54 @@ export class SimpleParticleSystem {
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
     
+    getSpeciesName(index) {
+        if (!this.species[index]) return `Species ${index + 1}`;
+        
+        const color = this.species[index].color;
+        if (!color) return `Species ${index + 1}`;
+        
+        // Calculate dominant color component
+        const r = color.r || 0;
+        const g = color.g || 0;
+        const b = color.b || 0;
+        
+        // Calculate hue from RGB
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const delta = max - min;
+        
+        if (delta === 0) {
+            // Grayscale
+            if (max > 200) return 'White';
+            if (max > 100) return 'Gray';
+            return 'Black';
+        }
+        
+        let hue = 0;
+        if (max === r) {
+            hue = ((g - b) / delta) % 6;
+        } else if (max === g) {
+            hue = (b - r) / delta + 2;
+        } else {
+            hue = (r - g) / delta + 4;
+        }
+        hue = Math.round(hue * 60);
+        if (hue < 0) hue += 360;
+        
+        // Map hue to color names
+        if (hue >= 0 && hue < 15) return 'Red';
+        if (hue >= 15 && hue < 45) return 'Orange';
+        if (hue >= 45 && hue < 65) return 'Yellow';
+        if (hue >= 65 && hue < 150) return 'Green';
+        if (hue >= 150 && hue < 190) return 'Cyan';
+        if (hue >= 190 && hue < 250) return 'Blue';
+        if (hue >= 250 && hue < 290) return 'Purple';
+        if (hue >= 290 && hue < 330) return 'Magenta';
+        if (hue >= 330 && hue <= 360) return 'Red';
+        
+        return `Species ${index + 1}`;
+    }
+    
     normalizeColor(color) {
         // Ensure color is in RGB object format
         if (typeof color === 'string') {
@@ -2225,12 +2273,15 @@ export class SimpleParticleSystem {
         const frameTime = performance.now() - startTime;
         this.avgFrameTime = this.avgFrameTime * 0.9 + frameTime * 0.1;
         
+        // Disabled performance warning logs - too noisy
+        /*
         if (this.frameCount % 60 === 0) {
             const fps = 1000 / this.avgFrameTime;
             if (fps < 30) {
                 console.warn(`Performance warning: ${fps.toFixed(1)} FPS, ${this.avgFrameTime.toFixed(2)}ms per frame`);
             }
         }
+        */
     }
     
     getOrCreateGradient(speciesId, size) {
@@ -2717,6 +2768,18 @@ export class SimpleParticleSystem {
         // Ensure arrays are properly sized
         this.ensureGlowArraysSize();
         
+        // Load audio configuration if available
+        if (preset.audio && window.audioSystem && typeof window.audioSystem.loadConfig === 'function') {
+            try {
+                // Load audio configuration asynchronously
+                window.audioSystem.loadConfig(preset.audio).catch(error => {
+                    console.warn('Could not fully load audio settings:', error);
+                });
+            } catch (error) {
+                console.warn('Could not load audio settings:', error);
+            }
+        }
+        
         // Reinitialize particles with new configuration
         this.initializeParticlesWithPositions();
     }
@@ -2960,6 +3023,16 @@ export class SimpleParticleSystem {
             glowIntensity: this.glowIntensity,
             glowRadius: this.glowRadius
         };
+        
+        // Include audio settings if audio system is available
+        if (window.audioSystem && typeof window.audioSystem.getConfig === 'function') {
+            try {
+                preset.audio = window.audioSystem.getConfig();
+            } catch (error) {
+                // If audio system fails, just skip it
+                console.warn('Could not export audio settings:', error);
+            }
+        }
         
         return preset;
     }

@@ -1,3 +1,25 @@
+// Helper functions for safe DOM manipulation
+export const safeAddEventListener = (elementOrId, event, handler) => {
+    const element = typeof elementOrId === 'string' ? 
+        document.getElementById(elementOrId) : elementOrId;
+    if (element) {
+        element.addEventListener(event, handler);
+        return true;
+    }
+    console.warn(`[DOMHelpers] Element '${elementOrId}' not found for event listener`);
+    return false;
+};
+
+export const safeUpdateElement = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+        return true;
+    }
+    console.warn(`[DOMHelpers] Element '${id}' not found for update`);
+    return false;
+};
+
 export const DOMHelpers = {
     safeAddEventListener(elementId, event, handler) {
         const element = document.getElementById(elementId);

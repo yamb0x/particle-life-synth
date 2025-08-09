@@ -19,11 +19,20 @@ export class XYGraph {
         
         this.value = this.options.is1D ? this.options.minX : { x: this.options.minX, y: this.options.minY };
         this.isDragging = false;
+        this.animationFrameId = null;
+        this.lastUpdateTime = 0;
+        this.updateThrottle = 16; // ~60fps max update rate
         
         this.init();
     }
     
     init() {
+        // Check if container exists
+        if (!this.container) {
+            console.error('XYGraph: Container element not found');
+            return;
+        }
+        
         // Create graph container
         this.graphContainer = document.createElement('div');
         this.graphContainer.className = 'graph-container';
@@ -131,6 +140,7 @@ export class XYGraph {
     }
     
     updateValue(pixelX, pixelY) {
+        // Calculate new value immediately
         if (this.options.is1D) {
             // Map pixel to value for 1D graph
             const normalizedX = pixelX / this.options.width;
@@ -138,7 +148,7 @@ export class XYGraph {
         } else {
             // Map pixels to values for 2D graph
             const normalizedX = pixelX / this.options.width;
-            const normalizedY = 1 - (pixelY / this.options.height); // Invert Y
+            const normalizedY = pixelY / this.options.height; // No inversion - use direct mapping
             
             this.value = {
                 x: this.options.minX + normalizedX * (this.options.maxX - this.options.minX),
@@ -146,10 +156,22 @@ export class XYGraph {
             };
         }
         
-        this.draw();
-        
+        // Call onChange immediately for responsive feedback
         if (this.options.onChange) {
             this.options.onChange(this.value);
+        }
+        
+        // Throttle visual updates for performance
+        const now = performance.now();
+        if (now - this.lastUpdateTime >= this.updateThrottle) {
+            this.lastUpdateTime = now;
+            this.draw();
+        } else if (!this.animationFrameId) {
+            // Schedule a draw for the next frame if not already scheduled
+            this.animationFrameId = requestAnimationFrame(() => {
+                this.draw();
+                this.animationFrameId = null;
+            });
         }
     }
     
@@ -262,9 +284,9 @@ export class XYGraph {
         ctx.fillText(this.options.maxX.toFixed(1), width - 25, height - 5);
         
         if (!this.options.is1D) {
-            // Y axis labels
-            ctx.fillText(this.options.maxY.toFixed(1), 5, 15);
-            ctx.fillText(this.options.minY.toFixed(1), 5, height - 15);
+            // Y axis labels (top is min, bottom is max in screen coordinates)
+            ctx.fillText(this.options.minY.toFixed(1), 5, 15);
+            ctx.fillText(this.options.maxY.toFixed(1), 5, height - 15);
         }
         
         // Draw current value
@@ -292,7 +314,7 @@ export class XYGraph {
             ctx.fill();
         } else {
             const x = ((this.value.x - this.options.minX) / (this.options.maxX - this.options.minX)) * width;
-            const y = (1 - ((this.value.y - this.options.minY) / (this.options.maxY - this.options.minY))) * height;
+            const y = ((this.value.y - this.options.minY) / (this.options.maxY - this.options.minY)) * height;
             
             // Draw crosshair
             ctx.strokeStyle = '#66666640';
@@ -319,7 +341,9 @@ export class XYGraph {
     
     setValue(value) {
         this.value = value;
-        this.draw();
+        if (this.ctx) {
+            this.draw();
+        }
     }
     
     getValue() {

@@ -164,7 +164,7 @@ style.textContent = `
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: var(--z-modal);
 }
 
 .share-modal .modal-content {

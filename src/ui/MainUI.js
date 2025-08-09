@@ -96,6 +96,18 @@ export class MainUI {
         return missingIds.length === 0;
     }
     
+    // Helper method for safe property access in templates
+    safeValue(value, defaultValue = 0) {
+        return (value !== undefined && value !== null) ? value : defaultValue;
+    }
+    
+    safeFixed(value, digits = 1, defaultValue = '0.0') {
+        if (value !== undefined && value !== null && typeof value === 'number') {
+            return value.toFixed(digits);
+        }
+        return defaultValue;
+    }
+    
     init() {
         // Create main container
         this.container = document.createElement('div');
@@ -145,18 +157,18 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Amount Scale
-                            <span class="value-display" id="particles-per-species-value">${this.particleSystem.particlesPerSpecies}</span>
+                            <span class="value-display" id="particles-per-species-value">${this.safeValue(this.particleSystem.particlesPerSpecies, 100)}</span>
                         </label>
                         <input type="range" class="range-slider" id="particles-per-species" 
-                               min="0" max="1000" step="10" value="${this.particleSystem.particlesPerSpecies}">
+                               min="0" max="1000" step="10" value="${this.safeValue(this.particleSystem.particlesPerSpecies, 100)}">
                     </div>
                     <div class="control-group">
                         <label>
                             Species Count
-                            <span class="value-display" id="species-count-value">${this.particleSystem.numSpecies}</span>
+                            <span class="value-display" id="species-count-value">${this.safeValue(this.particleSystem.numSpecies, 4)}</span>
                         </label>
                         <input type="range" class="range-slider" id="species-count" 
-                               min="1" max="20" step="1" value="${this.particleSystem.numSpecies}">
+                               min="1" max="20" step="1" value="${this.safeValue(this.particleSystem.numSpecies, 4)}">
                     </div>
                     <div class="control-group">
                         <label>Initial Distribution</label>
@@ -229,31 +241,31 @@ export class MainUI {
                     <!-- Breath Settings -->
                     <div class="control-group">
                         <label>
-                            <input type="checkbox" id="breath-enabled" ${this.particleSystem.breathEnabled ? 'checked' : ''}>
+                            <input type="checkbox" id="breath-enabled" ${this.safeValue(this.particleSystem.breathEnabled, false) ? 'checked' : ''}>
                             Enable Breath Effect
                         </label>
                         <span class="info-text">Automatically oscillates collision offset for organic movement</span>
                     </div>
-                    <div class="control-group" id="breath-controls" style="${!this.particleSystem.breathEnabled ? 'display: none;' : ''}">
+                    <div class="control-group" id="breath-controls" style="${!this.safeValue(this.particleSystem.breathEnabled, false) ? 'display: none;' : ''}">
                         <div class="dual-range-slider">
                             <label>Breath Range (Min - Max)
                                 <div class="dual-range-values">
-                                    <span id="breath-min-value">${this.particleSystem.breathMin.toFixed(1)}</span>
-                                    <span id="breath-max-value">${this.particleSystem.breathMax.toFixed(1)}</span>
+                                    <span id="breath-min-value">${this.safeFixed(this.particleSystem.breathMin, 1, '0.0')}</span>
+                                    <span id="breath-max-value">${this.safeFixed(this.particleSystem.breathMax, 1, '5.0')}</span>
                                 </div>
                             </label>
                             <div class="range-track"></div>
                             <div class="range-fill" id="breath-range-fill"></div>
-                            <input type="range" id="breath-min" min="0" max="8" step="0.1" value="${this.particleSystem.breathMin}">
-                            <input type="range" id="breath-max" min="0" max="10" step="0.1" value="${this.particleSystem.breathMax}">
+                            <input type="range" id="breath-min" min="0" max="8" step="0.1" value="${this.safeValue(this.particleSystem.breathMin, 0)}">
+                            <input type="range" id="breath-max" min="0" max="10" step="0.1" value="${this.safeValue(this.particleSystem.breathMax, 5)}">
                         </div>
                         <div class="control-group">
                             <label>
                                 Breath Cycle Time
-                                <span class="value-display" id="breath-time-value">${this.particleSystem.breathTime.toFixed(1)}s</span>
+                                <span class="value-display" id="breath-time-value">${this.safeFixed(this.particleSystem.breathTime, 1, '3.0')}s</span>
                             </label>
                             <input type="range" class="range-slider" id="breath-time" 
-                                   min="1.0" max="20.0" step="0.5" value="${this.particleSystem.breathTime}">
+                                   min="1.0" max="20.0" step="0.5" value="${this.safeValue(this.particleSystem.breathTime, 3)}">
                         </div>
                     </div>
                 </div>
@@ -268,26 +280,26 @@ export class MainUI {
                     <div class="control-group">
                         <label>
                             Force Strength
-                            <span class="value-display" id="force-strength-value">${this.particleSystem.forceFactor.toFixed(1)}</span>
+                            <span class="value-display" id="force-strength-value">${this.safeFixed(this.particleSystem.forceFactor, 1, '1.0')}</span>
                         </label>
                         <input type="range" class="range-slider" id="force-strength" 
-                               min="0.1" max="10" step="0.1" value="${this.particleSystem.forceFactor}">
+                               min="0.1" max="10" step="0.1" value="${this.safeValue(this.particleSystem.forceFactor, 1)}">
                     </div>
                     <div class="control-group">
                         <label>
                             Friction
-                            <span class="value-display" id="friction-value">${(1.0 - this.particleSystem.friction).toFixed(2)}</span>
+                            <span class="value-display" id="friction-value">${this.safeFixed((1.0 - this.safeValue(this.particleSystem.friction, 0.95)), 2, '0.05')}</span>
                         </label>
                         <input type="range" class="range-slider" id="friction" 
-                               min="0" max="0.5" step="0.01" value="${1.0 - this.particleSystem.friction}">
+                               min="0" max="0.5" step="0.01" value="${1.0 - this.safeValue(this.particleSystem.friction, 0.95)}">
                     </div>
                     <div class="control-group">
                         <label>
                             Social Radius
-                            <span class="value-display" id="social-radius-value">${this.particleSystem.socialRadius[0][0]}</span>
+                            <span class="value-display" id="social-radius-value">${this.safeValue(this.particleSystem.socialRadius?.[0]?.[0], 50)}</span>
                         </label>
                         <input type="range" class="range-slider" id="social-radius" 
-                               min="20" max="300" step="5" value="${this.particleSystem.socialRadius[0][0]}">
+                               min="20" max="300" step="5" value="${this.safeValue(this.particleSystem.socialRadius?.[0]?.[0], 50)}">
                     </div>
                     
                     <!-- Advanced Physics Controls -->
@@ -1417,7 +1429,25 @@ export class MainUI {
             
             switch(e.key.toLowerCase()) {
                 case 'c':
+                    // Toggle both controls and audio panel together
                     this.toggleVisibility();
+                    
+                    // Always try to initialize audio if not done yet
+                    if (window.initializeAudio && !window.isAudioInitialized()) {
+                        window.initializeAudio().then(() => {
+                            console.log('Audio initialized via C key');
+                        });
+                    }
+                    
+                    // Also toggle audio panel (left panel) - sync with right panel visibility
+                    if (window.leftPanel) {
+                        // After toggleVisibility(), this.isVisible has been updated
+                        if (this.isVisible) {
+                            window.leftPanel.show();
+                        } else {
+                            window.leftPanel.hide();
+                        }
+                    }
                     e.preventDefault();
                     break;
                 case 'r':
@@ -1443,10 +1473,10 @@ export class MainUI {
         this.isVisible = !this.isVisible;
         this.container.classList.toggle('hidden', !this.isVisible);
         
-        // Also toggle performance overlay visibility
-        const perfOverlay = document.getElementById('performance-overlay');
-        if (perfOverlay) {
-            perfOverlay.style.display = this.isVisible ? 'block' : 'none';
+        // Also toggle performance monitor visibility
+        const performanceMonitor = document.getElementById('performance-monitor');
+        if (performanceMonitor) {
+            performanceMonitor.style.display = this.isVisible ? 'block' : 'none';
         }
         
         // Also toggle shortcuts overlay visibility
@@ -1459,20 +1489,25 @@ export class MainUI {
     toggleMute() {
         const isMuted = this.particleSystem.toggleMute();
         
-        // Visual feedback - show mute state in console for debugging
-        // Simulation mute state changed
+        // Also toggle audio system mute if available
+        if (window.audioSystem && window.audioSystem.isInitialized) {
+            window.audioSystem.toggleMute();
+        }
         
-        // Optional: Add visual indicator to performance overlay
-        const perfOverlay = document.getElementById('performance-overlay');
-        if (perfOverlay && isMuted) {
-            // Add a muted indicator to the performance overlay
-            const originalHTML = perfOverlay.innerHTML;
-            if (!originalHTML.includes('MUTED')) {
-                perfOverlay.innerHTML = originalHTML.replace('FPS:', 'MUTED | FPS:');
+        // Visual feedback - show mute state in console for debugging
+        console.log(`System ${isMuted ? 'MUTED' : 'UNMUTED'}`);
+        
+        // Optional: Add visual indicator to performance monitor
+        const performanceMonitor = document.getElementById('performance-monitor');
+        if (performanceMonitor) {
+            const titleElement = performanceMonitor.querySelector('.performance-title');
+            if (titleElement) {
+                if (isMuted && !titleElement.textContent.includes('MUTED')) {
+                    titleElement.textContent = 'Performance (MUTED)';
+                } else if (!isMuted) {
+                    titleElement.textContent = 'Performance';
+                }
             }
-        } else if (perfOverlay && !isMuted) {
-            // Remove muted indicator
-            perfOverlay.innerHTML = perfOverlay.innerHTML.replace('MUTED | ', '');
         }
     }
     
@@ -2797,6 +2832,11 @@ export class MainUI {
         this.updateSpeciesSelectors(this.particleSystem.numSpecies);
         this.updateSpeciesButtons(this.particleSystem.numSpecies);
         this.updateDistributionSpeciesSelector(this.particleSystem.numSpecies);
+        
+        // Update left panel species headers if it exists
+        if (window.leftPanel && window.leftPanel.updateSpeciesHeaders) {
+            window.leftPanel.updateSpeciesHeaders();
+        }
     }
 
     getColorName(hexColor) {
@@ -3041,6 +3081,15 @@ export class MainUI {
                     this.updateSpeciesColors(value);
                     this.updateGraph();
                     this.updateTotalParticles();
+                    
+                    // Update left panel species count if audio is enabled
+                    if (window.leftPanel && window.leftPanel.updateSpeciesCount) {
+                        window.leftPanel.updateSpeciesCount(value);
+                        // Also update species headers with new names/colors
+                        if (window.leftPanel.updateSpeciesHeaders) {
+                            window.leftPanel.updateSpeciesHeaders();
+                        }
+                    }
                     
                     // Resize distribution canvas to match current simulation dimensions
                     if (this.distributionDrawer) {
@@ -3716,10 +3765,10 @@ export class MainUI {
             select.innerHTML = '';
             
             for (let i = 0; i < numSpecies; i++) {
-                const species = this.particleSystem.species[i];
                 const option = document.createElement('option');
                 option.value = i;
-                option.textContent = species?.name || `Species ${i + 1}`;
+                // Use dynamic species name based on color
+                option.textContent = this.particleSystem.getSpeciesName(i);
                 select.appendChild(option);
             }
             
@@ -3748,11 +3797,10 @@ export class MainUI {
         const fromSpecies = parseInt(document.getElementById('from-species').value);
         const toSpecies = parseInt(document.getElementById('to-species').value);
         const force = this.particleSystem.socialForce[fromSpecies]?.[toSpecies] || 0;
-        const colorNames = ['Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink', 'Lime', 'Magenta',
-                           'Teal', 'Indigo', 'Brown', 'Gray', 'Violet', 'Coral', 'Navy', 'Gold', 'Silver', 'Crimson'];
         
-        const fromName = colorNames[fromSpecies] || `Species ${fromSpecies + 1}`;
-        const toName = colorNames[toSpecies] || `Species ${toSpecies + 1}`;
+        // Use dynamic species names from particle system
+        const fromName = this.particleSystem.getSpeciesName(fromSpecies);
+        const toName = this.particleSystem.getSpeciesName(toSpecies);
         
         this.forceGraph.setInfo(`${fromName} → ${toName}: ${force.toFixed(2)}`);
     }

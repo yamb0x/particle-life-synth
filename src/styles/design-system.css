@@ -62,10 +62,11 @@
   /* Z-index Layers */
   --z-base: 0;
   --z-dropdown: 10;
-  --z-sticky: 20;
-  --z-overlay: 30;
-  --z-modal: 40;
-  --z-tooltip: 50;
+  --z-sticky: 100;        /* MainUI and Left Panel */
+  --z-overlay: 1000;      /* Performance/Shortcuts overlays */
+  --z-modal: 2000;        /* CloudSync and PresetModal */
+  --z-audio-prompt: 10000; /* Audio initialization prompt */
+  --z-tooltip: 10001;
   
   /* Collapsible UI Variables */
   --collapsible-header-height: 32px;
@@ -1190,5 +1191,130 @@ input[type="checkbox"]:hover {
   .collapsible-toggle {
     width: 44px;
     height: 44px;
+  }
+}
+
+/* Performance Monitor Styles */
+.performance-monitor {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: var(--z-overlay);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  min-width: 140px;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.performance-monitor:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-strong);
+}
+
+.performance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  min-height: var(--collapsible-header-height);
+}
+
+.performance-header:hover {
+  background-color: var(--bg-hover);
+}
+
+.performance-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.performance-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.performance-toggle:hover {
+  color: var(--text-primary);
+}
+
+.performance-toggle svg {
+  transition: transform var(--transition-fast);
+}
+
+.performance-content {
+  max-height: var(--collapsible-max-height);
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height var(--collapsible-transition), opacity var(--collapsible-transition);
+}
+
+.performance-monitor.collapsed .performance-content {
+  max-height: 0;
+  opacity: 0;
+}
+
+.performance-metrics {
+  padding: var(--space-md);
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+  line-height: 1.2;
+}
+
+.metric-row:last-child {
+  margin-bottom: 0;
+}
+
+.metric-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.metric-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  text-align: right;
+  min-width: 40px;
+}
+
+/* Responsive adjustments for Performance Monitor */
+@media (max-width: 768px) {
+  .performance-monitor {
+    font-size: var(--font-size-xs);
+    min-width: 120px;
+  }
+  
+  .performance-header {
+    padding: var(--space-xs) var(--space-sm);
+  }
+  
+  .performance-metrics {
+    padding: var(--space-sm);
+  }
+  
+  .metric-row {
+    margin-bottom: var(--space-xs);
   }
 }
