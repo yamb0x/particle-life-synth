@@ -636,7 +636,7 @@ export class LeftPanel {
     if (metricsDiv && metrics) {
       metricsDiv.innerHTML = `
         Audio Load: ${(metrics.audioLoad * 100).toFixed(1)}% | 
-        Particle FPS: ${metrics.particleFPS?.toFixed(1) || '0'} | 
+        Particle FPS: ${(metrics.particleFPS ? metrics.particleFPS.toFixed(1) : '0')} | 
         Active Grains: ${metrics.totalActiveGrains || 0} | 
         Mode: ${metrics.performanceMode || 'balanced'}
       `;

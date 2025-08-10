@@ -118,7 +118,8 @@ export class SpeciesAudioControl {
       try {
         if (this.audioSystem && this.audioSystem.loadRandomSampleForSpecies) {
           await this.audioSystem.loadRandomSampleForSpecies(this.speciesIndex);
-          const sampleData = this.audioSystem.sampleManager?.getSampleForSpecies?.(this.speciesIndex);
+          const sampleData = (this.audioSystem.sampleManager && this.audioSystem.sampleManager.getSampleForSpecies) ? 
+            this.audioSystem.sampleManager.getSampleForSpecies(this.speciesIndex) : null;
           if (sampleData) {
             this.currentSampleName = sampleData.name;
             sampleDisplay.textContent = sampleData.name;
@@ -379,7 +380,8 @@ export class SpeciesAudioControl {
     }
     
     try {
-      const sampleData = this.audioSystem.sampleManager.getSampleForSpecies?.(this.speciesIndex);
+      const sampleData = this.audioSystem.sampleManager.getSampleForSpecies ? 
+        this.audioSystem.sampleManager.getSampleForSpecies(this.speciesIndex) : null;
       if (sampleData) {
         this.currentSampleName = sampleData.name;
         
