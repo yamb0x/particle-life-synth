@@ -3,6 +3,5 @@
   "outputDirectory": "./",
   "installCommand": "",
   "framework": null,
-  "functions": {},
   "trailingSlash": false
 }
