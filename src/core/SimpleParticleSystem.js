@@ -2782,6 +2782,11 @@ export class SimpleParticleSystem {
         
         // Reinitialize particles with new configuration
         this.initializeParticlesWithPositions();
+        
+        // Notify UI components that preset has changed
+        if (window.leftPanel && typeof window.leftPanel.onPresetChanged === 'function') {
+            window.leftPanel.onPresetChanged();
+        }
     }
     
     // Initialize particles using starting positions from preset

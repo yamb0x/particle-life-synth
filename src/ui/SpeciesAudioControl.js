@@ -286,13 +286,20 @@ export class SpeciesAudioControl {
   updateWaveformDisplay(audioBuffer) {
     if (!this.waveformCanvas || !audioBuffer) return;
     
+    // Check if canvas is properly rendered
+    const rect = this.waveformCanvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      // Canvas not ready yet, retry after delay
+      setTimeout(() => this.updateWaveformDisplay(audioBuffer), 200);
+      return;
+    }
+    
     // Hide placeholder
     if (this.waveformPlaceholder) {
       this.waveformPlaceholder.style.display = 'none';
     }
     
     // Set canvas size
-    const rect = this.waveformCanvas.getBoundingClientRect();
     this.waveformCanvas.width = rect.width * window.devicePixelRatio;
     this.waveformCanvas.height = rect.height * window.devicePixelRatio;
     
@@ -358,6 +365,49 @@ export class SpeciesAudioControl {
     // Show placeholder again
     if (this.waveformPlaceholder) {
       this.waveformPlaceholder.style.display = 'block';
+    }
+  }
+  
+  refreshSampleDisplay(retryCount = 0) {
+    // Update sample name and waveform display after external sample loading
+    if (!this.audioSystem || !this.audioSystem.sampleManager) {
+      // Retry after delay if audio system isn't ready yet
+      if (retryCount < 5) {
+        setTimeout(() => this.refreshSampleDisplay(retryCount + 1), 200);
+      }
+      return;
+    }
+    
+    try {
+      const sampleData = this.audioSystem.sampleManager.getSampleForSpecies?.(this.speciesIndex);
+      if (sampleData) {
+        this.currentSampleName = sampleData.name;
+        
+        // Update sample display text
+        const sampleDisplay = document.getElementById(`sample-display-${this.speciesIndex}`);
+        if (sampleDisplay) {
+          sampleDisplay.textContent = sampleData.name;
+        } else if (retryCount < 3) {
+          // Retry if element isn't ready yet
+          setTimeout(() => this.refreshSampleDisplay(retryCount + 1), 100);
+          return;
+        }
+        
+        // Update waveform display with timing delay
+        if (sampleData.buffer) {
+          setTimeout(() => {
+            this.updateWaveformDisplay(sampleData.buffer);
+          }, 150);
+        }
+      } else if (retryCount < 5) {
+        // Retry if sample data isn't loaded yet
+        setTimeout(() => this.refreshSampleDisplay(retryCount + 1), 300);
+      }
+    } catch (error) {
+      console.warn(`Failed to refresh sample display for species ${this.speciesIndex} (attempt ${retryCount + 1}):`, error);
+      if (retryCount < 3) {
+        setTimeout(() => this.refreshSampleDisplay(retryCount + 1), 500);
+      }
     }
   }
   

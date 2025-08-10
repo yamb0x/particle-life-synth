@@ -16,7 +16,7 @@ export class LeftPanel {
     
     // UI state
     this.isVisible = true;
-    this.activeSpeciesCount = 4;
+    this.activeSpeciesCount = this.particleSystem ? this.particleSystem.numSpecies : 5;
     
     // Components
     this.samplingControl = null;
@@ -38,6 +38,12 @@ export class LeftPanel {
   
   setParticleSystem(particleSystem) {
     this.particleSystem = particleSystem;
+    
+    // Update active species count to match particle system
+    if (particleSystem && particleSystem.numSpecies !== this.activeSpeciesCount) {
+      this.updateSpeciesCount(particleSystem.numSpecies);
+    }
+    
     // Update existing species headers
     this.updateSpeciesHeaders();
   }
@@ -55,11 +61,14 @@ export class LeftPanel {
           const speciesName = this.particleSystem.getSpeciesName(i);
           const speciesLetter = String.fromCharCode(65 + i);
           
-          header.style.background = `linear-gradient(90deg, ${speciesColor}, ${speciesColor}dd)`;
-          
           const title = header.querySelector('.collapsible-title');
           if (title) {
-            title.textContent = `Species ${speciesLetter} - ${speciesName}`;
+            // Add color indicator circle and improved formatting
+            title.innerHTML = `
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: ${speciesColor}; margin-right: 8px; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+              <span style="font-weight: 600;">Species ${speciesLetter}</span>
+              <span style="font-weight: 400; opacity: 0.9;"> - ${speciesName.toUpperCase()}</span>
+            `;
           }
         }
       }
@@ -589,18 +598,18 @@ export class LeftPanel {
       }
     });
     
-    // Apply full species color to the header
+    // Apply species section styling  
     const sectionElement = section.render();
     const header = sectionElement.querySelector('.collapsible-header');
     if (header) {
-      header.style.background = `linear-gradient(90deg, ${speciesColor}, ${speciesColor}dd)`;
-      header.style.color = '#ffffff';
-      header.style.textShadow = '0 1px 2px rgba(0,0,0,0.3)';
-      
-      // Make the title more readable on colored background
+      // Enhanced title with color indicator circle
       const title = header.querySelector('.collapsible-title');
       if (title) {
-        title.style.fontWeight = '500';
+        title.innerHTML = `
+          <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: ${speciesColor}; margin-right: 8px; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+          <span style="font-weight: 600;">Species ${speciesLetter}</span>
+          <span style="font-weight: 400; opacity: 0.9;"> - ${speciesName.toUpperCase()}</span>
+        `;
       }
     }
     
@@ -640,16 +649,45 @@ export class LeftPanel {
       // Add new sections
       for (let i = this.activeSpeciesCount; i < count; i++) {
         this.createSpeciesSectionCollapsible(i);
+        
+        // Load random audio sample for new species and update display
+        if (this.audioSystem && this.audioSystem.loadRandomSampleForSpecies) {
+          this.audioSystem.loadRandomSampleForSpecies(i).then(() => {
+            // Add delay to ensure everything is properly initialized
+            setTimeout(() => {
+              const speciesControl = this.speciesControls.get(i);
+              if (speciesControl && speciesControl.refreshSampleDisplay) {
+                speciesControl.refreshSampleDisplay();
+              }
+            }, 250);
+          }).catch(error => {
+            console.warn(`Failed to load sample for species ${i}:`, error);
+            // Try to refresh anyway in case the sample loaded but promise failed
+            setTimeout(() => {
+              const speciesControl = this.speciesControls.get(i);
+              if (speciesControl && speciesControl.refreshSampleDisplay) {
+                speciesControl.refreshSampleDisplay();
+              }
+            }, 500);
+          });
+        }
       }
     } else if (count < this.activeSpeciesCount) {
       // Remove excess sections
       for (let i = count; i < this.activeSpeciesCount; i++) {
-        const section = this.sections.get(`species-${i}`);
-        if (section) {
-          section.destroy();
-          this.sections.delete(`species-${i}`);
+        // Clean up species audio control first
+        const speciesControl = this.speciesControls.get(i);
+        if (speciesControl && speciesControl.destroy) {
+          speciesControl.destroy();
         }
         this.speciesControls.delete(i);
+        
+        // Clean up section
+        const section = this.sections.get(`species-${i}`);
+        if (section && section.destroy) {
+          section.destroy();
+        }
+        this.sections.delete(`species-${i}`);
       }
     }
     
@@ -658,6 +696,48 @@ export class LeftPanel {
     // Update headers with new colors and names
     if (this.particleSystem) {
       this.updateSpeciesHeaders();
+    }
+  }
+  
+  onPresetChanged() {
+    // Called when a preset is loaded to sync everything
+    if (!this.particleSystem) return;
+    
+    const newSpeciesCount = this.particleSystem.numSpecies;
+    
+    // Update species count if changed
+    if (newSpeciesCount !== this.activeSpeciesCount) {
+      this.updateSpeciesCount(newSpeciesCount);
+    }
+    
+    // Update all species headers with new colors/names
+    this.updateSpeciesHeaders();
+    
+    // Load random audio samples for all species with display refresh
+    if (this.audioSystem && this.audioSystem.loadRandomSamplesForAllSpecies) {
+      this.audioSystem.loadRandomSamplesForAllSpecies().then(() => {
+        setTimeout(() => this.refreshAllSampleDisplays(), 300);
+      }).catch(() => {
+        setTimeout(() => this.refreshAllSampleDisplays(), 500);
+      });
+    } else if (this.audioSystem && this.audioSystem.loadRandomSampleForSpecies) {
+      const loadPromises = [];
+      for (let i = 0; i < newSpeciesCount; i++) {
+        loadPromises.push(this.audioSystem.loadRandomSampleForSpecies(i));
+      }
+      Promise.allSettled(loadPromises).then(() => {
+        setTimeout(() => this.refreshAllSampleDisplays(), 300);
+      });
+    }
+  }
+  
+  refreshAllSampleDisplays() {
+    // Force refresh all species sample displays
+    for (let i = 0; i < this.activeSpeciesCount; i++) {
+      const speciesControl = this.speciesControls.get(i);
+      if (speciesControl && speciesControl.refreshSampleDisplay) {
+        setTimeout(() => speciesControl.refreshSampleDisplay(), i * 50); // Stagger refreshes
+      }
     }
   }
   
