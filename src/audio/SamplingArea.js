@@ -71,6 +71,10 @@ export class SamplingArea {
     this.tempCanvas2 = null;
     this.tempCanvas3 = null;
     this.initializeTempCanvases();
+    
+    // Auto-save debouncing
+    this.saveTimeout = null;
+    this.SAVE_DEBOUNCE_MS = 1000; // 1 second debounce
   }
   
   /**
@@ -259,6 +263,9 @@ export class SamplingArea {
     }
     
     this.updateZones();
+    
+    // Auto-save configuration changes
+    this.debouncedSave();
   }
   
   /**
@@ -274,6 +281,9 @@ export class SamplingArea {
     }
     
     this.updateZones();
+    
+    // Auto-save configuration changes
+    this.debouncedSave();
   }
   
   /**
@@ -999,10 +1009,29 @@ export class SamplingArea {
   }
   
   /**
-   * Save current sampling area style to localStorage (separate from presets)
+   * Debounced auto-save to avoid excessive localStorage writes
+   */
+  debouncedSave() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    
+    this.saveTimeout = setTimeout(() => {
+      this.saveStyleToLocalStorage();
+    }, this.SAVE_DEBOUNCE_MS);
+  }
+  
+  /**
+   * Save current sampling area configuration to localStorage (complete settings)
    */
   saveStyleToLocalStorage() {
-    const style = {
+    const config = {
+      // Position and size settings
+      centerX: this.centerX,
+      centerY: this.centerY,
+      radius: this.radius,
+      maxParticles: this.maxParticles,
+      // Visual style settings
       spotlightMode: this.spotlightMode,
       spotlightOpacity: this.spotlightOpacity,
       circleFeather: this.circleFeather,
@@ -1012,51 +1041,77 @@ export class SamplingArea {
       vignetteSize: this.vignetteSize,
       vignetteIntensity: this.vignetteIntensity,
       showCrosshair: this.showCrosshair,
-      showZones: this.showZones
+      showZones: this.showZones,
+      // Organization settings
+      organizationMode: this.organizationMode,
+      organizationParams: { ...this.organizationParams }
     };
     
     try {
-      localStorage.setItem('samplingAreaStyle', JSON.stringify(style));
-      console.log('Sampling area style saved to localStorage');
+      localStorage.setItem('samplingAreaConfig', JSON.stringify(config));
+      console.log('Sampling area configuration saved to localStorage');
     } catch (error) {
-      console.warn('Failed to save sampling area style:', error);
+      console.warn('Failed to save sampling area configuration:', error);
     }
   }
   
   /**
-   * Load sampling area style from localStorage
+   * Load sampling area configuration from localStorage
    */
   loadStyleFromLocalStorage() {
     try {
-      const savedStyle = localStorage.getItem('samplingAreaStyle');
-      if (savedStyle) {
-        const style = JSON.parse(savedStyle);
+      // Try new format first
+      let savedConfig = localStorage.getItem('samplingAreaConfig');
+      let config = null;
+      
+      if (savedConfig) {
+        config = JSON.parse(savedConfig);
+      } else {
+        // Fallback to old format for backward compatibility
+        const savedStyle = localStorage.getItem('samplingAreaStyle');
+        if (savedStyle) {
+          config = JSON.parse(savedStyle);
+        }
+      }
+      
+      if (config) {
+        // Apply all settings including position and radius
+        if (config.centerX !== undefined) this.centerX = config.centerX;
+        if (config.centerY !== undefined) this.centerY = config.centerY;
+        if (config.radius !== undefined) this.radius = config.radius;
+        if (config.maxParticles !== undefined) this.maxParticles = config.maxParticles;
+        if (config.organizationMode !== undefined) this.organizationMode = config.organizationMode;
+        if (config.organizationParams) {
+          Object.assign(this.organizationParams, config.organizationParams);
+        }
         
-        // Apply style settings (but keep position and radius separate)
-        if (style.spotlightMode !== undefined) this.spotlightMode = style.spotlightMode;
-        if (style.spotlightOpacity !== undefined) this.spotlightOpacity = style.spotlightOpacity;
-        if (style.circleFeather !== undefined) this.circleFeather = style.circleFeather;
-        if (style.backgroundBlur !== undefined) this.backgroundBlur = style.backgroundBlur;
-        if (style.backgroundBlurAmount !== undefined) this.backgroundBlurAmount = style.backgroundBlurAmount;
-        if (style.vignetteEnabled !== undefined) this.vignetteEnabled = style.vignetteEnabled;
-        if (style.vignetteSize !== undefined) this.vignetteSize = style.vignetteSize;
-        if (style.vignetteIntensity !== undefined) this.vignetteIntensity = style.vignetteIntensity;
-        if (style.showCrosshair !== undefined) this.showCrosshair = style.showCrosshair;
-        if (style.showZones !== undefined) this.showZones = style.showZones;
+        // Apply visual style settings
+        if (config.spotlightMode !== undefined) this.spotlightMode = config.spotlightMode;
+        if (config.spotlightOpacity !== undefined) this.spotlightOpacity = config.spotlightOpacity;
+        if (config.circleFeather !== undefined) this.circleFeather = config.circleFeather;
+        if (config.backgroundBlur !== undefined) this.backgroundBlur = config.backgroundBlur;
+        if (config.backgroundBlurAmount !== undefined) this.backgroundBlurAmount = config.backgroundBlurAmount;
+        if (config.vignetteEnabled !== undefined) this.vignetteEnabled = config.vignetteEnabled;
+        if (config.vignetteSize !== undefined) this.vignetteSize = config.vignetteSize;
+        if (config.vignetteIntensity !== undefined) this.vignetteIntensity = config.vignetteIntensity;
+        if (config.showCrosshair !== undefined) this.showCrosshair = config.showCrosshair;
+        if (config.showZones !== undefined) this.showZones = config.showZones;
         
-        console.log('Sampling area style loaded from localStorage');
+        this.updateZones();
+        
+        console.log('Sampling area configuration loaded from localStorage');
         
         // Fire event to notify UI components to sync their controls
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('samplingStyleLoaded', {
-            detail: style
+            detail: config
           }));
         }
         
         return true;
       }
     } catch (error) {
-      console.warn('Failed to load sampling area style:', error);
+      console.warn('Failed to load sampling area configuration:', error);
     }
     
     return false;

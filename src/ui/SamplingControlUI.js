@@ -152,10 +152,16 @@ export class SamplingControlUI {
     if (this.audioSystem && this.audioSystem.samplingArea) {
       this.centerX = this.audioSystem.samplingArea.centerX;
       this.centerY = this.audioSystem.samplingArea.centerY;
+      this.radius = this.audioSystem.samplingArea.radius;
+      this.maxParticles = this.audioSystem.samplingArea.maxParticles;
+      this.organizationMode = this.audioSystem.samplingArea.organizationMode;
     }
     
     // Set initial position
     this.xyGraph.setValue({ x: this.centerX, y: this.centerY });
+    
+    // Sync UI controls with loaded values
+    this.syncControlsWithLoadedValues();
     
     // Listen for sampling area drag events to sync XY graph
     window.addEventListener('samplingAreaMoved', (event) => {
@@ -184,6 +190,44 @@ export class SamplingControlUI {
         this.syncControlsWithStyle(event.detail);
       }
     });
+  }
+  
+  /**
+   * Sync UI controls with loaded values from sampling area
+   */
+  syncControlsWithLoadedValues() {
+    setTimeout(() => {
+      try {
+        // Update radius slider
+        if (this.radiusSlider) {
+          const radiusPercent = Math.round(this.radius * 100);
+          this.radiusSlider.value = radiusPercent;
+          const radiusDisplay = document.getElementById('radius-value');
+          if (radiusDisplay) {
+            radiusDisplay.textContent = radiusPercent + '%';
+          }
+        }
+        
+        // Update max particles slider
+        if (this.maxParticlesSlider) {
+          this.maxParticlesSlider.value = this.maxParticles;
+          const maxParticlesDisplay = document.getElementById('max-sampled-value');
+          if (maxParticlesDisplay) {
+            maxParticlesDisplay.textContent = this.maxParticles.toString();
+          }
+        }
+        
+        // Update organization mode dropdown
+        if (this.organizationSelect) {
+          this.organizationSelect.value = this.organizationMode;
+          this.updateOrganizationParams();
+        }
+        
+        console.log('UI controls synced with loaded sampling area values');
+      } catch (error) {
+        console.warn('Error syncing UI controls with loaded values:', error);
+      }
+    }, 100); // Small delay to ensure elements are in DOM
   }
   
   /**
@@ -233,6 +277,11 @@ export class SamplingControlUI {
         break;
       case 'maxParticles':
         this.audioSystem.setMaxParticles(update.value);
+        // Also save to sampling area for persistence
+        if (this.audioSystem.samplingArea) {
+          this.audioSystem.samplingArea.maxParticles = update.value;
+          this.audioSystem.samplingArea.debouncedSave();
+        }
         break;
       default:
         console.warn('Unknown update type:', update.type);
@@ -441,6 +490,11 @@ export class SamplingControlUI {
       this.organizationMode = e.target.value;
       if (this.audioSystem && this.audioSystem.setOrganizationMode) {
         this.audioSystem.setOrganizationMode(this.organizationMode);
+      }
+      // Save organization mode to sampling area for persistence
+      if (this.audioSystem.samplingArea) {
+        this.audioSystem.samplingArea.organizationMode = this.organizationMode;
+        this.audioSystem.samplingArea.debouncedSave();
       }
       this.updateOrganizationParams();
     });
