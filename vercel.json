@@ -1,6 +1,8 @@
 {
   "buildCommand": "",
-  "outputDirectory": ".",
+  "outputDirectory": "./",
   "installCommand": "",
-  "framework": null
+  "framework": null,
+  "functions": {},
+  "trailingSlash": false
 }
