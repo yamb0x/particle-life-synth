@@ -43,6 +43,17 @@ export class DecoupledAudioBridge {
       positionHistory: [],
       maxHistoryLength: 10
     };
+    
+    // Load balancing system
+    this.loadBalancer = {
+      currentLoad: 0,
+      targetFPS: 60,
+      adaptiveRate: 60,
+      frameTimeHistory: [],
+      maxHistory: 30,
+      lastAdaptTime: 0,
+      ADAPT_INTERVAL: 1000 // ms
+    };
   }
   
   /**
@@ -78,33 +89,85 @@ export class DecoupledAudioBridge {
   }
   
   /**
-   * Start fixed-rate audio updates (60Hz)
+   * Start fixed-rate audio updates with load balancing (60Hz adaptive)
    */
   startAudioUpdates(callback) {
     this.audioCallback = callback;
     
-    // Use high-precision timer for audio
+    // Use high-precision timer for audio with load balancing
     const audioLoop = () => {
-      const now = performance.now();
-      const deltaTime = now - this.lastAudioUpdate;
+      const frameStartTime = performance.now();
+      const deltaTime = frameStartTime - this.lastAudioUpdate;
       
       if (deltaTime >= this.audioUpdateInterval) {
         this.performanceMetrics.audioFPS = 1000 / deltaTime;
-        this.lastAudioUpdate = now;
+        this.lastAudioUpdate = frameStartTime;
         
         // Get interpolated or predicted data
-        const audioData = this.getAudioData(now);
+        const audioData = this.getAudioData(frameStartTime);
         
         // Call audio update callback
         if (this.audioCallback && audioData) {
           this.audioCallback(audioData);
         }
+        
+        // Update load balancing metrics
+        const frameTime = performance.now() - frameStartTime;
+        this.updateLoadBalancing(frameTime);
       }
       
       this.audioTimer = requestAnimationFrame(audioLoop);
     };
     
     audioLoop();
+  }
+  
+  /**
+   * Update load balancing metrics and adapt performance
+   */
+  updateLoadBalancing(frameTime) {
+    const lb = this.loadBalancer;
+    
+    // Track frame times for load analysis
+    lb.frameTimeHistory.push(frameTime);
+    if (lb.frameTimeHistory.length > lb.maxHistory) {
+      lb.frameTimeHistory.shift();
+    }
+    
+    // Calculate current load
+    if (lb.frameTimeHistory.length > 5) {
+      const avgFrameTime = lb.frameTimeHistory.reduce((a, b) => a + b) / lb.frameTimeHistory.length;
+      const targetFrameTime = 1000 / lb.targetFPS;
+      lb.currentLoad = Math.min(1.0, avgFrameTime / targetFrameTime);
+    }
+    
+    // Adapt audio update rate based on load
+    const now = performance.now();
+    if (now - lb.lastAdaptTime > lb.ADAPT_INTERVAL) {
+      this.adaptAudioRate();
+      lb.lastAdaptTime = now;
+    }
+  }
+  
+  /**
+   * Adapt audio update rate based on system load
+   */
+  adaptAudioRate() {
+    const lb = this.loadBalancer;
+    
+    if (lb.currentLoad > 0.8) {
+      // High load - reduce audio update rate
+      lb.adaptiveRate = Math.max(30, lb.adaptiveRate - 5);
+    } else if (lb.currentLoad > 0.6) {
+      // Medium load - moderate reduction
+      lb.adaptiveRate = Math.max(45, lb.adaptiveRate - 2);
+    } else if (lb.currentLoad < 0.4) {
+      // Low load - can increase rate
+      lb.adaptiveRate = Math.min(60, lb.adaptiveRate + 2);
+    }
+    
+    // Update audio interval
+    this.audioUpdateInterval = 1000 / lb.adaptiveRate;
   }
   
   stopAudioUpdates() {
@@ -368,13 +431,19 @@ export class DecoupledAudioBridge {
   }
   
   /**
-   * Get current performance metrics
+   * Get current performance metrics including load balancing
    */
   getPerformanceMetrics() {
     return {
       ...this.performanceMetrics,
       snapshotCount: this.snapshots.length,
-      cacheHitRate: this.statisticsCache.density > 0 ? 1 : 0
+      cacheHitRate: this.statisticsCache.density > 0 ? 1 : 0,
+      // Load balancing metrics
+      currentLoad: this.loadBalancer.currentLoad,
+      adaptiveAudioRate: this.loadBalancer.adaptiveRate,
+      avgFrameTime: this.loadBalancer.frameTimeHistory.length > 0 
+        ? this.loadBalancer.frameTimeHistory.reduce((a, b) => a + b) / this.loadBalancer.frameTimeHistory.length
+        : 0
     };
   }
   

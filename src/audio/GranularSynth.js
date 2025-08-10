@@ -73,6 +73,12 @@ export class GranularSynth {
     this.defaultEnvelopeSize = 1024;
     this.precomputeEnvelopes();
     
+    // Optimized cleanup system
+    this.grainCleanupTimer = null;
+    this.CLEANUP_INTERVAL = 100; // ms
+    this.grainLifetimes = new Map(); // Track grain lifetimes
+    this.startGrainCleanup();
+    
     this.initializeNodes();
   }
   
@@ -106,6 +112,66 @@ export class GranularSynth {
         envelope[i] = 0.5 * (1 - Math.cos(2 * phase));
       }
       this.envelopeCache.set(size, envelope);
+    }
+  }
+  
+  /**
+   * Start optimized grain cleanup system
+   */
+  startGrainCleanup() {
+    if (this.grainCleanupTimer) return;
+    
+    const cleanup = () => {
+      this.performGrainCleanup();
+      this.grainCleanupTimer = setTimeout(cleanup, this.CLEANUP_INTERVAL);
+    };
+    
+    this.grainCleanupTimer = setTimeout(cleanup, this.CLEANUP_INTERVAL);
+  }
+  
+  /**
+   * Perform batched grain cleanup
+   */
+  performGrainCleanup() {
+    const now = performance.now();
+    const toRemove = [];
+    
+    // Check grain lifetimes in batch
+    for (const [grain, startTime] of this.grainLifetimes) {
+      const expectedEndTime = startTime + (grain.duration * 1000) + 50; // 50ms buffer
+      
+      if (now >= expectedEndTime) {
+        toRemove.push(grain);
+        
+        // Clean up audio nodes
+        try {
+          if (grain.envelope) grain.envelope.disconnect();
+          if (grain.panner) grain.panner.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+        
+        // Return grain object to pool
+        if (grain.poolObject) {
+          grain.poolObject.active = false;
+        }
+      }
+    }
+    
+    // Batch remove expired grains
+    for (const grain of toRemove) {
+      this.activeGrains.delete(grain);
+      this.grainLifetimes.delete(grain);
+    }
+  }
+  
+  /**
+   * Stop grain cleanup system
+   */
+  stopGrainCleanup() {
+    if (this.grainCleanupTimer) {
+      clearTimeout(this.grainCleanupTimer);
+      this.grainCleanupTimer = null;
     }
   }
   
@@ -362,27 +428,30 @@ export class GranularSynth {
     return grain;
   }
   
-  // Optimized grain scheduling
+  // Optimized grain scheduling with new cleanup system
   scheduleGrainOptimized(grain, effectiveSize) {
-    if (!grain || !this.audioBuffer) return;
+    if (!grain || !this.audioBuffer) return false;
     
     const now = this.audioContext.currentTime;
     const minInterval = 1 / (this.grainDensity * this.audioEngine.globalGrainDensity * 10);
     if (now - this.lastGrainTime < minInterval) {
       grain.active = false;
-      return;
+      return false;
     }
     
     const audioGrain = this.createGrainOptimized(grain, effectiveSize);
     if (audioGrain) {
+      // Add to active grains and track lifetime
       this.activeGrains.add(audioGrain);
+      this.grainLifetimes.set(audioGrain, performance.now());
+      audioGrain.poolObject = grain; // Reference for cleanup
+      audioGrain.duration = grain.duration;
+      
       this.lastGrainTime = now;
-      setTimeout(() => {
-        this.activeGrains.delete(audioGrain);
-        grain.active = false;
-      }, (grain.duration * 1000) + 100);
+      return true;
     } else {
       grain.active = false;
+      return false;
     }
   }
   
@@ -441,11 +510,16 @@ export class GranularSynth {
     
     // Check if we've hit the grain limit
     if (this.activeGrains.size >= this.maxGrainsPerSpecies) {
-      // Remove oldest grain
+      // Remove oldest grain using optimized cleanup
       const oldest = this.activeGrains.values().next().value;
       if (oldest) {
-        oldest.stop();
         this.activeGrains.delete(oldest);
+        this.grainLifetimes.delete(oldest);
+        try {
+          oldest.stop();
+        } catch (e) {
+          // Ignore stop errors
+        }
       }
     }
     
@@ -453,12 +527,9 @@ export class GranularSynth {
     const grain = this.createGrain(params, effectiveSize);
     if (grain) {
       this.activeGrains.add(grain);
+      this.grainLifetimes.set(grain, performance.now());
+      grain.duration = (params.duration || effectiveSize) / 1000; // Store for cleanup
       this.lastGrainTime = now;
-      
-      // Auto-remove after grain finishes
-      setTimeout(() => {
-        this.activeGrains.delete(grain);
-      }, params.duration + 100);
     }
   }
   
@@ -653,15 +724,26 @@ export class GranularSynth {
   }
   
   destroy() {
+    // Stop grain cleanup system
+    this.stopGrainCleanup();
+    
     // Stop all grains
     this.activeGrains.forEach(grain => {
       try {
         grain.stop();
+        if (grain.envelope) grain.envelope.disconnect();
+        if (grain.panner) grain.panner.disconnect();
       } catch (e) {
-        // Ignore
+        // Ignore disconnect/stop errors
       }
     });
     this.activeGrains.clear();
+    this.grainLifetimes.clear();
+    
+    // Reset grain pool
+    this.grainPool.forEach(grain => {
+      grain.active = false;
+    });
     
     // Disconnect nodes
     if (this.outputGain) {

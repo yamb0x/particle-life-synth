@@ -52,6 +52,12 @@ export class AudioSystem {
     // Audio processing state
     this.lastProcessTime = 0;
     this.processInterval = 16.67; // 60Hz
+    
+    // Frame time budgeting
+    this.MAX_AUDIO_FRAME_TIME = 8; // ms - max time per audio frame
+    this.audioFrameStartTime = 0;
+    this.processedParticlesThisFrame = 0;
+    this.maxParticlesPerFrame = 100; // Adaptive limit
   }
   
   /**
@@ -115,6 +121,9 @@ export class AudioSystem {
       // Initialize sampling area
       // Initializing sampling area
       this.samplingArea = new SamplingArea(canvasWidth, canvasHeight);
+      
+      // Load saved sampling area style
+      this.samplingArea.loadStyleFromLocalStorage();
       
       // Initialize audio bridge
       // Initializing audio bridge
@@ -200,7 +209,7 @@ export class AudioSystem {
   }
   
   /**
-   * Process audio frame with particle data
+   * Process audio frame with particle data - optimized with frame time budgeting
    */
   processAudioFrame(audioData) {
     if (!this.isPlaying || this.isMuted || !audioData) {
@@ -215,40 +224,126 @@ export class AudioSystem {
     }
     
     this.lastProcessTime = now;
+    this.audioFrameStartTime = now;
+    this.processedParticlesThisFrame = 0;
     
     // Debug: Log if we have data
     if (!audioData.particlesBySpecies || audioData.particlesBySpecies.size === 0) {
-      // No particles to process
       return;
     }
     
-    // Process each species
+    // Process each species with frame time budgeting
     for (const [species, particles] of audioData.particlesBySpecies) {
+      // Check frame time budget before processing each species
+      if (this.isFrameTimeBudgetExceeded()) {
+        break;
+      }
+      
       const synth = this.synthesizers.get(species);
       
-      if (synth && !synth.mute) {
-        // Check if synth has a sample loaded
-        if (!synth.audioBuffer) {
-          // No sample loaded for this species - can't generate audio
-          continue;
-        }
+      if (synth && !synth.mute && synth.audioBuffer) {
+        // Apply adaptive particle limiting based on frame time budget
+        const particlesToProcess = this.applyFrameTimeLimiting(particles);
         
-        // Organize grains based on current mode
-        const organized = this.grainOrganizer.organizeGrains(
-          particles,
-          { width: this.canvasWidth, height: this.canvasHeight },
-          synth.audioBuffer
-        );
-        
-        // Process organized grains
-        if (organized && organized.length > 0) {
-          synth.processParticles(
-            organized.map(o => o.particle),
+        if (particlesToProcess.length > 0) {
+          // Organize grains based on current mode
+          const organized = this.grainOrganizer.organizeGrains(
+            particlesToProcess,
             { width: this.canvasWidth, height: this.canvasHeight },
-            this.grainOrganizer.mode
+            synth.audioBuffer
           );
+          
+          // Process organized grains
+          if (organized && organized.length > 0) {
+            synth.processParticles(
+              organized.map(o => o.particle),
+              { width: this.canvasWidth, height: this.canvasHeight },
+              this.grainOrganizer.mode
+            );
+          }
+          
+          this.processedParticlesThisFrame += particlesToProcess.length;
         }
       }
+    }
+    
+    // Adapt frame limits based on performance
+    this.adaptFrameLimits(now - this.audioFrameStartTime);
+  }
+  
+  /**
+   * Check if frame time budget is exceeded
+   */
+  isFrameTimeBudgetExceeded() {
+    return (performance.now() - this.audioFrameStartTime) >= this.MAX_AUDIO_FRAME_TIME;
+  }
+  
+  /**
+   * Apply frame time limiting to particle processing
+   */
+  applyFrameTimeLimiting(particles) {
+    const remainingBudget = this.MAX_AUDIO_FRAME_TIME - (performance.now() - this.audioFrameStartTime);
+    const remainingParticleSlots = this.maxParticlesPerFrame - this.processedParticlesThisFrame;
+    
+    if (remainingBudget <= 0 || remainingParticleSlots <= 0) {
+      return [];
+    }
+    
+    // Adaptive limiting based on remaining budget
+    const budgetRatio = Math.max(0.1, remainingBudget / this.MAX_AUDIO_FRAME_TIME);
+    const maxParticles = Math.min(
+      Math.floor(remainingParticleSlots * budgetRatio),
+      particles.length
+    );
+    
+    if (maxParticles >= particles.length) {
+      return particles;
+    }
+    
+    // Priority-based selection for high particle counts
+    return this.selectHighPriorityParticles(particles, maxParticles);
+  }
+  
+  /**
+   * Select high priority particles for processing
+   */
+  selectHighPriorityParticles(particles, maxCount) {
+    if (particles.length <= maxCount) {
+      return particles;
+    }
+    
+    // Score particles by importance
+    const scoredParticles = particles.map(particle => ({
+      particle,
+      score: this.calculateParticlePriority(particle)
+    }));
+    
+    // Sort by priority and take top particles
+    scoredParticles.sort((a, b) => b.score - a.score);
+    return scoredParticles.slice(0, maxCount).map(sp => sp.particle);
+  }
+  
+  /**
+   * Calculate particle priority for frame time limiting
+   */
+  calculateParticlePriority(particle) {
+    const velocity = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
+    const size = particle.size || 5;
+    
+    // Higher velocity and size = higher priority
+    return velocity * 0.7 + size * 0.3;
+  }
+  
+  /**
+   * Adapt frame limits based on performance feedback
+   */
+  adaptFrameLimits(actualFrameTime) {
+    if (actualFrameTime > this.MAX_AUDIO_FRAME_TIME * 1.2) {
+      // Frame took too long, reduce limits
+      this.maxParticlesPerFrame = Math.max(50, this.maxParticlesPerFrame - 10);
+    } else if (actualFrameTime < this.MAX_AUDIO_FRAME_TIME * 0.6) {
+      // Frame was fast, can increase limits
+      this.maxParticlesPerFrame = Math.min(200, this.maxParticlesPerFrame + 5);
     }
   }
   
