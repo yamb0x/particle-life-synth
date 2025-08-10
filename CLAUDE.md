@@ -147,12 +147,138 @@ When working on this project:
 - Use debug-tools.html for Firebase management operations - don't create new utility files
 - Remember: Users save as new preset by changing the preset name (no "Save As New" button)
 
+### Mandatory AI Assistant Checklist
+For ANY changes affecting UI, keyboard shortcuts, global variables, or core functionality:
+
+#### Before Writing Code:
+1. **Check existing patterns** - Look for any `window.location.hostname` conditions
+2. **Review global assignments** - Ensure critical globals are assigned unconditionally
+3. **Import EnvironmentManager** - Use it instead of hostname checks if environment detection needed
+
+#### After Writing Code:
+1. **Search for hostname checks** - Use grep to find any new conditional assignments
+2. **Verify global variables** - Ensure window.mainUI, window.leftPanel, window.particleSystem are always assigned
+3. **Test locally first** - Verify functionality works on localhost
+
+#### Before Marking Task Complete:
+1. **Deploy to GitHub** - Push changes and wait for Vercel deployment
+2. **Test both environments** - Check the same functionality works on both URLs:
+   - Localhost: `http://localhost:8000`
+   - Deployment: `https://particle-life-synth-henna.vercel.app/`
+3. **Run environment test** - Visit `/environment-test.html` on deployment and verify all ✅
+4. **Confirm with user** - Ask user to test before marking complete
+
+#### Red Flags to Always Avoid:
+```javascript
+// 🚨 IMMEDIATELY SUSPICIOUS - Fix before proceeding:
+if (window.location.hostname === 'localhost') { ... }
+if (location.hostname.includes('localhost')) { ... }
+window.location.hostname !== 'production' && ...
+
+// 🚨 CRITICAL GLOBAL VARIABLES - Must be unconditional:
+window.mainUI = ...          // Keyboard shortcuts depend on this
+window.leftPanel = ...       // Species sync depends on this  
+window.particleSystem = ...  // Preset loading depends on this
+window.audioSystem = ...     // Audio features depend on this
+```
+
+#### Required Phrases for Deployment:
+When deploying changes, always include in commit messages:
+- "test: Verified on both localhost and deployment"
+- "fix: Ensure global variables work across all environments"
+- "deploy: Tested keyboard shortcuts and species sync on Vercel"
+
 ## Deployment Consistency Rules ⚠️
-- **NEVER** use `window.location.hostname === 'localhost'` for functionality-critical code
-- **ALWAYS** assign global variables unconditionally if they're needed for features
-- **USE** `EnvironmentManager` for environment detection instead of hostname checks
-- **TEST** both localhost and deployment before marking tasks complete
-- **CHECK** `environment-test.html` and `DEPLOYMENT_CHECKLIST.md` before deploying
+
+### Critical Rules (Always Follow)
+1. **NEVER** use `window.location.hostname === 'localhost'` for functionality-critical code
+2. **ALWAYS** assign global variables unconditionally if they're needed for UI features, keyboard shortcuts, or core functionality
+3. **USE** `EnvironmentManager.isDebugMode()` instead of hostname checks for environment detection
+4. **TEST** both localhost and deployment URLs before marking any task complete
+5. **RUN** `/environment-test.html` on both environments to verify parity
+
+### Pre-Deployment Checklist
+Before pushing any changes that affect UI functionality:
+- [ ] Check if any new global variable assignments are conditional
+- [ ] Verify keyboard shortcuts work on both localhost and deployment  
+- [ ] Test species synchronization features on both environments
+- [ ] Run `/environment-test.html` and ensure all tests pass ✅
+- [ ] Check browser console for JavaScript errors on deployment
+- [ ] Verify all interactive features work identically
+
+### Code Patterns
+
+#### ❌ NEVER Do This:
+```javascript
+// BAD: Breaks deployment functionality
+if (window.location.hostname === 'localhost') {
+    window.mainUI = mainUI;           // UI breaks on deployment
+    window.leftPanel = leftPanel;     // Species sync breaks
+    window.particleSystem = system;   // Preset changes break
+}
+```
+
+#### ✅ ALWAYS Do This:
+```javascript
+// GOOD: Works everywhere
+import { EnvironmentManager } from './utils/EnvironmentManager.js';
+
+// Unconditional assignment for functionality
+window.mainUI = mainUI;
+window.leftPanel = leftPanel;
+window.particleSystem = particleSystem;
+
+// Conditional only for extra debug features
+if (EnvironmentManager.isDebugMode()) {
+    window.debugUtils = {...};        // Extra debugging only
+    console.log('Debug mode active'); // Extra logging only
+}
+```
+
+### Testing Requirements
+Any code that modifies these areas MUST be tested on both environments:
+- **Keyboard shortcuts** (C, V, R, M, Shift+Plus/Minus)
+- **Species synchronization** (species count changes, audio menu updates)
+- **Global variable access** (window.mainUI, window.leftPanel, etc.)
+- **UI state management** (panel visibility, control synchronization)
+- **Audio functionality** (sample loading, waveform display)
+
+### Quick Debug Commands
+When deployment issues occur, use these diagnostic steps:
+1. **Check environment**: Open `/environment-test.html` on deployed site
+2. **Console debugging**: Look for "MainUI exists: false" or similar errors
+3. **Compare environments**: Run same test on localhost vs. deployment
+4. **Enable debug mode**: Add `?debug=true` to deployment URL for extra logging
+
+### Emergency Fix Pattern
+If deployment breaks due to missing global variables:
+1. **Identify** the conditional assignment in main.js or other files
+2. **Remove** the hostname check condition
+3. **Make** the assignment unconditional  
+4. **Test** both environments immediately
+5. **Commit** with clear message about environment consistency fix
+
+### Automated Verification Commands
+Use these commands to quickly check for environment consistency issues:
+
+```bash
+# Search for dangerous hostname checks
+grep -r "hostname.*localhost" src/ || echo "✅ No hostname checks found"
+
+# Search for conditional global assignments  
+grep -r "window\." src/ | grep -i "localhost\|hostname" || echo "✅ No conditional globals found"
+
+# Quick deployment test (run after pushing)
+curl -s https://particle-life-synth-henna.vercel.app/environment-test.html | grep -o "MainUI exists: [a-z]*" 
+```
+
+### Success Indicators
+When everything is working correctly, you should see:
+- ✅ All tests pass in `/environment-test.html`  
+- ✅ `MainUI exists: true` in deployment console
+- ✅ `LeftPanel exists: true` in deployment console
+- ✅ C key toggles panels on both localhost and deployment
+- ✅ Species count changes update audio menus on both environments
 
 ## Cloud Deployment Architecture
 
