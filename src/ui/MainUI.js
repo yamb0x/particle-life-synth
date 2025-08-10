@@ -1464,6 +1464,20 @@ export class MainUI {
                     this.toggleMute();
                     e.preventDefault();
                     break;
+                case '[':
+                    // Decrease sampling radius
+                    if (window.audioSystem && window.audioSystem.samplingArea) {
+                        window.audioSystem.samplingArea.adjustRadius(-0.02); // Small decrement
+                    }
+                    e.preventDefault();
+                    break;
+                case ']':
+                    // Increase sampling radius
+                    if (window.audioSystem && window.audioSystem.samplingArea) {
+                        window.audioSystem.samplingArea.adjustRadius(0.02); // Small increment
+                    }
+                    e.preventDefault();
+                    break;
             }
         });
     }
@@ -1473,13 +1487,13 @@ export class MainUI {
         this.isVisible = !this.isVisible;
         this.container.classList.toggle('hidden', !this.isVisible);
         
-        // Also toggle performance monitor visibility
-        const performanceMonitor = document.getElementById('performance-monitor');
-        if (performanceMonitor) {
-            performanceMonitor.style.display = this.isVisible ? 'block' : 'none';
+        // Also toggle combined overlay visibility (shortcuts + performance)
+        const combinedOverlay = document.getElementById('combined-overlay');
+        if (combinedOverlay) {
+            combinedOverlay.style.display = this.isVisible ? 'flex' : 'none';
         }
         
-        // Also toggle shortcuts overlay visibility
+        // Keep the old shortcuts overlay reference for backward compatibility
         const shortcutsOverlay = document.getElementById('shortcuts-overlay');
         if (shortcutsOverlay) {
             shortcutsOverlay.style.display = this.isVisible ? 'block' : 'none';
@@ -1495,20 +1509,9 @@ export class MainUI {
         }
         
         // Visual feedback - show mute state in console for debugging
-        console.log(`System ${isMuted ? 'MUTED' : 'UNMUTED'}`);
+        console.log(`System ${isMuted ? 'MUTED' : 'UNMUTED'} - Audio also ${isMuted ? 'MUTED' : 'UNMUTED'}`);
         
-        // Optional: Add visual indicator to performance monitor
-        const performanceMonitor = document.getElementById('performance-monitor');
-        if (performanceMonitor) {
-            const titleElement = performanceMonitor.querySelector('.performance-title');
-            if (titleElement) {
-                if (isMuted && !titleElement.textContent.includes('MUTED')) {
-                    titleElement.textContent = 'Performance (MUTED)';
-                } else if (!isMuted) {
-                    titleElement.textContent = 'Performance';
-                }
-            }
-        }
+        // MUTED status display has been removed from performance overlays
     }
     
     

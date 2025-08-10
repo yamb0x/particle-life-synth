@@ -307,6 +307,43 @@ async function init() {
     canvas.addEventListener('click', initOnInteraction, { once: false });
     canvas.addEventListener('touchstart', initOnInteraction, { once: false });
     
+    // Add mouse event handlers for sampling area drag functionality
+    let isDraggingSamplingArea = false;
+    
+    canvas.addEventListener('mousedown', (e) => {
+        if (audioSystem && audioSystem.isInitialized && audioSystem.samplingArea) {
+            isDraggingSamplingArea = audioSystem.samplingArea.handleMouseDown(e, canvas);
+            if (isDraggingSamplingArea) {
+                canvas.style.cursor = 'move';
+                e.preventDefault();
+            }
+        }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+        if (isDraggingSamplingArea && audioSystem && audioSystem.samplingArea) {
+            audioSystem.samplingArea.handleMouseMove(e, canvas);
+            e.preventDefault();
+        }
+    });
+    
+    canvas.addEventListener('mouseup', (e) => {
+        if (isDraggingSamplingArea && audioSystem && audioSystem.samplingArea) {
+            audioSystem.samplingArea.handleMouseUp();
+            canvas.style.cursor = 'default';
+            isDraggingSamplingArea = false;
+        }
+    });
+    
+    // Handle mouse leave to stop dragging if mouse leaves canvas
+    canvas.addEventListener('mouseleave', (e) => {
+        if (isDraggingSamplingArea && audioSystem && audioSystem.samplingArea) {
+            audioSystem.samplingArea.handleMouseUp();
+            canvas.style.cursor = 'default';
+            isDraggingSamplingArea = false;
+        }
+    });
+    
     // 4. Don't auto-initialize - Chrome's autoplay policy requires user gesture
     // Just log a message to inform the user
     setTimeout(() => {
@@ -356,13 +393,13 @@ async function init() {
         particleSystem.resize(aspectRatioManager.canvas.width, aspectRatioManager.canvas.height);
     });
     
-    // Create performance monitor
-    const performanceMonitor = new PerformanceMonitor(particleSystem);
+    // Performance monitor completely removed - using integrated overlay instead
+    const performanceMonitor = null; // Removed floating performance monitor
     
-    // Create shortcuts overlay
-    function createShortcutsOverlay() {
+    // Create combined shortcuts and performance overlay
+    function createCombinedOverlay() {
         const overlay = document.createElement('div');
-        overlay.id = 'shortcuts-overlay';
+        overlay.id = 'combined-overlay';
         overlay.style.cssText = `
             position: fixed;
             bottom: 10px;
@@ -375,26 +412,70 @@ async function init() {
             z-index: var(--z-overlay);
             mix-blend-mode: difference;
             line-height: 1.4;
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
         `;
-        overlay.innerHTML = `
+        
+        // Create shortcuts section
+        const shortcutsSection = document.createElement('div');
+        shortcutsSection.innerHTML = `
             C - Toggle controls & audio<br>
             V - Randomize values<br>
             R - Randomize forces<br>
-            M - Mute/freeze<br>
+            M - Mute/freeze & audio<br>
+            [ ] - Sampling circle size<br>
             Shift + - Next preset<br>
             Shift - - Previous preset
         `;
+        
+        // Create performance section
+        const performanceSection = document.createElement('div');
+        performanceSection.id = 'performance-section';
+        performanceSection.innerHTML = `
+            FPS: <span id="overlay-fps">--</span><br>
+            Particles: <span id="overlay-particles">--</span><br>
+            Species: <span id="overlay-species">--</span>
+        `;
+        
+        overlay.appendChild(shortcutsSection);
+        overlay.appendChild(performanceSection);
+        
         document.body.appendChild(overlay);
         return overlay;
     }
     
-    const shortcutsOverlay = createShortcutsOverlay();
+    const combinedOverlay = createCombinedOverlay();
     
     // Animation loop
     let lastTime = 0;
     let frameCount = 0;
     let fpsTime = 0;
     let currentFPS = 60;
+    
+    function updateOverlayPerformanceData() {
+        // Update FPS
+        const fpsElement = document.getElementById('overlay-fps');
+        if (fpsElement) {
+            fpsElement.textContent = currentFPS.toString();
+        }
+        
+        // Update particles count
+        const particlesElement = document.getElementById('overlay-particles');
+        if (particlesElement) {
+            const particleCount = particleSystem.particles ? particleSystem.particles.length : 0;
+            particlesElement.textContent = particleCount.toString();
+        }
+        
+        // Update species count
+        const speciesElement = document.getElementById('overlay-species');
+        if (speciesElement) {
+            const speciesCount = particleSystem.numSpecies || 0;
+            speciesElement.textContent = speciesCount.toString();
+        }
+        
+        // MUTED status display has been removed
+    }
     
     function animate(currentTime) {
         const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
@@ -407,10 +488,10 @@ async function init() {
             frameCount = 0;
             fpsTime = currentTime;
             
-            // Update performance monitor with audio system reference
-            if (audioSystem && !performanceMonitor.audioSystem) {
-                performanceMonitor.setAudioSystem(audioSystem);
-            }
+            // Performance monitor removed - no longer needed
+            
+            // Update overlay performance data
+            updateOverlayPerformanceData();
         }
         
         particleSystem.update(deltaTime);
