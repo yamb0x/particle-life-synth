@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Audio System Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #0f0;
+            padding: 20px;
+        }
+        button {
+            background: #333;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #444;
+        }
+        #debug-output {
+            background: #000;
+            border: 1px solid #0f0;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #f00;
+        }
+        .warning {
+            color: #ff0;
+        }
+        .success {
+            color: #0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Audio System Debug Console</h1>
+    
+    <div>
+        <button onclick="initializeAudioSystem()" style="background: #050; border-color: #0f0;">Initialize Audio System</button>
+        <button onclick="checkAudioState()">Check Audio State</button>
+        <button onclick="loadTestSample()">Load Test Sample</button>
+        <button onclick="playTestTone()">Play Test Tone</button>
+        <button onclick="checkSampleBuffers()">Check Sample Buffers</button>
+        <button onclick="forceLoadSamples()">Force Load Samples</button>
+        <button onclick="debugProcessing()">Debug Processing</button>
+    </div>
+    
+    <div id="debug-output"></div>
+    
+    <script type="module">
+        import { getAudioSystem } from './src/audio/AudioSystem.js';
+        
+        const output = document.getElementById('debug-output');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : '';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        window.initializeAudioSystem = async function() {
+            log('=== INITIALIZING AUDIO SYSTEM ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            
+            if (audioSystem.isInitialized) {
+                log('Audio system already initialized', 'warning');
+                return;
+            }
+            
+            try {
+                log('Initializing audio system...');
+                await audioSystem.initialize(800, 600);
+                
+                // Try to resume audio context
+                if (audioSystem.audioEngine && audioSystem.audioEngine.audioContext) {
+                    if (audioSystem.audioEngine.audioContext.state === 'suspended') {
+                        await audioSystem.audioEngine.resume();
+                    }
+                }
+                
+                log('✅ Audio system initialized successfully!', 'success');
+                
+                // Load samples automatically
+                log('Loading random samples for all species...');
+                await audioSystem.sampleManager.loadRandomSamplesForAllSpecies();
+                log('✅ Samples loaded!', 'success');
+                
+            } catch (error) {
+                log(`❌ Failed to initialize: ${error.message}`, 'error');
+            }
+        };
+        
+        window.checkAudioState = async function() {
+            log('=== CHECKING AUDIO STATE ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            
+            if (!audioSystem) {
+                log('❌ Audio system not created', 'error');
+                return;
+            }
+            
+            if (!audioSystem.isInitialized) {
+                log('⚠️ Audio system not initialized. Click "Initialize Audio" first', 'warning');
+            }
+            
+            log(`Initialized: ${audioSystem.isInitialized}`, audioSystem.isInitialized ? 'success' : 'warning');
+            log(`Playing: ${audioSystem.isPlaying}`, audioSystem.isPlaying ? 'success' : 'warning');
+            log(`Muted: ${audioSystem.isMuted}`, !audioSystem.isMuted ? 'success' : 'warning');
+            
+            if (audioSystem.audioEngine && audioSystem.audioEngine.audioContext) {
+                const ctx = audioSystem.audioEngine.audioContext;
+                log(`AudioContext State: ${ctx.state}`, ctx.state === 'running' ? 'success' : 'warning');
+                log(`Sample Rate: ${ctx.sampleRate} Hz`);
+                log(`Base Latency: ${(ctx.baseLatency * 1000).toFixed(2)} ms`);
+                log(`Current Time: ${ctx.currentTime.toFixed(2)} seconds`);
+            } else {
+                log('❌ AudioContext not created', 'error');
+            }
+            
+            // Check synthesizers
+            if (audioSystem.synthesizers) {
+                log(`\nSynthesizers: ${audioSystem.synthesizers.size} created`);
+                
+                for (const [species, synth] of audioSystem.synthesizers) {
+                    const hasBuffer = synth.audioBuffer !== null;
+                    log(`  Species ${species}: ${hasBuffer ? '✅ Has sample' : '❌ No sample'}`, hasBuffer ? 'success' : 'error');
+                    if (hasBuffer) {
+                        log(`    Sample: ${synth.sampleName || 'Unknown'}`);
+                        log(`    Duration: ${synth.audioBuffer.duration.toFixed(2)}s`);
+                    }
+                }
+            }
+            
+            // Check sample manager
+            if (audioSystem.sampleManager) {
+                log(`\nSample Manager:`);
+                log(`  Available samples: ${audioSystem.sampleManager.availableSamples.length}`);
+                log(`  Cached samples: ${audioSystem.sampleManager.sampleCache.size}`);
+                log(`  Loading state: ${audioSystem.sampleManager.isLoading ? 'Loading...' : 'Ready'}`);
+            }
+        };
+        
+        window.loadTestSample = async function() {
+            log('=== LOADING TEST SAMPLE ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            if (!audioSystem.isInitialized) {
+                log('Initializing audio system first...', 'warning');
+                await audioSystem.initialize(800, 600);
+            }
+            
+            const testSamplePath = 'stems/Turbulent Beat (2).wav';
+            log(`Loading: ${testSamplePath}`);
+            
+            try {
+                const buffer = await audioSystem.sampleManager.loadSample(testSamplePath);
+                log(`✅ Sample loaded successfully!`, 'success');
+                log(`  Duration: ${buffer.duration.toFixed(2)}s`);
+                log(`  Channels: ${buffer.numberOfChannels}`);
+                log(`  Sample Rate: ${buffer.sampleRate} Hz`);
+                
+                // Assign to first species
+                const firstSynth = audioSystem.synthesizers.get(0);
+                if (firstSynth) {
+                    firstSynth.audioBuffer = buffer;
+                    firstSynth.sampleName = 'Test Sample';
+                    log('✅ Assigned to Species 0', 'success');
+                }
+            } catch (error) {
+                log(`❌ Failed to load sample: ${error.message}`, 'error');
+            }
+        };
+        
+        window.playTestTone = function() {
+            log('=== PLAYING TEST TONE ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            if (!audioSystem.audioEngine || !audioSystem.audioEngine.audioContext) {
+                log('❌ Audio not initialized', 'error');
+                return;
+            }
+            
+            const ctx = audioSystem.audioEngine.audioContext;
+            
+            // Create oscillator
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(440, ctx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0, ctx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+            gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.5);
+            gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.51);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.52);
+            
+            log('✅ Playing 440Hz test tone for 0.5s', 'success');
+        };
+        
+        window.checkSampleBuffers = function() {
+            log('=== CHECKING SAMPLE BUFFERS ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            
+            if (!audioSystem.synthesizers) {
+                log('❌ No synthesizers created', 'error');
+                return;
+            }
+            
+            let hasAnySample = false;
+            
+            for (const [species, synth] of audioSystem.synthesizers) {
+                if (synth.audioBuffer) {
+                    hasAnySample = true;
+                    log(`✅ Species ${species}: ${synth.sampleName || 'Unnamed'}`, 'success');
+                    log(`   Duration: ${synth.audioBuffer.duration.toFixed(2)}s`);
+                    log(`   Channels: ${synth.audioBuffer.numberOfChannels}`);
+                } else {
+                    log(`❌ Species ${species}: No sample loaded`, 'error');
+                }
+            }
+            
+            if (!hasAnySample) {
+                log('\n⚠️ No samples loaded for any species!', 'warning');
+                log('This is why you hear no audio - granular synthesis needs samples', 'warning');
+            }
+        };
+        
+        window.forceLoadSamples = async function() {
+            log('=== FORCE LOADING SAMPLES ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            
+            if (!audioSystem.isInitialized) {
+                log('Initializing audio system...', 'warning');
+                await audioSystem.initialize(800, 600);
+            }
+            
+            // Manually load samples for each species
+            const samplePaths = [
+                'stems/Turbulent Beat (2).wav',
+                'stems/trying to make super dark stuff (circus) - Vocals (1).10.wav',
+                'stems/ambient fiddle 01.wav',
+                'stems/ambient fiddle 20.wav'
+            ];
+            
+            for (let i = 0; i < Math.min(4, audioSystem.synthesizers.size); i++) {
+                const synth = audioSystem.synthesizers.get(i);
+                if (!synth) continue;
+                
+                try {
+                    log(`Loading sample for species ${i}: ${samplePaths[i]}`);
+                    const buffer = await audioSystem.sampleManager.loadSample(samplePaths[i]);
+                    synth.audioBuffer = buffer;
+                    synth.sampleName = samplePaths[i].split('/').pop();
+                    log(`✅ Loaded for species ${i}`, 'success');
+                } catch (error) {
+                    log(`❌ Failed for species ${i}: ${error.message}`, 'error');
+                }
+            }
+            
+            log('\n✅ Sample loading complete!', 'success');
+            log('You should now hear audio when particles are in the sampling area', 'info');
+        };
+        
+        window.debugProcessing = function() {
+            log('=== DEBUG PROCESSING ===', 'info');
+            
+            const audioSystem = getAudioSystem();
+            
+            // Check if audio bridge is running
+            if (audioSystem.audioBridge) {
+                log(`Audio Bridge Active: ${audioSystem.audioBridge.isRunning || false}`);
+                log(`Update Interval: ${audioSystem.audioBridge.updateInterval || 'N/A'}ms`);
+            }
+            
+            // Check grain organizer
+            if (audioSystem.grainOrganizer) {
+                log(`Grain Organizer Mode: ${audioSystem.grainOrganizer.mode}`);
+            }
+            
+            // Check sampling area
+            if (audioSystem.samplingArea) {
+                log(`Sampling Area:`);
+                log(`  Center: (${audioSystem.samplingArea.centerX.toFixed(2)}, ${audioSystem.samplingArea.centerY.toFixed(2)})`);
+                log(`  Radius: ${audioSystem.samplingArea.radius.toFixed(2)}`);
+                log(`  Max Particles: ${audioSystem.samplingArea.maxParticles}`);
+            }
+            
+            // Check performance
+            const metrics = audioSystem.getPerformanceMetrics();
+            log(`\nPerformance Metrics:`);
+            log(`  Audio Load: ${(metrics.audioLoad * 100).toFixed(1)}%`);
+            log(`  Active Grains: ${metrics.activeGrains}`);
+            log(`  Particle FPS: ${metrics.particleFPS}`);
+            log(`  Performance Mode: ${audioSystem.performanceMode}`);
+        };
+        
+        // Auto-check on load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                log('Audio Debug Console Ready', 'success');
+                log('Click any button to start debugging\n');
+            }, 100);
+        });
+    </script>
+</body>
+</html>

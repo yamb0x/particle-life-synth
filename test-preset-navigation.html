@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Preset Navigation</title>
+    <link rel="stylesheet" href="src/styles/design-system.css">
+    <style>
+        body {
+            margin: 20px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+        
+        .test-results {
+            margin: 20px 0;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: 4px;
+        }
+        
+        .test-pass {
+            color: #4CAF50;
+        }
+        
+        .test-fail {
+            color: #f44336;
+        }
+        
+        .preset-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>Preset Navigation Test</h1>
+    
+    <div id="test-controls">
+        <button onclick="runTest()">Run Navigation Test</button>
+        <button onclick="simulateShiftPlus()">Simulate Shift+Plus</button>
+        <button onclick="simulateShiftMinus()">Simulate Shift+Minus</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div id="test-results" class="test-results"></div>
+    
+    <iframe id="app-frame" src="index.html" style="display: none;"></iframe>
+    
+    <script type="module">
+        window.runTest = async function() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h3>Running Preset Navigation Test...</h3>';
+            
+            const frame = document.getElementById('app-frame');
+            const win = frame.contentWindow;
+            
+            // Wait for app to load
+            await new Promise(resolve => {
+                if (win.particleSystem && win.mainUI) {
+                    resolve();
+                } else {
+                    frame.onload = () => {
+                        setTimeout(resolve, 1000);
+                    };
+                }
+            });
+            
+            const selector = win.document.getElementById('preset-selector');
+            const mainUI = win.mainUI;
+            
+            // Log initial state
+            results.innerHTML += '<div class="preset-info"><strong>Initial Preset Order:</strong><br>';
+            const initialOrder = [];
+            Array.from(selector.options).forEach((opt, i) => {
+                initialOrder.push(`${i}: ${opt.text} (${opt.value})`);
+                results.innerHTML += `${i}: ${opt.text}<br>`;
+            });
+            results.innerHTML += '</div>';
+            
+            // Test navigation forward
+            results.innerHTML += '<h4>Testing Forward Navigation (Shift+Plus):</h4>';
+            selector.selectedIndex = 0; // Start at Custom
+            
+            const navigationLog = [];
+            for (let i = 0; i < selector.options.length + 2; i++) {
+                const before = selector.selectedIndex;
+                simulateKeyEvent(win, '+', 'Equal', true);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                const after = selector.selectedIndex;
+                const preset = selector.options[after];
+                navigationLog.push(`Step ${i+1}: ${before} → ${after} (${preset.text})`);
+            }
+            
+            navigationLog.forEach(log => {
+                results.innerHTML += `<div>${log}</div>`;
+            });
+            
+            // Test navigation backward
+            results.innerHTML += '<h4>Testing Backward Navigation (Shift+Minus):</h4>';
+            const backLog = [];
+            for (let i = 0; i < 5; i++) {
+                const before = selector.selectedIndex;
+                simulateKeyEvent(win, '-', 'Minus', true);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                const after = selector.selectedIndex;
+                const preset = selector.options[after];
+                backLog.push(`Step ${i+1}: ${before} → ${after} (${preset.text})`);
+            }
+            
+            backLog.forEach(log => {
+                results.innerHTML += `<div>${log}</div>`;
+            });
+            
+            // Check if order remained stable
+            results.innerHTML += '<div class="preset-info"><strong>Final Preset Order:</strong><br>';
+            const finalOrder = [];
+            let orderChanged = false;
+            Array.from(selector.options).forEach((opt, i) => {
+                const finalEntry = `${i}: ${opt.text} (${opt.value})`;
+                finalOrder.push(finalEntry);
+                results.innerHTML += `${i}: ${opt.text}<br>`;
+                if (initialOrder[i] !== finalEntry) {
+                    orderChanged = true;
+                }
+            });
+            results.innerHTML += '</div>';
+            
+            // Final result
+            if (!orderChanged) {
+                results.innerHTML += '<h3 class="test-pass">✅ Test PASSED: Preset order remained stable during navigation</h3>';
+            } else {
+                results.innerHTML += '<h3 class="test-fail">❌ Test FAILED: Preset order changed during navigation</h3>';
+            }
+        };
+        
+        function simulateKeyEvent(targetWindow, key, code, shiftKey = false) {
+            const event = new targetWindow.KeyboardEvent('keydown', {
+                key: key,
+                code: code,
+                shiftKey: shiftKey,
+                bubbles: true
+            });
+            targetWindow.document.dispatchEvent(event);
+        }
+        
+        window.simulateShiftPlus = function() {
+            const frame = document.getElementById('app-frame');
+            const win = frame.contentWindow;
+            simulateKeyEvent(win, '+', 'Equal', true);
+            updateStatus();
+        };
+        
+        window.simulateShiftMinus = function() {
+            const frame = document.getElementById('app-frame');
+            const win = frame.contentWindow;
+            simulateKeyEvent(win, '-', 'Minus', true);
+            updateStatus();
+        };
+        
+        function updateStatus() {
+            const frame = document.getElementById('app-frame');
+            const win = frame.contentWindow;
+            const selector = win.document.getElementById('preset-selector');
+            const results = document.getElementById('test-results');
+            
+            if (selector) {
+                const current = selector.options[selector.selectedIndex];
+                results.innerHTML = `<div class="preset-info">Current: Index ${selector.selectedIndex} - ${current.text}</div>` + results.innerHTML;
+            }
+        }
+        
+        window.clearResults = function() {
+            document.getElementById('test-results').innerHTML = '';
+        };
+    </script>
+</body>
+</html>

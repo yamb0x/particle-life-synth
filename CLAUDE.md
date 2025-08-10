@@ -147,6 +147,13 @@ When working on this project:
 - Use debug-tools.html for Firebase management operations - don't create new utility files
 - Remember: Users save as new preset by changing the preset name (no "Save As New" button)
 
+## Deployment Consistency Rules ⚠️
+- **NEVER** use `window.location.hostname === 'localhost'` for functionality-critical code
+- **ALWAYS** assign global variables unconditionally if they're needed for features
+- **USE** `EnvironmentManager` for environment detection instead of hostname checks
+- **TEST** both localhost and deployment before marking tasks complete
+- **CHECK** `environment-test.html` and `DEPLOYMENT_CHECKLIST.md` before deploying
+
 ## Cloud Deployment Architecture
 
 The project now runs on:

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Z-Index Fix Verification</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: monospace;
+            background: #0a0a0f;
+            color: #4ecdc4;
+        }
+        .test-panel {
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(78, 205, 196, 0.5);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-good { color: #4ade80; }
+        .status-bad { color: #ff5555; }
+        .status-warning { color: #fbbf24; }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 3px solid #4ECDC4;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h2>Z-Index Hierarchy Verification</h2>
+        <p>This test verifies that the z-index hierarchy is correctly fixed.</p>
+        
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="test-panel">
+        <h3>Expected Z-Index Hierarchy:</h3>
+        <pre>
+--z-base: 0            (Canvas, background elements)
+--z-dropdown: 10       (Dropdown menus)
+--z-sticky: 100        (MainUI and LeftPanel - MAIN FIX)
+--z-overlay: 1000      (Performance/shortcuts overlays)
+--z-modal: 2000        (CloudSync and PresetModal)
+--z-audio-prompt: 10000 (Audio initialization prompt)
+--z-tooltip: 10001     (Tooltips - highest)
+        </pre>
+    </div>
+
+    <iframe src="http://localhost:8000" width="100%" height="800" style="border: 1px solid #4ecdc4; margin-top: 20px;"></iframe>
+
+    <script>
+        function log(message, status = 'info') {
+            const results = document.getElementById('test-results');
+            const statusClass = status === 'success' ? 'status-good' : 
+                               status === 'error' ? 'status-bad' : 
+                               status === 'warning' ? 'status-warning' : '';
+            results.innerHTML += `<div class="${statusClass}">• ${message}</div>`;
+        }
+
+        function runTests() {
+            log('Running z-index hierarchy tests...');
+            
+            // Test CSS variables
+            const computedStyle = getComputedStyle(document.documentElement);
+            
+            const zSticky = computedStyle.getPropertyValue('--z-sticky').trim();
+            const zOverlay = computedStyle.getPropertyValue('--z-overlay').trim();
+            const zModal = computedStyle.getPropertyValue('--z-modal').trim();
+            const zAudioPrompt = computedStyle.getPropertyValue('--z-audio-prompt').trim();
+            
+            if (zSticky === '100') {
+                log('✓ --z-sticky correctly set to 100', 'success');
+            } else {
+                log(`✗ --z-sticky should be 100, found: ${zSticky}`, 'error');
+            }
+            
+            if (zOverlay === '1000') {
+                log('✓ --z-overlay correctly set to 1000', 'success');
+            } else {
+                log(`✗ --z-overlay should be 1000, found: ${zOverlay}`, 'error');
+            }
+            
+            if (zModal === '2000') {
+                log('✓ --z-modal correctly set to 2000', 'success');
+            } else {
+                log(`✗ --z-modal should be 2000, found: ${zModal}`, 'error');
+            }
+            
+            if (zAudioPrompt === '10000') {
+                log('✓ --z-audio-prompt correctly set to 10000', 'success');
+            } else {
+                log(`✗ --z-audio-prompt should be 10000, found: ${zAudioPrompt}`, 'error');
+            }
+            
+            log('');
+            log('Z-Index hierarchy verification complete!', 'success');
+            log('');
+            log('The MainUI should now be visible in the iframe above.', 'warning');
+            log('Look for the particle controls panel on the right side.', 'warning');
+        }
+
+        // Wait for CSS to load, then run tests
+        setTimeout(runTests, 1000);
+    </script>
+</body>
+</html>

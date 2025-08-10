@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mouse Interaction Test - Full UI</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Additional styles for mouse interaction testing */
+        .mouse-interaction-controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+            z-index: 10000;
+            width: 300px;
+        }
+        
+        .mouse-interaction-controls h3 {
+            margin: 0 0 10px 0;
+            color: #0ff;
+        }
+        
+        .mouse-interaction-controls .control-group {
+            margin: 10px 0;
+        }
+        
+        .mouse-interaction-controls label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .mouse-interaction-controls input[type="range"] {
+            width: 100%;
+        }
+        
+        .mouse-interaction-controls .value-display {
+            color: #0ff;
+            font-weight: bold;
+        }
+        
+        #mouseInfluenceIndicator {
+            position: fixed;
+            pointer-events: none;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            border-radius: 50%;
+            display: none;
+            z-index: 9999;
+        }
+        
+        #mouseForceIndicator {
+            position: fixed;
+            pointer-events: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: none;
+            z-index: 10001;
+        }
+    </style>
+</head>
+<body>
+    <!-- Mouse influence indicators -->
+    <div id="mouseInfluenceIndicator"></div>
+    <div id="mouseForceIndicator"></div>
+    
+    <!-- Mouse interaction controls overlay -->
+    <div class="mouse-interaction-controls">
+        <h3>🎯 New Mouse Interaction</h3>
+        
+        <div class="control-group">
+            <label>
+                Force Type
+                <select id="mouse-force-type">
+                    <option value="attract">Attraction</option>
+                    <option value="repel" selected>Repulsion</option>
+                    <option value="drag">Drag Only</option>
+                </select>
+            </label>
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Force Strength
+                <span class="value-display" id="mouse-force-value">50</span>
+            </label>
+            <input type="range" id="mouse-force" min="0" max="200" value="50" step="5">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Influence Radius
+                <span class="value-display" id="mouse-radius-value">150</span>
+            </label>
+            <input type="range" id="mouse-radius" min="50" max="400" value="150" step="10">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Drag Influence
+                <span class="value-display" id="mouse-drag-value">1.0</span>
+            </label>
+            <input type="range" id="mouse-drag" min="0" max="3" value="1.0" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Falloff Curve
+                <span class="value-display" id="mouse-falloff-value">2.0</span>
+            </label>
+            <input type="range" id="mouse-falloff" min="1.0" max="4.0" value="2.0" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="show-influence" checked>
+                Show Influence Area
+            </label>
+        </div>
+        
+        <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #444;">
+            <p style="font-size: 11px; margin: 0; opacity: 0.8;">
+                Click and drag to interact with particles.
+                Based on the reference implementation.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Main application canvas and UI -->
+    <canvas id="particleCanvas"></canvas>
+    <div id="controls" class="control-panel">
+        <!-- Main UI will be inserted here -->
+    </div>
+    
+    <!-- Load all the application modules -->
+    <script type="module">
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        import { MainUI } from './src/ui/MainUI.js';
+        import { PresetModal } from './src/ui/PresetModal.js';
+        import { HybridPresetManager } from './src/utils/HybridPresetManager.js';
+        import { UIStateManager } from './src/utils/UIStateManager.js';
+        import { AspectRatioManager } from './src/utils/AspectRatioManager.js';
+        import { CloudSyncUI } from './src/ui/CloudSyncUI.js';
+        import { Logger } from './src/utils/Logger.js';
+        
+        // Mouse interaction state
+        const mouseInteraction = {
+            enabled: true,
+            pressed: false,
+            x: 0,
+            y: 0,
+            prevX: 0,
+            prevY: 0,
+            velocityX: 0,
+            velocityY: 0,
+            forceType: 'repel',
+            forceStrength: 50,
+            radius: 150,
+            dragInfluence: 1.0,
+            falloffPower: 2.0,
+            showInfluence: true
+        };
+        
+        // Initialize the application
+        async function init() {
+            const canvas = document.getElementById('particleCanvas');
+            const aspectRatioManager = new AspectRatioManager(canvas);
+            const particleSystem = new SimpleParticleSystem(canvas.width, canvas.height);
+            particleSystem.setCanvas(canvas);
+            
+            // IMPORTANT: Disable the old shockwave system
+            particleSystem.shockwaveEnabled = false;
+            
+            // Override the mouse handling to prevent default shockwave behavior
+            particleSystem.setupMouseHandling = function() {
+                // Empty function to prevent default mouse handling
+            };
+            
+            // Create UI components
+            const presetManager = new HybridPresetManager();
+            const mainUI = new MainUI(particleSystem, presetManager);
+            const presetModal = new PresetModal(presetManager, particleSystem, mainUI);
+            const cloudSyncUI = new CloudSyncUI(presetManager);
+            const uiStateManager = new UIStateManager();
+            
+            // Initialize everything
+            mainUI.updatePositionEditor = mainUI.updatePositionEditor.bind(mainUI);
+            mainUI.updateForceEditor = mainUI.updateForceEditor.bind(mainUI);
+            cloudSyncUI.initialize(document.body);
+            uiStateManager.syncFromParticleSystem(particleSystem);
+            
+            // Handle aspect ratio changes
+            aspectRatioManager.onResize((width, height) => {
+                particleSystem.width = width;
+                particleSystem.height = height;
+                particleSystem.halfWidth = width / 2;
+                particleSystem.halfHeight = height / 2;
+                particleSystem.updateSpatialGridSize();
+            });
+            
+            // Load presets
+            try {
+                await presetManager.initialize();
+                mainUI.updatePresetSelector();
+            } catch (error) {
+                Logger.warn('Failed to initialize presets:', error);
+                mainUI.updatePresetSelector();
+            }
+            
+            // Set up our new mouse interaction
+            setupMouseInteraction(canvas, particleSystem);
+            
+            // Animation loop
+            let lastTime = 0;
+            function animate(currentTime) {
+                const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+                lastTime = currentTime;
+                
+                // Apply mouse forces before physics update
+                if (mouseInteraction.enabled && mouseInteraction.pressed) {
+                    applyMouseForces(particleSystem);
+                }
+                
+                particleSystem.update(dt);
+                requestAnimationFrame(animate);
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Set up mouse interaction handlers
+        function setupMouseInteraction(canvas, particleSystem) {
+            // Mouse events
+            canvas.addEventListener('mousedown', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mouseInteraction.pressed = true;
+                mouseInteraction.x = e.clientX - rect.left;
+                mouseInteraction.y = e.clientY - rect.top;
+                mouseInteraction.prevX = mouseInteraction.x;
+                mouseInteraction.prevY = mouseInteraction.y;
+                updateIndicators();
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const newX = e.clientX - rect.left;
+                const newY = e.clientY - rect.top;
+                
+                // Calculate velocity with smoothing
+                if (mouseInteraction.pressed) {
+                    const alpha = 0.3; // Smoothing factor
+                    mouseInteraction.velocityX = alpha * (newX - mouseInteraction.x) + (1 - alpha) * mouseInteraction.velocityX;
+                    mouseInteraction.velocityY = alpha * (newY - mouseInteraction.y) + (1 - alpha) * mouseInteraction.velocityY;
+                }
+                
+                mouseInteraction.prevX = mouseInteraction.x;
+                mouseInteraction.prevY = mouseInteraction.y;
+                mouseInteraction.x = newX;
+                mouseInteraction.y = newY;
+                
+                if (mouseInteraction.pressed) {
+                    updateIndicators();
+                }
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                mouseInteraction.pressed = false;
+                mouseInteraction.velocityX = 0;
+                mouseInteraction.velocityY = 0;
+                hideIndicators();
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                mouseInteraction.pressed = false;
+                mouseInteraction.velocityX = 0;
+                mouseInteraction.velocityY = 0;
+                hideIndicators();
+            });
+            
+            // Touch events
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                mouseInteraction.pressed = true;
+                mouseInteraction.x = touch.clientX - rect.left;
+                mouseInteraction.y = touch.clientY - rect.top;
+                mouseInteraction.prevX = mouseInteraction.x;
+                mouseInteraction.prevY = mouseInteraction.y;
+                updateIndicators();
+            });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const newX = touch.clientX - rect.left;
+                const newY = touch.clientY - rect.top;
+                
+                if (mouseInteraction.pressed) {
+                    const alpha = 0.3;
+                    mouseInteraction.velocityX = alpha * (newX - mouseInteraction.x) + (1 - alpha) * mouseInteraction.velocityX;
+                    mouseInteraction.velocityY = alpha * (newY - mouseInteraction.y) + (1 - alpha) * mouseInteraction.velocityY;
+                }
+                
+                mouseInteraction.prevX = mouseInteraction.x;
+                mouseInteraction.prevY = mouseInteraction.y;
+                mouseInteraction.x = newX;
+                mouseInteraction.y = newY;
+                updateIndicators();
+            });
+            
+            canvas.addEventListener('touchend', () => {
+                mouseInteraction.pressed = false;
+                mouseInteraction.velocityX = 0;
+                mouseInteraction.velocityY = 0;
+                hideIndicators();
+            });
+        }
+        
+        // Apply mouse forces to particles
+        function applyMouseForces(particleSystem) {
+            const particles = particleSystem.particles;
+            const radiusSq = mouseInteraction.radius * mouseInteraction.radius;
+            
+            for (let particle of particles) {
+                const dx = particle.x - mouseInteraction.x;
+                const dy = particle.y - mouseInteraction.y;
+                const distSq = dx * dx + dy * dy;
+                
+                // Skip if outside influence radius
+                if (distSq >= radiusSq || distSq < 0.01) continue;
+                
+                const dist = Math.sqrt(distSq);
+                const normalizedDist = dist / mouseInteraction.radius;
+                
+                // Calculate falloff using power function (similar to reference)
+                const falloff = Math.pow(1 - normalizedDist, mouseInteraction.falloffPower);
+                
+                // Apply force based on type
+                if (mouseInteraction.forceType !== 'drag') {
+                    const forceMultiplier = mouseInteraction.forceType === 'attract' ? -1 : 1;
+                    const forceMagnitude = mouseInteraction.forceStrength * falloff * forceMultiplier;
+                    
+                    // Normalize and apply force
+                    const fx = (dx / dist) * forceMagnitude;
+                    const fy = (dy / dist) * forceMagnitude;
+                    
+                    // Apply force to particle velocity
+                    particle.vx += fx * 0.01;
+                    particle.vy += fy * 0.01;
+                }
+                
+                // Apply drag velocity influence
+                if (mouseInteraction.dragInfluence > 0 && (Math.abs(mouseInteraction.velocityX) > 0.1 || Math.abs(mouseInteraction.velocityY) > 0.1)) {
+                    const dragEffect = falloff * mouseInteraction.dragInfluence;
+                    particle.vx += mouseInteraction.velocityX * dragEffect * 0.05;
+                    particle.vy += mouseInteraction.velocityY * dragEffect * 0.05;
+                }
+            }
+        }
+        
+        // Update visual indicators
+        function updateIndicators() {
+            if (!mouseInteraction.showInfluence) {
+                hideIndicators();
+                return;
+            }
+            
+            const canvas = document.getElementById('particleCanvas');
+            const rect = canvas.getBoundingClientRect();
+            
+            // Update influence area indicator
+            const influenceIndicator = document.getElementById('mouseInfluenceIndicator');
+            influenceIndicator.style.display = 'block';
+            influenceIndicator.style.width = (mouseInteraction.radius * 2) + 'px';
+            influenceIndicator.style.height = (mouseInteraction.radius * 2) + 'px';
+            influenceIndicator.style.left = (rect.left + mouseInteraction.x - mouseInteraction.radius) + 'px';
+            influenceIndicator.style.top = (rect.top + mouseInteraction.y - mouseInteraction.radius) + 'px';
+            
+            // Update force type indicator
+            const forceIndicator = document.getElementById('mouseForceIndicator');
+            forceIndicator.style.display = 'block';
+            forceIndicator.style.left = (rect.left + mouseInteraction.x - 10) + 'px';
+            forceIndicator.style.top = (rect.top + mouseInteraction.y - 10) + 'px';
+            
+            // Color based on force type
+            if (mouseInteraction.forceType === 'attract') {
+                forceIndicator.style.backgroundColor = 'rgba(0, 255, 0, 0.5)';
+            } else if (mouseInteraction.forceType === 'repel') {
+                forceIndicator.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+            } else {
+                forceIndicator.style.backgroundColor = 'rgba(255, 255, 0, 0.5)';
+            }
+        }
+        
+        function hideIndicators() {
+            document.getElementById('mouseInfluenceIndicator').style.display = 'none';
+            document.getElementById('mouseForceIndicator').style.display = 'none';
+        }
+        
+        // Set up control handlers
+        document.getElementById('mouse-force-type').addEventListener('change', (e) => {
+            mouseInteraction.forceType = e.target.value;
+        });
+        
+        document.getElementById('mouse-force').addEventListener('input', (e) => {
+            mouseInteraction.forceStrength = parseFloat(e.target.value);
+            document.getElementById('mouse-force-value').textContent = mouseInteraction.forceStrength;
+        });
+        
+        document.getElementById('mouse-radius').addEventListener('input', (e) => {
+            mouseInteraction.radius = parseFloat(e.target.value);
+            document.getElementById('mouse-radius-value').textContent = mouseInteraction.radius;
+        });
+        
+        document.getElementById('mouse-drag').addEventListener('input', (e) => {
+            mouseInteraction.dragInfluence = parseFloat(e.target.value);
+            document.getElementById('mouse-drag-value').textContent = mouseInteraction.dragInfluence.toFixed(1);
+        });
+        
+        document.getElementById('mouse-falloff').addEventListener('input', (e) => {
+            mouseInteraction.falloffPower = parseFloat(e.target.value);
+            document.getElementById('mouse-falloff-value').textContent = mouseInteraction.falloffPower.toFixed(1);
+        });
+        
+        document.getElementById('show-influence').addEventListener('change', (e) => {
+            mouseInteraction.showInfluence = e.target.checked;
+            if (!e.target.checked) {
+                hideIndicators();
+            }
+        });
+        
+        // Initialize the application
+        init();
+    </script>
+</body>
+</html>

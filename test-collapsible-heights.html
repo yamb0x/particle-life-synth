@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collapsible Heights Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        
+        .status-box {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .test-item.pass {
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-item.fail {
+            border-left: 4px solid #f44336;
+        }
+        
+        .test-item.pending {
+            border-left: 4px solid #ff9800;
+        }
+        
+        .test-name {
+            font-weight: 500;
+        }
+        
+        .test-value {
+            font-family: monospace;
+            color: #9e9e9e;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .log {
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .section-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .section-card {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        
+        .section-card h3 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+            font-size: 14px;
+        }
+        
+        .section-stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin: 5px 0;
+        }
+        
+        .section-stat-label {
+            color: #9e9e9e;
+        }
+        
+        .section-stat-value {
+            font-family: monospace;
+            color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Collapsible Heights Test</h1>
+        
+        <div class="status-box">
+            <h2>Test Status</h2>
+            <div id="test-results">
+                <div class="test-item pending">
+                    <span class="test-name">Page Loaded</span>
+                    <span class="test-value" id="page-loaded">pending...</span>
+                </div>
+                <div class="test-item pending">
+                    <span class="test-name">Collapsible UI Initialized</span>
+                    <span class="test-value" id="ui-initialized">pending...</span>
+                </div>
+                <div class="test-item pending">
+                    <span class="test-name">Sections Detected</span>
+                    <span class="test-value" id="sections-detected">pending...</span>
+                </div>
+                <div class="test-item pending">
+                    <span class="test-name">Height Calculation Working</span>
+                    <span class="test-value" id="height-calc">pending...</span>
+                </div>
+                <div class="test-item pending">
+                    <span class="test-name">Dynamic Content Update</span>
+                    <span class="test-value" id="dynamic-update">pending...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="runTests()">Run All Tests</button>
+            <button onclick="testParticlesSection()">Test Particles Section</button>
+            <button onclick="toggleBreathControls()">Toggle Breath Controls</button>
+            <button onclick="openAllSections()">Open All Sections</button>
+            <button onclick="measureAllHeights()">Measure All Heights</button>
+        </div>
+        
+        <div class="status-box">
+            <h2>Section Heights</h2>
+            <div class="section-info" id="section-info"></div>
+        </div>
+        
+        <div class="status-box">
+            <h2>Debug Log</h2>
+            <div class="log" id="debug-log"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+        const log = (msg) => {
+            const logEl = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.textContent += `[${timestamp}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        };
+        
+        const updateTest = (id, status, value) => {
+            const el = document.getElementById(id);
+            const item = el.closest('.test-item');
+            
+            el.textContent = value;
+            item.classList.remove('pending', 'pass', 'fail');
+            item.classList.add(status);
+        };
+        
+        window.runTests = async function() {
+            log('Starting comprehensive tests...');
+            
+            // Test 1: Page loaded
+            updateTest('page-loaded', 'pass', 'loaded');
+            
+            // Test 2: Collapsible UI initialized
+            if (window.collapsibleUI && window.collapsibleUI.isInitialized) {
+                updateTest('ui-initialized', 'pass', 'initialized');
+                log('✓ Collapsible UI is initialized');
+            } else {
+                updateTest('ui-initialized', 'fail', 'not initialized');
+                log('✗ Collapsible UI not found or not initialized');
+                return;
+            }
+            
+            // Test 3: Sections detected
+            const sections = window.collapsibleUI.sections;
+            if (sections && sections.size > 0) {
+                updateTest('sections-detected', 'pass', `${sections.size} sections`);
+                log(`✓ Found ${sections.size} collapsible sections`);
+            } else {
+                updateTest('sections-detected', 'fail', 'no sections');
+                log('✗ No sections detected');
+                return;
+            }
+            
+            // Test 4: Height calculation
+            let allHeightsValid = true;
+            sections.forEach((section, id) => {
+                const height = section.calculateContentHeight();
+                log(`  Section "${id}": ${height}px`);
+                if (height <= 0) {
+                    allHeightsValid = false;
+                }
+            });
+            
+            if (allHeightsValid) {
+                updateTest('height-calc', 'pass', 'working');
+                log('✓ All sections have valid heights');
+            } else {
+                updateTest('height-calc', 'fail', 'invalid heights');
+                log('✗ Some sections have invalid heights');
+            }
+            
+            // Test 5: Dynamic content update
+            const particlesSection = sections.get('particles');
+            if (particlesSection) {
+                const originalHeight = particlesSection.calculateContentHeight();
+                
+                // Toggle breath controls
+                const breathCheckbox = document.getElementById('collision-offset-breath');
+                if (breathCheckbox) {
+                    breathCheckbox.checked = !breathCheckbox.checked;
+                    breathCheckbox.dispatchEvent(new Event('change'));
+                    
+                    // Wait for update
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Force recalculation
+                    particlesSection.invalidateHeightCache();
+                    const newHeight = particlesSection.calculateContentHeight();
+                    
+                    if (newHeight !== originalHeight) {
+                        updateTest('dynamic-update', 'pass', `height changed: ${originalHeight}px → ${newHeight}px`);
+                        log(`✓ Dynamic content update working (${originalHeight}px → ${newHeight}px)`);
+                    } else {
+                        updateTest('dynamic-update', 'fail', 'height unchanged');
+                        log('✗ Dynamic content update not working');
+                    }
+                } else {
+                    updateTest('dynamic-update', 'fail', 'breath checkbox not found');
+                    log('✗ Breath checkbox not found');
+                }
+            }
+            
+            measureAllHeights();
+        };
+        
+        window.testParticlesSection = function() {
+            log('Testing particles section specifically...');
+            
+            const section = window.collapsibleUI?.sections?.get('particles');
+            if (!section) {
+                log('✗ Particles section not found');
+                return;
+            }
+            
+            // Open the section
+            if (!section.isOpen) {
+                section.toggle(true);
+                log('Opened particles section');
+            }
+            
+            // Check for missing elements
+            const collisionOffset = document.getElementById('collision-offset');
+            const breathCheckbox = document.getElementById('collision-offset-breath');
+            const breathControls = document.getElementById('breath-controls');
+            
+            log(`Collision Offset slider: ${collisionOffset ? '✓ Found' : '✗ Missing'}`);
+            log(`Breath checkbox: ${breathCheckbox ? '✓ Found' : '✗ Missing'}`);
+            log(`Breath controls: ${breathControls ? '✓ Found' : '✗ Missing'}`);
+            
+            // Check visibility
+            if (collisionOffset) {
+                const rect = collisionOffset.getBoundingClientRect();
+                const visible = rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0;
+                log(`Collision Offset visible: ${visible ? '✓ Yes' : '✗ No'} (top: ${rect.top}, height: ${rect.height})`);
+            }
+            
+            // Measure content height
+            const height = section.calculateContentHeight();
+            log(`Calculated height: ${height}px`);
+            
+            // Check actual max-height
+            const actualMaxHeight = section.contentElement.style.maxHeight;
+            log(`Actual max-height: ${actualMaxHeight}`);
+        };
+        
+        window.toggleBreathControls = function() {
+            const checkbox = document.getElementById('collision-offset-breath');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+                log(`Toggled breath controls: ${checkbox.checked ? 'ON' : 'OFF'}`);
+                
+                setTimeout(() => {
+                    const section = window.collapsibleUI?.sections?.get('particles');
+                    if (section) {
+                        const height = section.calculateContentHeight();
+                        log(`New particles section height: ${height}px`);
+                    }
+                }, 100);
+            }
+        };
+        
+        window.openAllSections = function() {
+            log('Opening all sections...');
+            window.collapsibleUI?.expandAll(true);
+            setTimeout(measureAllHeights, 500);
+        };
+        
+        window.measureAllHeights = function() {
+            const container = document.getElementById('section-info');
+            container.innerHTML = '';
+            
+            const sections = window.collapsibleUI?.sections;
+            if (!sections) return;
+            
+            sections.forEach((section, id) => {
+                const height = section.calculateContentHeight();
+                const isOpen = section.isOpen;
+                const actualMaxHeight = section.contentElement.style.maxHeight;
+                
+                const card = document.createElement('div');
+                card.className = 'section-card';
+                card.innerHTML = `
+                    <h3>${id}</h3>
+                    <div class="section-stat">
+                        <span class="section-stat-label">Status:</span>
+                        <span class="section-stat-value">${isOpen ? 'OPEN' : 'CLOSED'}</span>
+                    </div>
+                    <div class="section-stat">
+                        <span class="section-stat-label">Calculated:</span>
+                        <span class="section-stat-value">${height}px</span>
+                    </div>
+                    <div class="section-stat">
+                        <span class="section-stat-label">Applied:</span>
+                        <span class="section-stat-value">${actualMaxHeight || 'none'}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            log('Measured all section heights');
+        };
+        
+        // Wait for page to fully load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('Page fully loaded, waiting for UI initialization...');
+                runTests();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

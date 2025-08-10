@@ -2,6 +2,15 @@
 console.log('=== DEPLOYMENT DEBUG ===');
 console.log('Version check: Species Audio Menu Sync - Aug 10, 2025');
 console.log('URL:', window.location.href);
+console.log('Hostname:', window.location.hostname);
+console.log('Environment Manager available:', typeof window.EnvironmentManager);
+
+// Environment detection debugging
+if (window.EnvironmentManager) {
+    const envInfo = window.EnvironmentManager.getEnvironmentInfo();
+    console.log('Environment Info:', envInfo);
+}
+
 console.log('Main UI available:', typeof window.mainUI);
 console.log('Left Panel available:', typeof window.leftPanel);
 console.log('Audio System available:', typeof window.audioSystem);

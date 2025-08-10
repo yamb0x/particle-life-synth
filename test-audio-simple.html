@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Audio Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #222;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #status {
+            margin: 20px;
+            padding: 20px;
+            background: #333;
+            border-radius: 5px;
+            min-height: 100px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #FFC107; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Simple Audio Test</h1>
+    
+    <button onclick="testBasicAudio()">Test Basic Web Audio</button>
+    <button onclick="initAndTestSystem()">Initialize & Test Full System</button>
+    <button onclick="playSimpleGrain()">Play Simple Grain</button>
+    
+    <div id="status"></div>
+    
+    <script type="module">
+        const status = document.getElementById('status');
+        
+        function log(msg, type = 'info') {
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            status.innerHTML += `<div class="${className}">${msg}</div>`;
+        }
+        
+        // Test 1: Basic Web Audio (no particle system needed)
+        window.testBasicAudio = function() {
+            status.innerHTML = '<h3>Testing Basic Web Audio...</h3>';
+            
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                log(`✅ AudioContext created: ${audioContext.state}`, 'success');
+                
+                // Create and play a simple tone
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.2);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.21);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.25);
+                
+                log('🔊 Playing 440Hz tone...', 'success');
+                log('If you hear a beep, Web Audio is working!', 'success');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        };
+        
+        // Test 2: Full Audio System
+        window.initAndTestSystem = async function() {
+            status.innerHTML = '<h3>Testing Full Audio System...</h3>';
+            
+            try {
+                const { getAudioSystem } = await import('./src/audio/AudioSystem.js');
+                const audioSystem = getAudioSystem();
+                
+                if (!audioSystem.isInitialized) {
+                    log('Initializing audio system...');
+                    await audioSystem.initialize(800, 600);
+                    log('✅ Audio system initialized', 'success');
+                }
+                
+                // Check state
+                log(`AudioContext state: ${audioSystem.audioEngine.audioContext.state}`, 
+                    audioSystem.audioEngine.audioContext.state === 'running' ? 'success' : 'warning');
+                
+                // Load a test sample
+                log('Loading test sample...');
+                const testPath = 'stems/Turbulent Beat (2).wav';
+                const buffer = await audioSystem.sampleManager.loadSample(testPath);
+                log(`✅ Sample loaded: ${buffer.duration.toFixed(2)}s`, 'success');
+                
+                // Play a simple test sound using the buffer
+                const ctx = audioSystem.audioEngine.audioContext;
+                const source = ctx.createBufferSource();
+                const gainNode = ctx.createGain();
+                
+                source.buffer = buffer;
+                source.playbackRate.value = 1.0;
+                
+                gainNode.gain.value = 0.3;
+                
+                source.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                
+                source.start(ctx.currentTime);
+                source.stop(ctx.currentTime + 1);
+                
+                log('🔊 Playing 1 second of sample...', 'success');
+                log('If you hear audio, the system is working!', 'success');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+        
+        // Test 3: Play a grain
+        window.playSimpleGrain = async function() {
+            status.innerHTML = '<h3>Testing Granular Synthesis...</h3>';
+            
+            try {
+                const { getAudioSystem } = await import('./src/audio/AudioSystem.js');
+                const audioSystem = getAudioSystem();
+                
+                if (!audioSystem.isInitialized) {
+                    log('Please initialize the system first!', 'warning');
+                    return;
+                }
+                
+                // Get first synthesizer
+                const synth = audioSystem.synthesizers.get(0);
+                if (!synth) {
+                    log('No synthesizer found for species 0', 'error');
+                    return;
+                }
+                
+                // Check if it has a buffer
+                if (!synth.audioBuffer) {
+                    log('Loading sample for synthesizer...');
+                    const buffer = await audioSystem.sampleManager.loadSample('stems/ambient fiddle 01.wav');
+                    synth.audioBuffer = buffer;
+                    synth.sampleName = 'ambient fiddle 01.wav';
+                    log('✅ Sample loaded for synth', 'success');
+                }
+                
+                // Create a simple grain manually
+                const ctx = audioSystem.audioEngine.audioContext;
+                const grainSource = ctx.createBufferSource();
+                const grainGain = ctx.createGain();
+                
+                grainSource.buffer = synth.audioBuffer;
+                
+                // Random grain position
+                const startPos = Math.random() * synth.audioBuffer.duration;
+                const grainDuration = 0.1; // 100ms grain
+                
+                // Envelope
+                grainGain.gain.setValueAtTime(0, ctx.currentTime);
+                grainGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+                grainGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + grainDuration - 0.01);
+                grainGain.gain.linearRampToValueAtTime(0, ctx.currentTime + grainDuration);
+                
+                grainSource.connect(grainGain);
+                grainGain.connect(audioSystem.audioEngine.masterGain);
+                
+                grainSource.start(ctx.currentTime, startPos, grainDuration);
+                
+                log(`🔊 Playing grain from position ${startPos.toFixed(2)}s`, 'success');
+                log('This is what particles trigger!', 'success');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+        
+        // Auto-test basic audio on load
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Click any button to test audio', 'warning');
+            log('Chrome requires user interaction to play audio', 'warning');
+        });
+    </script>
+</body>
+</html>

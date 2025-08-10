@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Life Synth - Tutorial Walkthrough</title>
+    <link rel="stylesheet" href="src/styles/design-system.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        /* Disable manual scrolling during tutorial */
+        .tutorial-active .main-ui-container {
+            overflow: hidden !important;
+            pointer-events: none;
+        }
+        
+        .tutorial-active .main-ui-container * {
+            pointer-events: auto;
+        }
+        
+        #canvas {
+            display: block;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Username Selection Modal - Simplified */
+        .username-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2001;
+        }
+        
+        .username-modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--space-2xl);
+            text-align: center;
+            min-width: 300px;
+        }
+        
+        .username-input-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: var(--space-2xl);
+        }
+        
+        .username-prefix {
+            position: absolute;
+            left: var(--space-lg);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-md);
+            pointer-events: none;
+        }
+        
+        #username-input {
+            width: 200px;
+            padding: var(--space-lg) var(--space-lg) var(--space-lg) 24px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-md);
+        }
+        
+        #username-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+        
+        .primary-btn {
+            padding: var(--space-lg) var(--space-2xl);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: var(--font-size-md);
+            transition: all var(--transition-fast);
+        }
+        
+        .primary-btn:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+        }
+        
+        .primary-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Tutorial System Styles */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+            z-index: 998;
+            transition: clip-path 0.5s ease;
+        }
+        
+        .tutorial-tooltip {
+            position: fixed;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--space-2xl);
+            max-width: 280px;
+            z-index: 1000;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.4s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .tutorial-tooltip.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .tutorial-tooltip h3 {
+            color: var(--text-primary);
+            margin: 0 0 var(--space-lg) 0;
+            font-size: var(--font-size-lg);
+            font-weight: normal;
+        }
+        
+        .tutorial-tooltip p {
+            color: var(--text-secondary);
+            margin: 0 0 var(--space-lg) 0;
+            line-height: 1.4;
+            font-size: var(--font-size-sm);
+        }
+        
+        .tutorial-tooltip .task {
+            color: var(--text-primary);
+            font-weight: normal;
+            margin: var(--space-lg) 0;
+            padding: var(--space-md);
+            background: var(--bg-elevated);
+            border-radius: var(--radius-sm);
+            border-left: 2px solid var(--accent-primary);
+        }
+        
+        .tutorial-tooltip .note {
+            color: var(--text-tertiary);
+            font-style: italic;
+            font-size: var(--font-size-xs);
+            margin-top: var(--space-md);
+            padding: var(--space-sm);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+        }
+        
+        /* Organic, freeform arrow */
+        .tutorial-arrow {
+            position: fixed;
+            z-index: 999;
+            opacity: 0;
+            transition: all 0.4s ease;
+            pointer-events: none;
+        }
+        
+        .tutorial-arrow.show {
+            opacity: 1;
+        }
+        
+        .tutorial-arrow svg {
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+        }
+        
+        .tutorial-skip {
+            position: fixed;
+            top: var(--space-lg);
+            right: var(--space-lg);
+            padding: var(--space-sm) var(--space-lg);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            z-index: 1001;
+            transition: all var(--transition-fast);
+            font-family: monospace;
+        }
+        
+        .tutorial-skip:hover {
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            background: var(--bg-hover);
+        }
+        
+        .tutorial-progress {
+            position: fixed;
+            bottom: var(--space-lg);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: var(--space-sm);
+            z-index: 1001;
+            padding: var(--space-md);
+            background: rgba(16, 16, 16, 0.8);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(10px);
+        }
+        
+        .tutorial-progress .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-default);
+            transition: all var(--transition-fast);
+        }
+        
+        .tutorial-progress .dot.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            transform: scale(1.2);
+        }
+        
+        .tutorial-progress .dot.completed {
+            background: var(--accent-success);
+            border-color: var(--accent-success);
+        }
+        
+        /* Smooth glow animation for highlighted sections */
+        @keyframes tutorial-section-glow {
+            0%, 100% { 
+                box-shadow: 0 0 0 2px transparent, 0 0 20px rgba(74, 158, 255, 0);
+            }
+            50% { 
+                box-shadow: 0 0 0 2px var(--accent-primary), 0 0 20px rgba(74, 158, 255, 0.4);
+            }
+        }
+        
+        .tutorial-highlight-section {
+            animation: tutorial-section-glow 2s ease-in-out infinite;
+            border-radius: var(--radius-md);
+            position: relative;
+            z-index: 999;
+        }
+        
+        .tutorial-next-btn {
+            margin-top: var(--space-lg);
+            padding: var(--space-sm) var(--space-lg);
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-family: monospace;
+            font-size: var(--font-size-sm);
+            font-weight: bold;
+            transition: all var(--transition-fast);
+            align-self: flex-end;
+        }
+        
+        .tutorial-next-btn:hover {
+            background: var(--accent-primary-hover);
+            transform: translateY(-1px);
+        }
+        
+        .tutorial-completion {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--space-2xl);
+            text-align: left;
+            z-index: 1002;
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.8);
+            transition: all 0.5s ease;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .tutorial-completion.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .tutorial-completion h2 {
+            color: var(--text-primary);
+            margin: 0 0 var(--space-lg) 0;
+            font-size: var(--font-size-xl);
+            font-weight: normal;
+        }
+        
+        .tutorial-completion .shortcuts-list {
+            margin: var(--space-lg) 0;
+        }
+        
+        .tutorial-completion .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-sm) 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .tutorial-completion .shortcut-item:last-child {
+            border-bottom: none;
+        }
+        
+        .tutorial-completion .shortcut-key {
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-sm);
+            background: var(--bg-elevated);
+            padding: 2px var(--space-sm);
+            border-radius: var(--radius-sm);
+        }
+        
+        .tutorial-completion .shortcut-desc {
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+            flex: 1;
+            margin-right: var(--space-md);
+        }
+        
+        .tutorial-completion .hint {
+            color: var(--text-tertiary);
+            font-size: var(--font-size-xs);
+            margin-top: var(--space-lg);
+        }
+        
+        /* Start modal fixes */
+        .tutorial-start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .tutorial-start-modal {
+            background: var(--bg-elevated);
+            border: 2px solid var(--accent-primary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        .tutorial-start-modal p {
+            color: var(--text-primary);
+            margin: 0 0 var(--space-lg) 0;
+            line-height: 1.6;
+        }
+        
+        .tutorial-start-btn {
+            padding: var(--space-md) var(--space-xl);
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-family: monospace;
+            font-size: var(--font-size-md);
+            transition: all var(--transition-fast);
+            margin-right: var(--space-md);
+        }
+        
+        .tutorial-start-btn:hover {
+            background: var(--accent-primary-hover);
+        }
+        
+        .tutorial-skip-start {
+            padding: var(--space-md) var(--space-xl);
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-family: monospace;
+            font-size: var(--font-size-md);
+            transition: all var(--transition-fast);
+        }
+        
+        .tutorial-skip-start:hover {
+            color: var(--text-primary);
+            border-color: var(--border-hover);
+        }
+    </style>
+</head>
+<body>
+    <!-- Canvas for particle simulation -->
+    <canvas id="canvas"></canvas>
+    
+    <!-- Username Selection Modal - FIRST -->
+    <div class="username-overlay" id="username-overlay">
+        <div class="username-modal">
+            <div class="username-input-container">
+                <span class="username-prefix">@</span>
+                <input type="text" 
+                       id="username-input" 
+                       placeholder="username"
+                       maxlength="20"
+                       pattern="[a-zA-Z0-9_\-]+"
+                       autocomplete="off">
+            </div>
+            
+            <button id="start-btn" class="primary-btn" disabled>
+                Continue
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tutorial Start Modal - SECOND -->
+    <div class="tutorial-start-overlay" id="tutorial-start-overlay" style="display: none;">
+        <div class="tutorial-start-modal">
+            <p>This quick tutorial will guide you through the main features and controls of the particle simulation system. You can skip any step or exit at any time.</p>
+            <p>Ready to start creating amazing particle simulations?</p>
+            <button class="tutorial-start-btn" id="start-tutorial-btn">Start Tutorial</button>
+            <button class="tutorial-skip-start" id="skip-tutorial-btn">Skip Tutorial</button>
+        </div>
+    </div>
+    
+    <!-- Tutorial System Elements -->
+    <div class="tutorial-overlay" id="tutorial-overlay"></div>
+    <div class="tutorial-tooltip" id="tutorial-tooltip">
+        <h3 id="tutorial-title">Title</h3>
+        <p id="tutorial-description">Description</p>
+        <div class="task" id="tutorial-task">
+            <span id="tutorial-task-text">Task text</span>
+        </div>
+        <p class="note" id="tutorial-note" style="display: none;">Note text</p>
+        <button class="tutorial-next-btn" id="tutorial-next-btn">Next →</button>
+    </div>
+    <div class="tutorial-arrow" id="tutorial-arrow">
+        <!-- Organic curved arrow SVG -->
+        <svg width="60" height="40" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 20 Q30 5 50 20 Q45 25 50 30 L45 25 Q30 35 5 20" 
+                  fill="var(--accent-primary)" 
+                  stroke="var(--accent-primary)" 
+                  stroke-width="1"/>
+        </svg>
+    </div>
+    <button class="tutorial-skip" id="tutorial-skip-btn" style="display: none;">Skip Tutorial</button>
+    <div class="tutorial-progress" id="tutorial-progress" style="display: none;">
+        <div class="dot" data-step="0"></div>
+        <div class="dot" data-step="1"></div>
+        <div class="dot" data-step="2"></div>
+        <div class="dot" data-step="3"></div>
+        <div class="dot" data-step="4"></div>
+        <div class="dot" data-step="5"></div>
+        <div class="dot" data-step="6"></div>
+        <div class="dot" data-step="7"></div>
+    </div>
+    
+    <!-- Tutorial Completion Message -->
+    <div class="tutorial-completion" id="tutorial-completion">
+        <h2>Tutorial Complete</h2>
+        
+        <div class="shortcuts-list">
+            <div class="shortcut-item">
+                <div class="shortcut-desc">Toggle UI</div>
+                <div class="shortcut-key">C</div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-desc">Randomize Values</div>
+                <div class="shortcut-key">V</div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-desc">Randomize Forces</div>
+                <div class="shortcut-key">R</div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-desc">Mute/Freeze</div>
+                <div class="shortcut-key">M</div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-desc">Next Preset</div>
+                <div class="shortcut-key">Shift + Plus</div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-desc">Previous Preset</div>
+                <div class="shortcut-key">Shift + Minus</div>
+            </div>
+        </div>
+        
+        <p class="hint">Start creating your particle simulation</p>
+    </div>
+
+    <!-- Load actual main app -->
+    <script type="module" src="src/main.js"></script>
+    
+    <script>
+        // Enhanced Tutorial Manager with improvements
+        class TutorialManager {
+            constructor() {
+                this.currentStep = 0;
+                this.steps = [
+                    {
+                        section: 'particles',
+                        headerText: 'Particles', // Look for this exact text
+                        title: 'Particle Controls',
+                        description: 'Control particle amount, species count, collision behavior, and initial distribution patterns',
+                        task: 'Try adjusting the Amount Scale slider',
+                        note: null
+                    },
+                    {
+                        section: 'physics',
+                        headerText: 'Physics',
+                        title: 'Physics Engine',
+                        description: 'Control force strength, friction, environmental pressure, and advanced physics parameters',
+                        task: 'Try adjusting the Force Strength slider',
+                        note: null
+                    },
+                    {
+                        section: 'boundaries',
+                        headerText: 'Boundary Behavior',
+                        title: 'Boundary Behavior',
+                        description: 'Configure how particles interact with the edges of the simulation space',
+                        task: 'Try the Toroidal Space checkbox',
+                        note: null
+                    },
+                    {
+                        section: 'forces',
+                        headerText: 'Force Relationships',
+                        title: 'Force Relationships',
+                        description: 'Define how different species attract, repel, or ignore each other',
+                        task: 'Try the Randomize Forces button',
+                        note: null
+                    },
+                    {
+                        section: 'effects',
+                        headerText: 'Effects',
+                        title: 'Visual Effects',
+                        description: 'Add trails, glow effects, and other visual enhancements',
+                        task: 'Try enabling the Trails checkbox',
+                        note: 'Effects can impact performance with many particles'
+                    },
+                    {
+                        section: 'colors',
+                        headerText: 'Colors',
+                        title: 'Color Customization',
+                        description: 'Customize colors for each species and background settings',
+                        task: 'Try changing the background color',
+                        note: null
+                    },
+                    {
+                        section: 'aspect',
+                        headerText: 'Aspect Ratio',
+                        title: 'Aspect Ratio',
+                        description: 'Enable aspect ratio controls to change viewport dimensions and proportions',
+                        task: 'Try enabling the Aspect Ratio checkbox',
+                        note: null
+                    },
+                    {
+                        section: 'actions',
+                        headerText: 'Actions',
+                        title: 'Actions & Presets',
+                        description: 'Save configurations, reset settings, and manage your creations',
+                        task: 'Click the Configure button to explore preset options',
+                        note: 'Use these tools to save and share your particle simulations'
+                    }
+                ];
+                this.isActive = false;
+                this.storageKey = 'particleLifeTutorialCompleted';
+                this.usernameSet = false;
+                
+                this.init();
+            }
+            
+            init() {
+                // Wait for main app to load
+                this.waitForApp().then(() => {
+                    this.setupEventListeners();
+                    this.showUsernameModal();
+                });
+            }
+            
+            async waitForApp() {
+                // Wait for main UI to be available
+                return new Promise((resolve) => {
+                    const checkApp = () => {
+                        const mainUI = document.querySelector('.main-ui-container');
+                        if (mainUI) {
+                            resolve();
+                        } else {
+                            setTimeout(checkApp, 100);
+                        }
+                    };
+                    checkApp();
+                });
+            }
+            
+            setupEventListeners() {
+                // Username input validation
+                const usernameInput = document.getElementById('username-input');
+                const startBtn = document.getElementById('start-btn');
+                
+                usernameInput.addEventListener('input', (e) => {
+                    const value = e.target.value.trim();
+                    const isValid = value.length >= 3 && /^[a-zA-Z0-9_\-]+$/.test(value);
+                    startBtn.disabled = !isValid;
+                });
+                
+                startBtn.addEventListener('click', () => {
+                    const username = usernameInput.value.trim();
+                    if (username.length >= 3) {
+                        this.setUsername(username);
+                        this.hideUsernameModal();
+                        this.showTutorialStart();
+                    }
+                });
+                
+                // Tutorial event listeners
+                document.getElementById('start-tutorial-btn').addEventListener('click', () => {
+                    this.start();
+                });
+                
+                document.getElementById('skip-tutorial-btn').addEventListener('click', () => {
+                    this.skipStart();
+                });
+                
+                document.getElementById('tutorial-skip-btn').addEventListener('click', () => {
+                    this.complete();
+                });
+                
+                document.getElementById('tutorial-next-btn').addEventListener('click', () => {
+                    this.nextStep();
+                });
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (this.isActive) {
+                        if (e.key === 'ArrowRight' || e.key === 'Enter') {
+                            this.nextStep();
+                        }
+                    }
+                });
+            }
+            
+            setUsername(username) {
+                localStorage.setItem('particleLifeUsername', username);
+                this.usernameSet = true;
+                console.log('Username set:', username);
+            }
+            
+            showUsernameModal() {
+                document.getElementById('username-overlay').style.display = 'flex';
+            }
+            
+            hideUsernameModal() {
+                document.getElementById('username-overlay').style.display = 'none';
+            }
+            
+            showTutorialStart() {
+                document.getElementById('tutorial-start-overlay').style.display = 'flex';
+            }
+            
+            start() {
+                document.getElementById('tutorial-start-overlay').style.display = 'none';
+                // Skip button removed - don't show it
+                document.getElementById('tutorial-progress').style.display = 'flex';
+                this.isActive = true;
+                this.currentStep = 0;
+                
+                // Add tutorial-active class to disable manual scrolling
+                document.body.classList.add('tutorial-active');
+                
+                // Auto-load startup preset
+                this.loadStartupPreset();
+                
+                // Wait a moment for preset to load, then start tutorial
+                setTimeout(() => {
+                    this.showStep(0);
+                }, 1000);
+            }
+            
+            skipStart() {
+                document.getElementById('tutorial-start-overlay').style.display = 'none';
+                // Just show the main interface without tutorial
+            }
+            
+            loadStartupPreset() {
+                try {
+                    // Try to select and load the startup preset
+                    const presetSelector = document.getElementById('preset-selector');
+                    if (presetSelector) {
+                        // Look for startup preset option
+                        const startupOption = Array.from(presetSelector.options).find(opt => 
+                            opt.value.toLowerCase().includes('startup')
+                        );
+                        
+                        if (startupOption) {
+                            presetSelector.value = startupOption.value;
+                            
+                            // Trigger load preset button
+                            const loadBtn = document.getElementById('load-preset-btn');
+                            if (loadBtn) {
+                                loadBtn.click();
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.log('Could not auto-load startup preset:', error);
+                }
+            }
+            
+            positionTooltipByHeader(step) {
+                // Find the header element containing the target text
+                const headerElement = this.findHeaderElement(step.headerText);
+                
+                if (!headerElement) {
+                    console.log(`❌ Could not find header "${step.headerText}"`);
+                    return;
+                }
+                
+                // Get the main UI container
+                const container = document.querySelector('.main-ui-container');
+                if (!container) {
+                    console.log(`❌ Could not find main UI container`);
+                    return;
+                }
+                
+                // Get container position and scroll offset
+                const containerRect = container.getBoundingClientRect();
+                const scrollTop = container.scrollTop;
+                
+                // Get header position relative to the container's content
+                const headerRect = headerElement.getBoundingClientRect();
+                
+                // Calculate the actual position accounting for container position and scroll
+                const actualHeaderTop = containerRect.top + (headerRect.top - containerRect.top);
+                const actualHeaderLeft = headerRect.left;
+                const actualHeaderWidth = headerRect.width;
+                const actualHeaderHeight = headerRect.height;
+                
+                console.log(`✅ Found header "${step.headerText}"`);
+                console.log(`📊 Container rect:`, {
+                    top: containerRect.top,
+                    left: containerRect.left,
+                    width: containerRect.width,
+                    height: containerRect.height
+                });
+                console.log(`📊 Header rect (raw):`, {
+                    top: headerRect.top,
+                    left: headerRect.left,
+                    width: headerRect.width,
+                    height: headerRect.height
+                });
+                console.log(`📊 Container scroll top:`, scrollTop);
+                console.log(`📊 Header offset from container top:`, headerRect.top - containerRect.top);
+                console.log(`📊 Final calculated position: (${actualHeaderLeft}, ${actualHeaderTop})`);
+                
+                // Also log the relative position within the container
+                console.log(`📊 Header position within container:`, {
+                    relativeTop: headerRect.top - containerRect.top,
+                    relativeLeft: headerRect.left - containerRect.left
+                });
+                
+                // Find the parent section container
+                const sectionElement = headerElement.closest('.section') || headerElement.parentElement;
+                const sectionRect = sectionElement ? sectionElement.getBoundingClientRect() : headerRect;
+                
+                // Create highlight around the entire section at actual position
+                const actualSectionRect = {
+                    left: sectionRect.left,
+                    top: containerRect.top + (sectionRect.top - containerRect.top),
+                    width: sectionRect.width,
+                    height: sectionRect.height
+                };
+                
+                this.createSectionHighlight(actualSectionRect);
+                
+                // Position tooltip to the left of the header at actual position
+                const actualHeaderRect = {
+                    left: actualHeaderLeft,
+                    top: actualHeaderTop,
+                    width: actualHeaderWidth,
+                    height: actualHeaderHeight
+                };
+                
+                this.showTooltipNearHeader(step, actualHeaderRect);
+                
+                // Position arrow between tooltip and header
+                this.showArrowToHeader(step, actualHeaderRect);
+                
+                // Auto-scroll to ensure the header is visible
+                this.scrollToHeader(headerElement);
+            }
+            
+            findHeaderElement(headerText) {
+                console.log(`🔍 Searching for header text: "${headerText}"`);
+                
+                // Search for elements containing the exact header text
+                const selectors = [
+                    '.section-title',
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'label',
+                    '*'
+                ];
+                
+                // First, log all possible matches to debug
+                let allMatches = [];
+                for (const selector of selectors) {
+                    const elements = document.querySelectorAll(selector);
+                    for (const element of elements) {
+                        if (element.textContent && element.textContent.trim() === headerText) {
+                            allMatches.push({
+                                element: element,
+                                selector: selector,
+                                tagName: element.tagName,
+                                className: element.className,
+                                textContent: element.textContent.trim(),
+                                rect: element.getBoundingClientRect()
+                            });
+                        }
+                    }
+                }
+                
+                console.log(`Found ${allMatches.length} matches for "${headerText}":`, allMatches);
+                
+                // Return the first match (typically the most specific)
+                if (allMatches.length > 0) {
+                    console.log(`✅ Using element:`, allMatches[0]);
+                    return allMatches[0].element;
+                }
+                
+                return null;
+            }
+            
+            createSectionHighlight(rect) {
+                const highlightBox = document.createElement('div');
+                highlightBox.className = 'tutorial-section-highlight';
+                highlightBox.style.position = 'fixed';
+                highlightBox.style.left = rect.left + 'px';
+                highlightBox.style.top = rect.top + 'px';
+                highlightBox.style.width = rect.width + 'px';
+                highlightBox.style.height = rect.height + 'px';
+                highlightBox.style.border = '2px solid var(--accent-primary)';
+                highlightBox.style.borderRadius = 'var(--radius-md)';
+                highlightBox.style.backgroundColor = 'rgba(74, 158, 255, 0.1)';
+                highlightBox.style.pointerEvents = 'none';
+                highlightBox.style.zIndex = '999';
+                highlightBox.style.animation = 'tutorial-section-glow 2s ease-in-out infinite';
+                
+                document.body.appendChild(highlightBox);
+                this.currentHighlight = highlightBox;
+                console.log(`✅ Created section highlight at (${rect.x}, ${rect.y})`);
+            }
+            
+            showStep(stepIndex) {
+                if (stepIndex >= this.steps.length) {
+                    this.complete();
+                    return;
+                }
+                
+                const step = this.steps[stepIndex];
+                
+                // Clean up previous highlights
+                this.cleanupHighlights();
+                
+                // Update progress
+                this.updateProgress();
+                
+                // Find the header element and position everything relative to it
+                this.positionTooltipByHeader(step);
+            }
+            
+            showTooltipNearHeader(step, headerRect) {
+                const tooltip = document.getElementById('tutorial-tooltip');
+                const title = document.getElementById('tutorial-title');
+                const description = document.getElementById('tutorial-description');
+                const task = document.getElementById('tutorial-task-text');
+                const note = document.getElementById('tutorial-note');
+                
+                // Update content
+                title.textContent = step.title;
+                description.textContent = step.description;
+                task.textContent = step.task;
+                
+                if (step.note) {
+                    note.textContent = step.note;
+                    note.style.display = 'block';
+                } else {
+                    note.style.display = 'none';
+                }
+                
+                // Position tooltip to the left of the header with some spacing
+                const tooltipX = Math.max(20, headerRect.left - 300); // 280px tooltip width + 20px gap
+                const tooltipY = headerRect.top - 20; // Align roughly with header, slight offset up
+                
+                tooltip.style.left = tooltipX + 'px';
+                tooltip.style.top = tooltipY + 'px';
+                tooltip.classList.add('show');
+                
+                console.log(`✅ Positioned tooltip at (${tooltipX}, ${tooltipY}) for header "${step.headerText}"`);
+            }
+            
+            showArrowToHeader(step, headerRect) {
+                const arrow = document.getElementById('tutorial-arrow');
+                
+                // Position arrow between tooltip and header
+                const arrowX = Math.max(300, headerRect.left - 80); // Between tooltip and header
+                const arrowY = headerRect.top + (headerRect.height / 2) - 20; // Middle of header
+                
+                arrow.style.left = arrowX + 'px';
+                arrow.style.top = arrowY + 'px';
+                arrow.classList.add('show');
+                
+                console.log(`✅ Positioned arrow at (${arrowX}, ${arrowY}) pointing to "${step.headerText}"`);
+            }
+            
+            scrollToHeader(headerElement) {
+                const container = document.querySelector('.main-ui-container');
+                if (container && headerElement) {
+                    // Temporarily re-enable scrolling for autoscroll
+                    container.style.overflow = 'auto';
+                    
+                    // Scroll the header into view
+                    headerElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                    
+                    // Re-disable scrolling after autoscroll completes
+                    setTimeout(() => {
+                        if (this.isActive) {
+                            container.style.overflow = 'hidden';
+                        }
+                    }, 500);
+                }
+            }
+            
+            
+            cleanupHighlights() {
+                // Remove any existing highlight boxes
+                const existingHighlights = document.querySelectorAll('.tutorial-fixed-highlight, .tutorial-section-highlight');
+                existingHighlights.forEach(highlight => highlight.remove());
+                
+                // Hide tooltip and arrow
+                document.getElementById('tutorial-tooltip').classList.remove('show');
+                document.getElementById('tutorial-arrow').classList.remove('show');
+                
+                // Clear current highlight reference
+                this.currentHighlight = null;
+            }
+            
+            updateProgress() {
+                const dots = document.querySelectorAll('.tutorial-progress .dot');
+                dots.forEach((dot, index) => {
+                    dot.classList.remove('active', 'completed');
+                    if (index < this.currentStep) {
+                        dot.classList.add('completed');
+                    } else if (index === this.currentStep) {
+                        dot.classList.add('active');
+                    }
+                });
+            }
+            
+            
+            nextStep() {
+                this.currentStep++;
+                if (this.currentStep < this.steps.length) {
+                    this.showStep(this.currentStep);
+                } else {
+                    this.complete();
+                }
+            }
+            
+            complete() {
+                this.isActive = false;
+                
+                // Remove tutorial-active class to re-enable scrolling
+                document.body.classList.remove('tutorial-active');
+                
+                // Re-enable manual scrolling
+                const container = document.querySelector('.main-ui-container');
+                if (container) {
+                    container.style.overflow = 'auto';
+                }
+                
+                // Clean up all highlights and tutorial elements
+                this.cleanupHighlights();
+                
+                // Hide tutorial elements
+                document.getElementById('tutorial-overlay').style.display = 'none';
+                document.getElementById('tutorial-progress').style.display = 'none';
+                
+                // Show completion message
+                this.showCompletionMessage();
+                
+                // Mark as completed
+                localStorage.setItem(this.storageKey, 'true');
+            }
+            
+            showCompletionMessage() {
+                const completion = document.getElementById('tutorial-completion');
+                completion.classList.add('show');
+                
+                // Auto-fade after 10 seconds
+                setTimeout(() => {
+                    completion.classList.remove('show');
+                }, 10000);
+                
+                // Add click listener to dismiss on any click
+                const dismissCompletion = () => {
+                    completion.classList.remove('show');
+                    document.removeEventListener('click', dismissCompletion);
+                };
+                
+                // Add listener after a short delay to avoid immediate dismissal
+                setTimeout(() => {
+                    document.addEventListener('click', dismissCompletion);
+                }, 500);
+            }
+        }
+        
+        // Initialize tutorial when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new TutorialManager();
+        });
+    </script>
+</body>
+</html>

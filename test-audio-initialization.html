@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Audio Initialization Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 30px;
+        }
+        
+        .status-box {
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #444;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            font-weight: bold;
+            color: #888;
+        }
+        
+        .status-value {
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .status-value.ready {
+            color: #4CAF50;
+        }
+        
+        .status-value.pending {
+            color: #FFC107;
+        }
+        
+        .status-value.error {
+            color: #F44336;
+        }
+        
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .log-container {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+        }
+        
+        .log-info {
+            color: #4CAF50;
+        }
+        
+        .log-warn {
+            color: #FFC107;
+        }
+        
+        .log-error {
+            color: #F44336;
+        }
+        
+        .canvas-container {
+            border: 2px solid #444;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+        
+        canvas {
+            display: block;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎵 Audio System Initialization Test</h1>
+        
+        <div class="status-box">
+            <h2>System Status</h2>
+            <div class="status-item">
+                <span class="status-label">Audio Context:</span>
+                <span class="status-value pending" id="audio-context-status">Not Created</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Audio State:</span>
+                <span class="status-value pending" id="audio-state">Not Initialized</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Sample Rate:</span>
+                <span class="status-value" id="sample-rate">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Latency:</span>
+                <span class="status-value" id="latency">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Left Panel:</span>
+                <span class="status-value pending" id="left-panel-status">Not Created</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Samples Loaded:</span>
+                <span class="status-value" id="samples-loaded">0</span>
+            </div>
+        </div>
+        
+        <div class="button-container">
+            <button id="init-btn" onclick="initializeAudio()">Initialize Audio</button>
+            <button id="test-sound-btn" onclick="testSound()" disabled>Test Sound</button>
+            <button id="toggle-panel-btn" onclick="togglePanel()">Toggle Left Panel</button>
+            <button id="reload-btn" onclick="location.reload()">Reload Page</button>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="test-canvas" width="400" height="300"></canvas>
+        </div>
+        
+        <h3>Console Log</h3>
+        <div class="log-container" id="log-container"></div>
+    </div>
+    
+    <script type="module">
+        import { getAudioSystem } from './src/audio/AudioSystem.js';
+        import { LeftPanel } from './src/ui/LeftPanel.js';
+        
+        // Store original console methods
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        // Override console methods to capture logs
+        function addLogEntry(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Call original console method
+            if (type === 'info') originalLog.apply(console, arguments);
+            else if (type === 'warn') originalWarn.apply(console, arguments);
+            else if (type === 'error') originalError.apply(console, arguments);
+        }
+        
+        console.log = function(...args) {
+            addLogEntry(args.join(' '), 'info');
+        };
+        
+        console.warn = function(...args) {
+            addLogEntry(args.join(' '), 'warn');
+        };
+        
+        console.error = function(...args) {
+            addLogEntry(args.join(' '), 'error');
+        };
+        
+        // Global variables
+        let audioSystem = null;
+        let leftPanel = null;
+        let audioInitialized = false;
+        
+        // Initialize audio system
+        window.initializeAudio = async function() {
+            const btn = document.getElementById('init-btn');
+            btn.disabled = true;
+            btn.textContent = 'Initializing...';
+            
+            try {
+                console.log('Starting audio initialization...');
+                
+                // Get audio system instance
+                audioSystem = getAudioSystem();
+                window.audioSystem = audioSystem; // Make it global for debugging
+                
+                // Initialize audio system
+                const canvas = document.getElementById('test-canvas');
+                await audioSystem.initialize(canvas.width, canvas.height);
+                
+                audioInitialized = true;
+                
+                // Update UI status
+                updateStatus();
+                
+                // Enable test sound button
+                document.getElementById('test-sound-btn').disabled = false;
+                
+                btn.textContent = 'Audio Initialized ✓';
+                btn.style.background = '#4CAF50';
+                
+                console.log('Audio initialization complete!');
+                
+            } catch (error) {
+                console.error('Failed to initialize audio:', error);
+                btn.textContent = 'Initialization Failed';
+                btn.style.background = '#F44336';
+            }
+        };
+        
+        // Test sound generation
+        window.testSound = function() {
+            if (!audioSystem || !audioInitialized) {
+                console.warn('Audio not initialized');
+                return;
+            }
+            
+            console.log('Playing test sound...');
+            
+            // Create a simple test tone
+            const audioContext = audioSystem.audioEngine.audioContext;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+            
+            console.log('Test tone played (440Hz for 0.5s)');
+        };
+        
+        // Toggle left panel visibility
+        window.togglePanel = function() {
+            if (!leftPanel) {
+                console.log('Creating left panel...');
+                leftPanel = new LeftPanel(audioSystem || getAudioSystem());
+                leftPanel.initialize();
+                window.leftPanel = leftPanel; // Make it global for debugging
+            }
+            
+            if (leftPanel.isVisible) {
+                leftPanel.hide();
+                console.log('Left panel hidden');
+            } else {
+                leftPanel.show();
+                console.log('Left panel shown');
+            }
+            
+            updateStatus();
+        };
+        
+        // Update status display
+        function updateStatus() {
+            // Audio context status
+            const contextStatus = document.getElementById('audio-context-status');
+            const audioState = document.getElementById('audio-state');
+            const sampleRate = document.getElementById('sample-rate');
+            const latency = document.getElementById('latency');
+            const panelStatus = document.getElementById('left-panel-status');
+            const samplesLoaded = document.getElementById('samples-loaded');
+            
+            if (audioSystem && audioSystem.audioEngine && audioSystem.audioEngine.audioContext) {
+                const ctx = audioSystem.audioEngine.audioContext;
+                
+                contextStatus.textContent = 'Created';
+                contextStatus.className = 'status-value ready';
+                
+                audioState.textContent = ctx.state;
+                audioState.className = ctx.state === 'running' ? 'status-value ready' : 'status-value pending';
+                
+                sampleRate.textContent = ctx.sampleRate + ' Hz';
+                latency.textContent = (ctx.baseLatency * 1000).toFixed(2) + ' ms';
+                
+                if (audioSystem.sampleManager && audioSystem.sampleManager.samples) {
+                    samplesLoaded.textContent = audioSystem.sampleManager.samples.size;
+                }
+            }
+            
+            if (leftPanel) {
+                panelStatus.textContent = leftPanel.isVisible ? 'Visible' : 'Hidden';
+                panelStatus.className = 'status-value ready';
+            }
+        }
+        
+        // Auto-update status every second
+        setInterval(updateStatus, 1000);
+        
+        // Try auto-initialization on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, ready for audio initialization');
+            console.log('Click "Initialize Audio" button or press any key to start');
+            
+            // Initialize on any key press
+            document.addEventListener('keydown', async (e) => {
+                if (!audioInitialized) {
+                    console.log(`Key pressed: ${e.key}, attempting audio initialization...`);
+                    await initializeAudio();
+                }
+            }, { once: true });
+            
+            // Initialize on canvas click
+            document.getElementById('test-canvas').addEventListener('click', async () => {
+                if (!audioInitialized) {
+                    console.log('Canvas clicked, attempting audio initialization...');
+                    await initializeAudio();
+                }
+            }, { once: true });
+        });
+        
+        // Draw something on canvas to show it's active
+        const canvas = document.getElementById('test-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        function drawVisualization() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw a simple wave pattern
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const time = Date.now() / 1000;
+            for (let x = 0; x < canvas.width; x += 5) {
+                const y = canvas.height / 2 + Math.sin((x / 50) + time) * 30;
+                if (x === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            
+            // Draw status text
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(audioInitialized ? 'Audio System Active' : 'Click to Initialize Audio', canvas.width / 2, canvas.height / 2);
+            
+            requestAnimationFrame(drawVisualization);
+        }
+        
+        drawVisualization();
+    </script>
+</body>
+</html>

@@ -11,6 +11,7 @@ import { AspectRatioManager } from './utils/AspectRatioManager.js';
 import { getAudioSystem } from './audio/AudioSystem.js';
 import { LeftPanel } from './ui/LeftPanel.js';
 import { PerformanceMonitor } from './ui/PerformanceMonitor.js';
+import { EnvironmentManager } from './utils/EnvironmentManager.js';
 
 // Initialize the simple particle life system
 async function init() {
@@ -31,8 +32,8 @@ async function init() {
     // Wait for async initialization
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Debug mode: Expose cleanup method globally for testing/debugging
-    if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
+    // Expose cleanup method for debugging when in debug mode
+    if (EnvironmentManager.isDebugMode()) {
         window.cleanupCloudPresets = async () => {
           try {
             if (!presetManager.isCloudEnabled()) {

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noise System Test</title>
+    <link rel="stylesheet" href="src/styles/main.css">
+    <link rel="stylesheet" href="src/styles/ui.css">
+    <link rel="stylesheet" href="src/styles/design-system.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .noise-preview {
+            background: #0f0f23;
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .noise-preview canvas {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+        
+        .noise-preview h4 {
+            margin: 10px 0 5px 0;
+            color: #4fc3f7;
+        }
+        
+        .noise-preview .stats {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .controls {
+            background: #0f0f23;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+        
+        .control-row label {
+            flex: 0 0 150px;
+        }
+        
+        .control-row input[type="range"] {
+            flex: 1;
+        }
+        
+        .control-row .value {
+            flex: 0 0 60px;
+            text-align: right;
+            color: #4fc3f7;
+        }
+        
+        .log-output {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+        }
+        
+        .log-entry.info { color: #4fc3f7; }
+        .log-entry.success { color: #4caf50; }
+        .log-entry.warning { color: #ff9800; }
+        .log-entry.error { color: #f44336; }
+        
+        button {
+            background: #4fc3f7;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #29b6f6;
+        }
+        
+        .performance-meter {
+            display: inline-block;
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-left: 10px;
+        }
+        
+        .performance-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #ff9800, #f44336);
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 Noise System Test Suite</h1>
+        
+        <div class="test-section">
+            <h2>Visual Noise Patterns</h2>
+            <div class="test-grid" id="noise-grid">
+                <!-- Noise pattern canvases will be added here -->
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Live Controls</h2>
+            <div class="controls">
+                <div class="control-row">
+                    <label>Global Amplitude:</label>
+                    <input type="range" id="amplitude" min="0" max="0.5" step="0.01" value="0.25">
+                    <span class="value" id="amplitude-value">0.25</span>
+                </div>
+                <div class="control-row">
+                    <label>Global Scale:</label>
+                    <input type="range" id="scale" min="0.1" max="5" step="0.1" value="1">
+                    <span class="value" id="scale-value">1.0</span>
+                </div>
+                <div class="control-row">
+                    <label>Time Scale:</label>
+                    <input type="range" id="timeScale" min="0" max="3" step="0.1" value="1">
+                    <span class="value" id="timeScale-value">1.0</span>
+                </div>
+                <div class="control-row">
+                    <label>Animation:</label>
+                    <button id="toggle-animation">Start Animation</button>
+                    <button id="reset-noise">Reset All</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Performance Analysis</h2>
+            <div>
+                <p>Noise Generation Performance: 
+                    <span class="performance-meter">
+                        <div class="performance-bar" id="perf-bar" style="width: 0%"></div>
+                    </span>
+                    <span id="perf-value">0ms</span>
+                </p>
+            </div>
+            <div class="log-output" id="log-output"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Integration Test</h2>
+            <canvas id="particle-canvas" width="800" height="400" style="width: 100%; border: 1px solid #333; border-radius: 4px;"></canvas>
+            <div class="controls">
+                <button id="test-integration">Test Particle Integration</button>
+                <button id="test-all-patterns">Test All Patterns</button>
+                <button id="benchmark">Run Benchmark</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { NoiseGenerator } from './src/utils/NoiseGenerator.js';
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        
+        const logOutput = document.getElementById('log-output');
+        let animationRunning = false;
+        let animationId = null;
+        
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        // Initialize noise generator
+        const noiseGen = new NoiseGenerator();
+        log('NoiseGenerator initialized', 'success');
+        
+        // Create visualization canvases for each pattern
+        const patterns = ['perlin', 'simplex', 'voronoi', 'cubic', 'turbulence', 'flow', 'waves', 'cellular'];
+        const canvases = {};
+        const contexts = {};
+        
+        const gridContainer = document.getElementById('noise-grid');
+        
+        patterns.forEach(pattern => {
+            const container = document.createElement('div');
+            container.className = 'noise-preview';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            canvas.id = `canvas-${pattern}`;
+            
+            const title = document.createElement('h4');
+            title.textContent = pattern.charAt(0).toUpperCase() + pattern.slice(1);
+            
+            const stats = document.createElement('div');
+            stats.className = 'stats';
+            stats.id = `stats-${pattern}`;
+            stats.textContent = 'Calculating...';
+            
+            container.appendChild(canvas);
+            container.appendChild(title);
+            container.appendChild(stats);
+            gridContainer.appendChild(container);
+            
+            canvases[pattern] = canvas;
+            contexts[pattern] = canvas.getContext('2d');
+        });
+        
+        function visualizeNoise(pattern) {
+            const canvas = canvases[pattern];
+            const ctx = contexts[pattern];
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            const startTime = performance.now();
+            
+            // Save current pattern
+            const originalPattern = noiseGen.activePattern;
+            noiseGen.setPattern(pattern);
+            
+            // Create image data
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const noise = noiseGen.getNoise(x / width, y / height);
+                    
+                    // Map noise to color
+                    const intensity = Math.floor((noise.x + 1) * 127.5);
+                    const intensity2 = Math.floor((noise.y + 1) * 127.5);
+                    
+                    const i = (y * width + x) * 4;
+                    data[i] = intensity;     // Red channel for X noise
+                    data[i + 1] = intensity2; // Green channel for Y noise
+                    data[i + 2] = 128;        // Blue constant
+                    data[i + 3] = 255;        // Alpha
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Restore original pattern
+            noiseGen.setPattern(originalPattern);
+            
+            const elapsed = performance.now() - startTime;
+            document.getElementById(`stats-${pattern}`).textContent = `${elapsed.toFixed(2)}ms`;
+            
+            return elapsed;
+        }
+        
+        function updateAllVisualizations() {
+            let totalTime = 0;
+            patterns.forEach(pattern => {
+                totalTime += visualizeNoise(pattern);
+            });
+            
+            // Update performance meter
+            const avgTime = totalTime / patterns.length;
+            const perfBar = document.getElementById('perf-bar');
+            const perfValue = document.getElementById('perf-value');
+            
+            const percentage = Math.min(100, (avgTime / 50) * 100); // 50ms as max
+            perfBar.style.width = percentage + '%';
+            perfValue.textContent = avgTime.toFixed(2) + 'ms avg';
+            
+            if (avgTime < 10) {
+                log(`Excellent performance: ${avgTime.toFixed(2)}ms average`, 'success');
+            } else if (avgTime < 30) {
+                log(`Good performance: ${avgTime.toFixed(2)}ms average`, 'info');
+            } else {
+                log(`Performance warning: ${avgTime.toFixed(2)}ms average`, 'warning');
+            }
+        }
+        
+        // Initial visualization
+        updateAllVisualizations();
+        
+        // Control handlers
+        document.getElementById('amplitude').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            noiseGen.setGlobalAmplitude(value);
+            document.getElementById('amplitude-value').textContent = value.toFixed(3);
+            updateAllVisualizations();
+        });
+        
+        document.getElementById('scale').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            noiseGen.setGlobalScale(value);
+            document.getElementById('scale-value').textContent = value.toFixed(1);
+            updateAllVisualizations();
+        });
+        
+        document.getElementById('timeScale').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            noiseGen.setGlobalTimeScale(value);
+            document.getElementById('timeScale-value').textContent = value.toFixed(1);
+        });
+        
+        document.getElementById('toggle-animation').addEventListener('click', () => {
+            animationRunning = !animationRunning;
+            document.getElementById('toggle-animation').textContent = animationRunning ? 'Stop Animation' : 'Start Animation';
+            
+            if (animationRunning) {
+                log('Animation started', 'success');
+                animate();
+            } else {
+                log('Animation stopped', 'info');
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            }
+        });
+        
+        document.getElementById('reset-noise').addEventListener('click', () => {
+            noiseGen.reset();
+            document.getElementById('amplitude').value = 0;
+            document.getElementById('amplitude-value').textContent = '0.000';
+            document.getElementById('scale').value = 1;
+            document.getElementById('scale-value').textContent = '1.0';
+            document.getElementById('timeScale').value = 1;
+            document.getElementById('timeScale-value').textContent = '1.0';
+            updateAllVisualizations();
+            log('Noise generator reset', 'info');
+        });
+        
+        function animate() {
+            if (!animationRunning) return;
+            
+            updateAllVisualizations();
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Integration test
+        document.getElementById('test-integration').addEventListener('click', async () => {
+            log('Testing particle system integration...', 'info');
+            
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Create particle system
+            const ps = new SimpleParticleSystem(canvas.width, canvas.height);
+            ps.initializeParticles(100, 3);
+            ps.noiseEnabled = true;
+            ps.noiseAmplitude = 1.0;
+            ps.noisePattern = 'perlin';
+            
+            log('Created particle system with 100 particles, 3 species', 'success');
+            log('Noise enabled with Perlin pattern', 'info');
+            
+            // Run simulation for a few frames
+            for (let i = 0; i < 60; i++) {
+                ps.update();
+                
+                // Clear and draw
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw particles
+                ps.particles.forEach(p => {
+                    ctx.fillStyle = ps.speciesColors[p.species];
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                await new Promise(resolve => setTimeout(resolve, 16));
+            }
+            
+            log('Integration test completed successfully', 'success');
+        });
+        
+        document.getElementById('test-all-patterns').addEventListener('click', async () => {
+            log('Testing all noise patterns with particles...', 'info');
+            
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            const ps = new SimpleParticleSystem(canvas.width, canvas.height);
+            ps.initializeParticles(50, 2);
+            ps.noiseEnabled = true;
+            ps.noiseAmplitude = 1.5;
+            
+            for (const pattern of patterns) {
+                ps.noisePattern = pattern;
+                ps.noiseGenerator.setPattern(pattern);
+                log(`Testing pattern: ${pattern}`, 'info');
+                
+                for (let i = 0; i < 30; i++) {
+                    ps.update();
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ps.particles.forEach(p => {
+                        ctx.fillStyle = ps.speciesColors[p.species];
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                    
+                    await new Promise(resolve => setTimeout(resolve, 16));
+                }
+            }
+            
+            log('All patterns tested successfully', 'success');
+        });
+        
+        document.getElementById('benchmark').addEventListener('click', () => {
+            log('Running performance benchmark...', 'info');
+            
+            const iterations = 1000;
+            const results = {};
+            
+            patterns.forEach(pattern => {
+                noiseGen.setPattern(pattern);
+                const start = performance.now();
+                
+                for (let i = 0; i < iterations; i++) {
+                    noiseGen.getNoise(Math.random(), Math.random());
+                }
+                
+                const elapsed = performance.now() - start;
+                results[pattern] = elapsed / iterations;
+                log(`${pattern}: ${(elapsed / iterations).toFixed(4)}ms per call`, 'info');
+            });
+            
+            // Find fastest and slowest
+            const sorted = Object.entries(results).sort((a, b) => a[1] - b[1]);
+            log(`Fastest: ${sorted[0][0]} (${sorted[0][1].toFixed(4)}ms)`, 'success');
+            log(`Slowest: ${sorted[sorted.length - 1][0]} (${sorted[sorted.length - 1][1].toFixed(4)}ms)`, 'warning');
+            
+            log('Benchmark completed', 'success');
+        });
+        
+        log('Test suite loaded and ready', 'success');
+    </script>
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive MainUI Debug</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: monospace;
+            background: #0a0a0f;
+            color: #4ecdc4;
+            font-size: 12px;
+        }
+        .debug-panel {
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(78, 205, 196, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background: #4ECDC4;
+            color: #0a0a0f;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 3px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        button:hover {
+            background: #45B7D1;
+        }
+        #results {
+            white-space: pre-wrap;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #4ECDC4;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        .iframe-container {
+            position: relative;
+            height: 500px;
+            border: 1px solid #4ecdc4;
+            margin-top: 20px;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .overlay-debug {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 10px;
+            z-index: 999999;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-panel">
+        <h2>Comprehensive MainUI Debugging</h2>
+        <div>
+            <button onclick="runAllChecks()">🔍 Run All Checks</button>
+            <button onclick="checkDOMStructure()">📋 Check DOM Structure</button>
+            <button onclick="checkCSSVariables()">🎨 Check CSS Variables</button>
+            <button onclick="checkMainUIConstructor()">🔧 Check MainUI Constructor</button>
+            <button onclick="checkElementVisibility()">👁️ Check Element Visibility</button>
+            <button onclick="forceShowMainUI()">🚀 Force Show MainUI</button>
+            <button onclick="clearResults()">🧹 Clear Results</button>
+        </div>
+    </div>
+    
+    <div class="debug-panel">
+        <h3>Debug Results:</h3>
+        <div id="results"></div>
+    </div>
+
+    <div class="iframe-container">
+        <div class="overlay-debug">MainUI should appear here →</div>
+        <iframe id="app-frame" src="http://localhost:8000"></iframe>
+    </div>
+
+    <script>
+        function log(message) {
+            const results = document.getElementById('results');
+            results.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function getIframeWindow() {
+            return document.getElementById('app-frame').contentWindow;
+        }
+
+        function runAllChecks() {
+            log('=== COMPREHENSIVE MAINUI DEBUG SESSION ===');
+            setTimeout(() => checkDOMStructure(), 100);
+            setTimeout(() => checkCSSVariables(), 200);
+            setTimeout(() => checkMainUIConstructor(), 300);
+            setTimeout(() => checkElementVisibility(), 400);
+            setTimeout(() => analyzeLayoutIssues(), 500);
+        }
+
+        function checkDOMStructure() {
+            try {
+                log('--- DOM STRUCTURE CHECK ---');
+                const win = getIframeWindow();
+                if (!win) {
+                    log('❌ Cannot access iframe window');
+                    return;
+                }
+
+                const container = win.document.querySelector('.main-ui-container');
+                log('MainUI container found: ' + !!container);
+                
+                if (container) {
+                    log('Container parent: ' + (container.parentElement ? container.parentElement.tagName : 'none'));
+                    log('Container children count: ' + container.children.length);
+                    log('Container innerHTML length: ' + container.innerHTML.length);
+                    log('Container classes: ' + container.className);
+                    
+                    // Check if container has any content
+                    const hasContent = container.innerHTML.trim().length > 0;
+                    log('Container has content: ' + hasContent);
+                    
+                    if (!hasContent) {
+                        log('🚨 ISSUE: MainUI container is empty!');
+                    }
+                    
+                    // Check for hidden class
+                    if (container.classList.contains('hidden')) {
+                        log('🚨 ISSUE: MainUI has "hidden" class');
+                    }
+                } else {
+                    log('🚨 CRITICAL: MainUI container not found in DOM');
+                    
+                    // Check if body exists
+                    const body = win.document.body;
+                    if (body) {
+                        log('Body found, children count: ' + body.children.length);
+                        const allElements = Array.from(body.querySelectorAll('*'));
+                        log('Total elements in body: ' + allElements.length);
+                        
+                        // Look for any elements with main-ui in class or id
+                        const mainUIRelated = allElements.filter(el => 
+                            el.className.includes('main-ui') || 
+                            el.id.includes('main-ui') ||
+                            el.id.includes('mainUI')
+                        );
+                        log('Elements with "main-ui" in name: ' + mainUIRelated.length);
+                        mainUIRelated.forEach(el => {
+                            log('  Found: ' + el.tagName + '#' + el.id + '.' + el.className);
+                        });
+                    }
+                }
+            } catch (error) {
+                log('❌ Error checking DOM structure: ' + error.message);
+            }
+        }
+
+        function checkCSSVariables() {
+            try {
+                log('--- CSS VARIABLES CHECK ---');
+                const win = getIframeWindow();
+                if (!win) {
+                    log('❌ Cannot access iframe window');
+                    return;
+                }
+
+                const root = win.document.documentElement;
+                const computedStyle = win.getComputedStyle(root);
+                
+                const zSticky = computedStyle.getPropertyValue('--z-sticky').trim();
+                const zOverlay = computedStyle.getPropertyValue('--z-overlay').trim();
+                const zModal = computedStyle.getPropertyValue('--z-modal').trim();
+                const zAudioPrompt = computedStyle.getPropertyValue('--z-audio-prompt').trim();
+                
+                log('CSS Variables:');
+                log('  --z-sticky: ' + (zSticky || 'not found'));
+                log('  --z-overlay: ' + (zOverlay || 'not found'));
+                log('  --z-modal: ' + (zModal || 'not found'));
+                log('  --z-audio-prompt: ' + (zAudioPrompt || 'not found'));
+                
+                if (!zSticky) {
+                    log('🚨 ISSUE: CSS variables not loading properly');
+                }
+            } catch (error) {
+                log('❌ Error checking CSS variables: ' + error.message);
+            }
+        }
+
+        function checkMainUIConstructor() {
+            try {
+                log('--- MAINUI CONSTRUCTOR CHECK ---');
+                const win = getIframeWindow();
+                if (!win) {
+                    log('❌ Cannot access iframe window');
+                    return;
+                }
+
+                log('window.mainUI exists: ' + !!win.mainUI);
+                
+                if (win.mainUI) {
+                    log('mainUI.isVisible: ' + win.mainUI.isVisible);
+                    log('mainUI.container exists: ' + !!win.mainUI.container);
+                    
+                    if (win.mainUI.container) {
+                        log('mainUI.container.parentNode: ' + !!win.mainUI.container.parentNode);
+                        log('mainUI.container attached to body: ' + (win.mainUI.container.parentNode === win.document.body));
+                        
+                        // Check if init() was called
+                        const containerHtml = win.mainUI.container.innerHTML;
+                        log('Container HTML length: ' + containerHtml.length);
+                        
+                        if (containerHtml.length < 100) {
+                            log('🚨 ISSUE: MainUI container HTML seems too short - init() may have failed');
+                        }
+                    } else {
+                        log('🚨 CRITICAL: mainUI.container is null - constructor failed');
+                    }
+                } else {
+                    log('🚨 CRITICAL: window.mainUI not found - MainUI not instantiated');
+                    
+                    // Check if MainUI class exists
+                    if (win.MainUI) {
+                        log('MainUI class exists but not instantiated');
+                    } else {
+                        log('MainUI class not found - import failed?');
+                    }
+                }
+            } catch (error) {
+                log('❌ Error checking MainUI constructor: ' + error.message);
+            }
+        }
+
+        function checkElementVisibility() {
+            try {
+                log('--- ELEMENT VISIBILITY CHECK ---');
+                const win = getIframeWindow();
+                if (!win) {
+                    log('❌ Cannot access iframe window');
+                    return;
+                }
+
+                const container = win.document.querySelector('.main-ui-container');
+                if (!container) {
+                    log('❌ No container to check visibility');
+                    return;
+                }
+
+                const rect = container.getBoundingClientRect();
+                const computed = win.getComputedStyle(container);
+                
+                log('Bounding Rectangle:');
+                log('  top: ' + rect.top + ', left: ' + rect.left);
+                log('  width: ' + rect.width + ', height: ' + rect.height);
+                log('  right: ' + rect.right + ', bottom: ' + rect.bottom);
+                
+                log('Computed Styles:');
+                log('  display: ' + computed.display);
+                log('  visibility: ' + computed.visibility);
+                log('  opacity: ' + computed.opacity);
+                log('  position: ' + computed.position);
+                log('  z-index: ' + computed.zIndex);
+                log('  transform: ' + computed.transform);
+                log('  clip-path: ' + computed.clipPath);
+                log('  overflow: ' + computed.overflow);
+                
+                // Visibility analysis
+                const isVisible = rect.width > 0 && rect.height > 0 && 
+                                computed.visibility !== 'hidden' && 
+                                computed.display !== 'none' &&
+                                computed.opacity !== '0';
+                                
+                log('Element should be visible: ' + isVisible);
+                
+                if (!isVisible) {
+                    log('🚨 VISIBILITY ISSUES DETECTED:');
+                    if (rect.width === 0 || rect.height === 0) log('  - Zero dimensions');
+                    if (computed.visibility === 'hidden') log('  - visibility: hidden');
+                    if (computed.display === 'none') log('  - display: none');
+                    if (computed.opacity === '0') log('  - opacity: 0');
+                }
+                
+                // Check if element is off-screen
+                const viewportWidth = win.innerWidth;
+                const viewportHeight = win.innerHeight;
+                if (rect.left > viewportWidth || rect.top > viewportHeight || 
+                    rect.right < 0 || rect.bottom < 0) {
+                    log('🚨 ISSUE: Element is positioned off-screen');
+                    log('  Viewport: ' + viewportWidth + 'x' + viewportHeight);
+                }
+            } catch (error) {
+                log('❌ Error checking element visibility: ' + error.message);
+            }
+        }
+
+        function analyzeLayoutIssues() {
+            try {
+                log('--- LAYOUT ANALYSIS ---');
+                const win = getIframeWindow();
+                if (!win) return;
+
+                // Check for any elements that might be blocking
+                const highZElements = [];
+                const allElements = Array.from(win.document.querySelectorAll('*'));
+                
+                allElements.forEach(el => {
+                    const zIndex = parseInt(win.getComputedStyle(el).zIndex);
+                    if (zIndex > 50) {
+                        const rect = el.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            highZElements.push({
+                                element: el.tagName + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ').slice(0,2).join('.') : ''),
+                                zIndex: zIndex,
+                                rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
+                            });
+                        }
+                    }
+                });
+                
+                if (highZElements.length > 0) {
+                    log('Elements with high z-index (>50):');
+                    highZElements.sort((a, b) => b.zIndex - a.zIndex);
+                    highZElements.forEach(item => {
+                        log('  ' + item.element + ' (z:' + item.zIndex + ', ' + Math.round(item.rect.width) + 'x' + Math.round(item.rect.height) + ')');
+                    });
+                }
+                
+                // Check canvas position
+                const canvas = win.document.getElementById('canvas');
+                if (canvas) {
+                    const canvasRect = canvas.getBoundingClientRect();
+                    log('Canvas position: ' + Math.round(canvasRect.width) + 'x' + Math.round(canvasRect.height) + 
+                        ' at (' + Math.round(canvasRect.left) + ',' + Math.round(canvasRect.top) + ')');
+                }
+            } catch (error) {
+                log('❌ Error in layout analysis: ' + error.message);
+            }
+        }
+
+        function forceShowMainUI() {
+            try {
+                log('--- FORCE SHOW MAINUI ---');
+                const win = getIframeWindow();
+                if (!win) return;
+
+                const container = win.document.querySelector('.main-ui-container');
+                if (!container) {
+                    log('❌ No container found to force show');
+                    return;
+                }
+
+                log('Applying force-show styles...');
+                container.style.cssText = `
+                    position: fixed !important;
+                    top: 10px !important;
+                    right: 10px !important;
+                    width: 320px !important;
+                    height: auto !important;
+                    display: flex !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    z-index: 999999 !important;
+                    background: red !important;
+                    border: 3px solid yellow !important;
+                    transform: none !important;
+                `;
+                
+                log('✅ Force-show styles applied');
+                log('Check the iframe - MainUI should now have red background with yellow border');
+                
+                setTimeout(() => {
+                    const newRect = container.getBoundingClientRect();
+                    log('After force-show - dimensions: ' + newRect.width + 'x' + newRect.height);
+                }, 500);
+                
+            } catch (error) {
+                log('❌ Error forcing MainUI visibility: ' + error.message);
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').textContent = '';
+        }
+
+        // Auto-run checks when iframe loads
+        document.getElementById('app-frame').addEventListener('load', () => {
+            setTimeout(() => {
+                log('=== AUTO-RUNNING INITIAL CHECKS ===');
+                runAllChecks();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

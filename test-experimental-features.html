@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experimental Features Test</title>
+    <link rel="stylesheet" href="src/styles/design-system.css">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            color: white;
+            font-family: monospace;
+        }
+        canvas {
+            display: block;
+        }
+        
+        .test-controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            max-width: 400px;
+            z-index: 1000;
+        }
+        
+        .test-controls h2 {
+            margin-top: 0;
+            color: #66ff66;
+        }
+        
+        .performance-stats {
+            background: #111;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .feature-test {
+            margin: 15px 0;
+            padding: 10px;
+            background: #222;
+            border-radius: 3px;
+        }
+        
+        .feature-test h3 {
+            margin: 0 0 10px 0;
+            color: #ffff66;
+            font-size: 14px;
+        }
+        
+        .test-button {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 5px 10px;
+            margin: 2px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        
+        .test-button:hover {
+            background: #555;
+        }
+        
+        .test-button.active {
+            background: #66ff66;
+            color: black;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 5px;
+            background: #111;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        .status.success {
+            color: #66ff66;
+        }
+        
+        .status.warning {
+            color: #ffff66;
+        }
+        
+        .status.error {
+            color: #ff6666;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="test-controls">
+        <h2>🧪 Experimental Features Test</h2>
+        
+        <div class="performance-stats" id="performance-stats">
+            <div>FPS: <span id="fps">--</span></div>
+            <div>Frame Time: <span id="frame-time">--</span>ms</div>
+            <div>Particles: <span id="particle-count">--</span></div>
+            <div>Bottleneck: <span id="bottleneck">--</span></div>
+        </div>
+        
+        <div class="feature-test">
+            <h3>1. Trail Sampling Test</h3>
+            <button class="test-button" id="test-trail-off">Trails Off</button>
+            <button class="test-button" id="test-trail-1">Sample 1 (Normal)</button>
+            <button class="test-button" id="test-trail-2">Sample 2</button>
+            <button class="test-button" id="test-trail-3">Sample 3</button>
+            <button class="test-button" id="test-trail-5">Sample 5</button>
+            <div class="status" id="trail-status"></div>
+        </div>
+        
+        <div class="feature-test">
+            <h3>2. Physics Interpolation Test</h3>
+            <button class="test-button" id="test-physics-off">Normal Physics</button>
+            <button class="test-button" id="test-physics-2">Skip 2</button>
+            <button class="test-button" id="test-physics-3">Skip 3</button>
+            <button class="test-button" id="test-physics-4">Skip 4</button>
+            <div class="status" id="physics-status"></div>
+        </div>
+        
+        <div class="feature-test">
+            <h3>3. Rendering Modes</h3>
+            <button class="test-button" id="test-batch">Batch Rendering</button>
+            <button class="test-button" id="test-culling">Collision Culling</button>
+            <button class="test-button" id="test-adaptive">Adaptive Quality</button>
+            <div class="status" id="render-status"></div>
+        </div>
+        
+        <div class="feature-test">
+            <h3>4. Special Visual Modes</h3>
+            <button class="test-button" id="test-quantum">Quantum Mode</button>
+            <button class="test-button" id="test-echo">Echo Mode</button>
+            <button class="test-button" id="test-pulse">Pulse Mode</button>
+            <div class="status" id="visual-status"></div>
+        </div>
+        
+        <div class="feature-test">
+            <h3>5. Stress Test</h3>
+            <button class="test-button" id="test-500">500 Particles</button>
+            <button class="test-button" id="test-1000">1000 Particles</button>
+            <button class="test-button" id="test-2000">2000 Particles</button>
+            <button class="test-button" id="test-3000">3000 Particles</button>
+            <div class="status" id="stress-status"></div>
+        </div>
+        
+        <div class="feature-test">
+            <h3>6. Combined Optimization</h3>
+            <button class="test-button" id="test-all-off">All Off</button>
+            <button class="test-button" id="test-balanced">Balanced</button>
+            <button class="test-button" id="test-performance">Max Performance</button>
+            <button class="test-button" id="test-extreme">Extreme Mode</button>
+            <div class="status" id="combined-status"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        
+        // Setup canvas
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Create particle system
+        const ps = new SimpleParticleSystem(canvas.width, canvas.height);
+        ps.setCanvas(canvas, ctx);
+        ps.numSpecies = 5;
+        ps.particlesPerSpecies = 100;
+        ps.initializeSpecies();
+        ps.initializeParticles();
+        
+        // Apply a random force pattern
+        const patterns = ['clusters', 'predator-prey', 'territorial', 'symbiotic', 'cyclic'];
+        const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)];
+        ps.applyForcePattern(selectedPattern, 0.7, {});
+        
+        // Enable experimental features
+        const exp = ps.experimentalFeatures;
+        exp.enable();
+        
+        // Performance monitoring
+        function updatePerformanceStats() {
+            const summary = ps.performanceMonitor.getSummary();
+            document.getElementById('fps').textContent = summary.fps.toFixed(1);
+            document.getElementById('frame-time').textContent = summary.frameTime.toFixed(2);
+            document.getElementById('particle-count').textContent = ps.particles.length;
+            document.getElementById('bottleneck').textContent = summary.bottleneck.bottleneck;
+            
+            // Color code FPS
+            const fpsEl = document.getElementById('fps');
+            if (summary.fps > 55) {
+                fpsEl.style.color = '#66ff66';
+            } else if (summary.fps > 30) {
+                fpsEl.style.color = '#ffff66';
+            } else {
+                fpsEl.style.color = '#ff6666';
+            }
+        }
+        
+        setInterval(updatePerformanceStats, 500);
+        
+        // Test controls
+        const allButtons = document.querySelectorAll('.test-button');
+        
+        function resetAllButtons(groupId) {
+            const group = document.getElementById(groupId).parentElement;
+            group.querySelectorAll('.test-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
+        
+        // Trail Sampling Tests
+        document.getElementById('test-trail-off').addEventListener('click', () => {
+            resetAllButtons('trail-status');
+            ps.trailEnabled = false;
+            document.getElementById('test-trail-off').classList.add('active');
+            document.getElementById('trail-status').textContent = 'Trails disabled';
+            document.getElementById('trail-status').className = 'status success';
+        });
+        
+        document.getElementById('test-trail-1').addEventListener('click', () => {
+            resetAllButtons('trail-status');
+            ps.trailEnabled = true;
+            exp.setFeature('temporalTrailSampling', false);
+            document.getElementById('test-trail-1').classList.add('active');
+            document.getElementById('trail-status').textContent = 'Normal trail rendering (every frame)';
+            document.getElementById('trail-status').className = 'status success';
+        });
+        
+        document.getElementById('test-trail-2').addEventListener('click', () => {
+            resetAllButtons('trail-status');
+            ps.trailEnabled = true;
+            exp.setFeature('temporalTrailSampling', true);
+            exp.setFeatureParam('temporalTrailSampling', 'rate', 2);
+            document.getElementById('test-trail-2').classList.add('active');
+            document.getElementById('trail-status').textContent = 'Trail sampling rate: 2 (~50% performance gain)';
+            document.getElementById('trail-status').className = 'status success';
+        });
+        
+        document.getElementById('test-trail-3').addEventListener('click', () => {
+            resetAllButtons('trail-status');
+            ps.trailEnabled = true;
+            exp.setFeature('temporalTrailSampling', true);
+            exp.setFeatureParam('temporalTrailSampling', 'rate', 3);
+            document.getElementById('test-trail-3').classList.add('active');
+            document.getElementById('trail-status').textContent = 'Trail sampling rate: 3 (~66% performance gain)';
+            document.getElementById('trail-status').className = 'status success';
+        });
+        
+        document.getElementById('test-trail-5').addEventListener('click', () => {
+            resetAllButtons('trail-status');
+            ps.trailEnabled = true;
+            exp.setFeature('temporalTrailSampling', true);
+            exp.setFeatureParam('temporalTrailSampling', 'rate', 5);
+            document.getElementById('test-trail-5').classList.add('active');
+            document.getElementById('trail-status').textContent = 'Trail sampling rate: 5 (~80% performance gain, strobe effect)';
+            document.getElementById('trail-status').className = 'status warning';
+        });
+        
+        // Physics Interpolation Tests
+        document.getElementById('test-physics-off').addEventListener('click', () => {
+            resetAllButtons('physics-status');
+            exp.setFeature('physicsInterpolation', false);
+            exp.setFeature('quantumMode', false);
+            document.getElementById('test-physics-off').classList.add('active');
+            document.getElementById('physics-status').textContent = 'Normal physics calculation';
+            document.getElementById('physics-status').className = 'status success';
+        });
+        
+        document.getElementById('test-physics-2').addEventListener('click', () => {
+            resetAllButtons('physics-status');
+            exp.setFeature('physicsInterpolation', true);
+            exp.setFeatureParam('physicsInterpolation', 'skipRate', 2);
+            document.getElementById('test-physics-2').classList.add('active');
+            document.getElementById('physics-status').textContent = 'Physics skip rate: 2 (interpolated motion)';
+            document.getElementById('physics-status').className = 'status success';
+        });
+        
+        document.getElementById('test-physics-3').addEventListener('click', () => {
+            resetAllButtons('physics-status');
+            exp.setFeature('physicsInterpolation', true);
+            exp.setFeatureParam('physicsInterpolation', 'skipRate', 3);
+            document.getElementById('test-physics-3').classList.add('active');
+            document.getElementById('physics-status').textContent = 'Physics skip rate: 3 (more interpolation)';
+            document.getElementById('physics-status').className = 'status success';
+        });
+        
+        document.getElementById('test-physics-4').addEventListener('click', () => {
+            resetAllButtons('physics-status');
+            exp.setFeature('physicsInterpolation', true);
+            exp.setFeatureParam('physicsInterpolation', 'skipRate', 4);
+            document.getElementById('test-physics-4').classList.add('active');
+            document.getElementById('physics-status').textContent = 'Physics skip rate: 4 (maximum interpolation)';
+            document.getElementById('physics-status').className = 'status warning';
+        });
+        
+        // Rendering Mode Tests
+        document.getElementById('test-batch').addEventListener('click', () => {
+            const enabled = !exp.features.batchRendering.enabled;
+            exp.setFeature('batchRendering', enabled);
+            document.getElementById('test-batch').classList.toggle('active');
+            document.getElementById('render-status').textContent = `Batch rendering: ${enabled ? 'ON' : 'OFF'}`;
+            document.getElementById('render-status').className = 'status success';
+        });
+        
+        document.getElementById('test-culling').addEventListener('click', () => {
+            const enabled = !exp.features.smartCollisionCulling.enabled;
+            exp.setFeature('smartCollisionCulling', enabled);
+            document.getElementById('test-culling').classList.toggle('active');
+            document.getElementById('render-status').textContent = `Collision culling: ${enabled ? 'ON' : 'OFF'}`;
+            document.getElementById('render-status').className = 'status success';
+        });
+        
+        document.getElementById('test-adaptive').addEventListener('click', () => {
+            const enabled = !exp.features.adaptiveQuality.enabled;
+            exp.setFeature('adaptiveQuality', enabled);
+            document.getElementById('test-adaptive').classList.toggle('active');
+            document.getElementById('render-status').textContent = `Adaptive quality: ${enabled ? 'ON' : 'OFF'}`;
+            document.getElementById('render-status').className = 'status success';
+        });
+        
+        // Special Visual Modes
+        document.getElementById('test-quantum').addEventListener('click', () => {
+            const enabled = !exp.features.quantumMode.enabled;
+            exp.setFeature('quantumMode', enabled);
+            if (enabled) {
+                exp.setFeature('physicsInterpolation', false);
+                exp.setFeatureParam('quantumMode', 'teleportRate', 3);
+            }
+            document.getElementById('test-quantum').classList.toggle('active');
+            document.getElementById('visual-status').textContent = `Quantum mode: ${enabled ? 'ON (teleporting particles)' : 'OFF'}`;
+            document.getElementById('visual-status').className = 'status ' + (enabled ? 'warning' : 'success');
+        });
+        
+        document.getElementById('test-echo').addEventListener('click', () => {
+            const enabled = !exp.features.echoMode.enabled;
+            exp.setFeature('echoMode', enabled);
+            if (enabled) {
+                exp.setFeatureParam('echoMode', 'echoRate', 2);
+            }
+            document.getElementById('test-echo').classList.toggle('active');
+            document.getElementById('visual-status').textContent = `Echo mode: ${enabled ? 'ON (rendering every 2nd particle)' : 'OFF'}`;
+            document.getElementById('visual-status').className = 'status ' + (enabled ? 'warning' : 'success');
+        });
+        
+        document.getElementById('test-pulse').addEventListener('click', () => {
+            const enabled = !exp.features.pulseMode.enabled;
+            exp.setFeature('pulseMode', enabled);
+            if (enabled) {
+                exp.setFeatureParam('pulseMode', 'pulseRate', 30);
+            }
+            document.getElementById('test-pulse').classList.toggle('active');
+            document.getElementById('visual-status').textContent = `Pulse mode: ${enabled ? 'ON (rhythmic rendering)' : 'OFF'}`;
+            document.getElementById('visual-status').className = 'status ' + (enabled ? 'warning' : 'success');
+        });
+        
+        // Stress Tests
+        document.getElementById('test-500').addEventListener('click', () => {
+            ps.particlesPerSpecies = 100;
+            ps.initializeParticles();
+            document.getElementById('stress-status').textContent = '500 particles loaded';
+            document.getElementById('stress-status').className = 'status success';
+        });
+        
+        document.getElementById('test-1000').addEventListener('click', () => {
+            ps.particlesPerSpecies = 200;
+            ps.initializeParticles();
+            document.getElementById('stress-status').textContent = '1000 particles loaded';
+            document.getElementById('stress-status').className = 'status success';
+        });
+        
+        document.getElementById('test-2000').addEventListener('click', () => {
+            ps.particlesPerSpecies = 400;
+            ps.initializeParticles();
+            document.getElementById('stress-status').textContent = '2000 particles loaded';
+            document.getElementById('stress-status').className = 'status warning';
+        });
+        
+        document.getElementById('test-3000').addEventListener('click', () => {
+            ps.particlesPerSpecies = 600;
+            ps.initializeParticles();
+            document.getElementById('stress-status').textContent = '3000 particles loaded';
+            document.getElementById('stress-status').className = 'status error';
+        });
+        
+        // Combined Optimization Tests
+        document.getElementById('test-all-off').addEventListener('click', () => {
+            exp.disable();
+            exp.enable();
+            Object.keys(exp.features).forEach(feature => {
+                exp.setFeature(feature, false);
+            });
+            allButtons.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('test-all-off').classList.add('active');
+            document.getElementById('combined-status').textContent = 'All optimizations disabled';
+            document.getElementById('combined-status').className = 'status success';
+        });
+        
+        document.getElementById('test-balanced').addEventListener('click', () => {
+            // Balanced settings
+            exp.setFeature('temporalTrailSampling', true);
+            exp.setFeatureParam('temporalTrailSampling', 'rate', 2);
+            exp.setFeature('batchRendering', true);
+            exp.setFeature('smartCollisionCulling', true);
+            exp.setFeature('adaptiveQuality', true);
+            exp.setFeatureParam('adaptiveQuality', 'targetFPS', 45);
+            
+            document.getElementById('combined-status').textContent = 'Balanced optimization (Trail:2, Batch, Culling, Adaptive)';
+            document.getElementById('combined-status').className = 'status success';
+        });
+        
+        document.getElementById('test-performance').addEventListener('click', () => {
+            // Maximum performance settings
+            exp.setFeature('temporalTrailSampling', true);
+            exp.setFeatureParam('temporalTrailSampling', 'rate', 3);
+            exp.setFeature('physicsInterpolation', true);
+            exp.setFeatureParam('physicsInterpolation', 'skipRate', 2);
+            exp.setFeature('batchRendering', true);
+            exp.setFeature('smartCollisionCulling', true);
+            exp.setFeature('adaptiveQuality', true);
+            exp.setFeatureParam('adaptiveQuality', 'targetFPS', 60);
+            
+            document.getElementById('combined-status').textContent = 'Max Performance (Trail:3, Physics:2, All optimizations)';
+            document.getElementById('combined-status').className = 'status warning';
+        });
+        
+        document.getElementById('test-extreme').addEventListener('click', () => {
+            // Extreme mode for maximum FPS
+            exp.setFeature('temporalTrailSampling', true);
+            exp.setFeatureParam('temporalTrailSampling', 'rate', 5);
+            exp.setFeature('quantumMode', true);
+            exp.setFeatureParam('quantumMode', 'teleportRate', 4);
+            exp.setFeature('echoMode', true);
+            exp.setFeatureParam('echoMode', 'echoRate', 2);
+            exp.setFeature('batchRendering', true);
+            exp.setFeature('smartCollisionCulling', true);
+            
+            document.getElementById('combined-status').textContent = 'EXTREME MODE (Trail:5, Quantum:4, Echo:2, All optimizations)';
+            document.getElementById('combined-status').className = 'status error';
+        });
+        
+        // Animation loop
+        let lastTime = 0;
+        function animate(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            
+            ps.update(dt);
+            
+            requestAnimationFrame(animate);
+        }
+        
+        requestAnimationFrame(animate);
+        
+        console.log('Experimental Features Test loaded');
+        console.log('Available features:', exp.getFeatureStatus());
+    </script>
+</body>
+</html>

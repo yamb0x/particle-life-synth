@@ -310,6 +310,11 @@
                 <div class="test-list" id="integration-tests"></div>
             </div>
             
+            <div class="test-group">
+                <h3>Audio System</h3>
+                <div class="test-list" id="audio-tests"></div>
+            </div>
+            
             <div class="coverage-bar">
                 <div class="coverage-fill" id="coverage-bar" style="width: 0%"></div>
             </div>
@@ -922,6 +927,256 @@
                     
                     return { preset };
                 });
+                
+                // AUDIO SYSTEM TESTS
+                this.addTest('audio', 'audio-initialization', 'Audio System Initialization', async () => {
+                    const ctx = await this.getAppContext();
+                    
+                    // Check if audio system is available
+                    this.assert(ctx.window.audioSystem !== undefined, 'Audio system exists');
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Check audio engine initialization
+                    this.assert(audioSystem.engine !== undefined, 'Audio engine exists');
+                    this.assert(audioSystem.engine.context !== undefined, 'Audio context exists');
+                    
+                    // Check state
+                    const state = audioSystem.engine.context.state;
+                    this.assert(state === 'running' || state === 'suspended', `Audio context state valid: ${state}`);
+                    
+                    // Check synthesizers
+                    this.assert(audioSystem.synthesizers !== undefined, 'Synthesizers map exists');
+                    this.assert(audioSystem.synthesizers.size > 0, `${audioSystem.synthesizers.size} synthesizers created`);
+                    
+                    // Check sample manager
+                    this.assert(audioSystem.sampleManager !== undefined, 'Sample manager exists');
+                    this.assert(audioSystem.sampleManager.samples !== undefined, 'Sample storage exists');
+                    
+                    return {
+                        contextState: state,
+                        synthesizerCount: audioSystem.synthesizers.size,
+                        samplesLoaded: audioSystem.sampleManager.samples.size
+                    };
+                });
+                
+                this.addTest('audio', 'audio-master-controls', 'Master Audio Controls', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Test master volume
+                    const initialVolume = audioSystem.masterVolume || -6;
+                    audioSystem.setMasterVolume(-12);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    this.assert(audioSystem.masterVolume === -12, 'Master volume updated');
+                    
+                    // Test mute functionality
+                    audioSystem.setMasterMute(true);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    this.assert(audioSystem.isMuted === true, 'Master mute enabled');
+                    
+                    audioSystem.setMasterMute(false);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    this.assert(audioSystem.isMuted === false, 'Master mute disabled');
+                    
+                    // Restore original volume
+                    audioSystem.setMasterVolume(initialVolume);
+                    
+                    return {
+                        masterVolume: audioSystem.masterVolume,
+                        isMuted: audioSystem.isMuted
+                    };
+                });
+                
+                this.addTest('audio', 'audio-sampling-area', 'Sampling Area Controls', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Test sampling area position
+                    audioSystem.setSamplingCenter(0.3, 0.7);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    this.assert(Math.abs(audioSystem.samplingCenterX - 0.3) < 0.01, 'Sampling X position updated');
+                    this.assert(Math.abs(audioSystem.samplingCenterY - 0.7) < 0.01, 'Sampling Y position updated');
+                    
+                    // Test sampling radius
+                    audioSystem.setSamplingRadius(0.3);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    this.assert(Math.abs(audioSystem.samplingRadius - 0.3) < 0.01, 'Sampling radius updated');
+                    
+                    // Test max particles
+                    audioSystem.setMaxParticles(500);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    this.assert(audioSystem.maxParticlesInSampling === 500, 'Max particles updated');
+                    
+                    return {
+                        centerX: audioSystem.samplingCenterX,
+                        centerY: audioSystem.samplingCenterY,
+                        radius: audioSystem.samplingRadius,
+                        maxParticles: audioSystem.maxParticlesInSampling
+                    };
+                });
+                
+                this.addTest('audio', 'audio-species-controls', 'Species Audio Controls', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Test species synthesizer parameters
+                    const synth0 = audioSystem.getSynthesizer(0);
+                    this.assert(synth0 !== undefined, 'Species 0 synthesizer exists');
+                    
+                    // Test grain parameters
+                    synth0.setGrainSize(150);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    this.assert(synth0.grainSize === 150, 'Grain size updated');
+                    
+                    synth0.setGrainDensity(30);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    this.assert(synth0.grainDensity === 30, 'Grain density updated');
+                    
+                    // Test pitch controls
+                    synth0.setPitchOffset(5);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    this.assert(synth0.pitchOffset === 5, 'Pitch offset updated');
+                    
+                    // Test volume controls
+                    synth0.setVolume(-12);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    this.assert(synth0.volume === -12, 'Species volume updated');
+                    
+                    return {
+                        grainSize: synth0.grainSize,
+                        grainDensity: synth0.grainDensity,
+                        pitchOffset: synth0.pitchOffset,
+                        volume: synth0.volume
+                    };
+                });
+                
+                this.addTest('audio', 'audio-sample-loading', 'Sample Loading', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    const sampleManager = audioSystem.sampleManager;
+                    
+                    // Check if samples are available
+                    this.assert(sampleManager.availableSamples !== undefined, 'Available samples list exists');
+                    this.assert(sampleManager.availableSamples.length > 0, `${sampleManager.availableSamples.length} samples available`);
+                    
+                    // Test loading random sample for species 0
+                    await audioSystem.loadRandomSampleForSpecies(0);
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    const sample0 = sampleManager.getSampleForSpecies(0);
+                    this.assert(sample0 !== null, 'Sample loaded for species 0');
+                    this.assert(sample0.buffer !== undefined, 'Sample buffer exists');
+                    this.assert(sample0.name !== undefined, 'Sample name exists');
+                    
+                    // Test clearing sample
+                    sampleManager.clearSampleForSpecies(0);
+                    const clearedSample = sampleManager.getSampleForSpecies(0);
+                    this.assert(clearedSample === null || clearedSample === undefined, 'Sample cleared successfully');
+                    
+                    return {
+                        availableSamples: sampleManager.availableSamples.length,
+                        testSampleName: sample0 ? sample0.name : 'none'
+                    };
+                });
+                
+                this.addTest('audio', 'audio-performance-modes', 'Performance Modes', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Test different performance modes
+                    const modes = ['ultra', 'high', 'balanced', 'performance', 'emergency'];
+                    const originalMode = audioSystem.performanceMode || 'balanced';
+                    
+                    for (const mode of modes) {
+                        audioSystem.setPerformanceMode(mode);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        this.assert(audioSystem.performanceMode === mode, `Performance mode set to ${mode}`);
+                        
+                        // Check that mode affects grain scheduling
+                        const config = audioSystem.performanceConfigs[mode];
+                        this.assert(config !== undefined, `Config exists for ${mode} mode`);
+                    }
+                    
+                    // Restore original mode
+                    audioSystem.setPerformanceMode(originalMode);
+                    
+                    return {
+                        modesAvailable: modes,
+                        currentMode: audioSystem.performanceMode
+                    };
+                });
+                
+                this.addTest('audio', 'audio-ui-sync', 'Audio UI Synchronization', async () => {
+                    const ctx = await this.getAppContext();
+                    
+                    // Check if left panel exists
+                    this.assert(ctx.window.leftPanel !== undefined, 'Left panel exists');
+                    const leftPanel = ctx.window.leftPanel;
+                    
+                    // Check if audio controls are visible
+                    this.assert(leftPanel.isVisible !== undefined, 'Left panel visibility state exists');
+                    
+                    // Test toggle functionality
+                    const wasVisible = leftPanel.isVisible;
+                    leftPanel.toggle();
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    this.assert(leftPanel.isVisible === !wasVisible, 'Left panel toggle works');
+                    
+                    // Restore original state
+                    if (leftPanel.isVisible !== wasVisible) {
+                        leftPanel.toggle();
+                    }
+                    
+                    // Check species count sync
+                    const speciesCount = ctx.particleSystem.numSpecies;
+                    leftPanel.updateSpeciesCount(speciesCount);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    this.assert(leftPanel.activeSpeciesCount === speciesCount, 'Species count synced with particle system');
+                    
+                    return {
+                        leftPanelVisible: leftPanel.isVisible,
+                        speciesCount: leftPanel.activeSpeciesCount
+                    };
+                });
+                
+                this.addTest('audio', 'audio-granular-synthesis', 'Granular Synthesis Engine', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Get a synthesizer
+                    const synth = audioSystem.getSynthesizer(0);
+                    this.assert(synth !== undefined, 'Synthesizer exists');
+                    
+                    // Check grain scheduler
+                    this.assert(synth.grainScheduler !== undefined, 'Grain scheduler exists');
+                    this.assert(typeof synth.grainScheduler.scheduleGrain === 'function', 'Schedule grain method exists');
+                    
+                    // Check grain pool
+                    this.assert(synth.grainPool !== undefined, 'Grain pool exists');
+                    this.assert(Array.isArray(synth.grainPool), 'Grain pool is array');
+                    
+                    // Test grain envelope
+                    this.assert(synth.grainEnvelope !== undefined, 'Grain envelope exists');
+                    const validEnvelopes = ['gaussian', 'tukey', 'hann', 'triangle'];
+                    this.assert(validEnvelopes.includes(synth.grainEnvelope), `Valid envelope type: ${synth.grainEnvelope}`);
+                    
+                    // Test position randomization
+                    this.assert(typeof synth.positionRandomization === 'number', 'Position randomization is number');
+                    this.assert(synth.positionRandomization >= 0 && synth.positionRandomization <= 1, 'Position randomization in valid range');
+                    
+                    return {
+                        grainEnvelope: synth.grainEnvelope,
+                        grainPoolSize: synth.grainPool.length,
+                        positionRandomization: synth.positionRandomization
+                    };
+                });
             }
             
             addTest(category, id, name, testFn) {
@@ -1379,6 +1634,80 @@
             
             // Add the new tests to the test registry
             setupConsolidatedTests() {
+                // Continue with audio parameter validation tests
+                this.addTest('audio', 'audio-parameter-ranges', 'Audio Parameter Range Validation', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    const synth = audioSystem.getSynthesizer(0);
+                    
+                    // Test grain size range (10-500ms)
+                    synth.setGrainSize(10);
+                    this.assert(synth.grainSize === 10, 'Minimum grain size works');
+                    
+                    synth.setGrainSize(500);
+                    this.assert(synth.grainSize === 500, 'Maximum grain size works');
+                    
+                    // Test grain density range (1-100 grains/sec)
+                    synth.setGrainDensity(1);
+                    this.assert(synth.grainDensity === 1, 'Minimum grain density works');
+                    
+                    synth.setGrainDensity(100);
+                    this.assert(synth.grainDensity === 100, 'Maximum grain density works');
+                    
+                    // Test pitch offset range (-24 to +24 semitones)
+                    synth.setPitchOffset(-24);
+                    this.assert(synth.pitchOffset === -24, 'Minimum pitch offset works');
+                    
+                    synth.setPitchOffset(24);
+                    this.assert(synth.pitchOffset === 24, 'Maximum pitch offset works');
+                    
+                    // Test volume range (-60 to +6 dB)
+                    synth.setVolume(-60);
+                    this.assert(synth.volume === -60, 'Minimum volume works');
+                    
+                    synth.setVolume(6);
+                    this.assert(synth.volume === 6, 'Maximum volume works');
+                    
+                    return {
+                        grainSizeRange: '10-500ms',
+                        grainDensityRange: '1-100gr/s',
+                        pitchOffsetRange: '-24 to +24',
+                        volumeRange: '-60 to +6dB'
+                    };
+                });
+                
+                this.addTest('audio', 'audio-waveform-display', 'Waveform Visualization', async () => {
+                    const ctx = await this.getAppContext();
+                    const audioSystem = ctx.window.audioSystem;
+                    
+                    // Load a sample to test waveform display
+                    await audioSystem.loadRandomSampleForSpecies(0);
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Check if waveform canvas exists
+                    const canvas = ctx.document.getElementById('waveform-canvas-0');
+                    this.assert(canvas !== null, 'Waveform canvas exists for species 0');
+                    
+                    // Check if canvas has been drawn
+                    const context = canvas.getContext('2d');
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const hasContent = imageData.data.some(pixel => pixel !== 0);
+                    
+                    this.assert(hasContent, 'Waveform has been drawn');
+                    
+                    // Check placeholder is hidden
+                    const placeholder = ctx.document.getElementById('waveform-placeholder-0');
+                    if (placeholder) {
+                        this.assert(placeholder.style.display === 'none', 'Placeholder is hidden when waveform displayed');
+                    }
+                    
+                    return {
+                        canvasExists: true,
+                        waveformDrawn: hasContent
+                    };
+                });
+                
+
                 // Add tests from auto-test.html
                 this.addTest('system', 'species-count-change', 'Species Count Change', () => this.testSpeciesCountChange());
                 this.addTest('system', 'trail-rendering', 'Trail Rendering', () => this.testTrailRendering());
