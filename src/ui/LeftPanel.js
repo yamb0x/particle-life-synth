@@ -725,7 +725,7 @@ export class LeftPanel {
       for (let i = 0; i < newSpeciesCount; i++) {
         loadPromises.push(this.audioSystem.loadRandomSampleForSpecies(i));
       }
-      Promise.allSettled(loadPromises).then(() => {
+      Promise.all(loadPromises.map(p => p.catch(e => e))).then(() => {
         setTimeout(() => this.refreshAllSampleDisplays(), 300);
       });
     }
