@@ -71,11 +71,9 @@ async function init() {
     // Create particle system
     const particleSystem = new SimpleParticleSystem(aspectRatioManager.canvas.width, aspectRatioManager.canvas.height);
     particleSystem.setCanvas(canvas);
-    // Debug mode: Make particle system globally accessible for testing
-    if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
-        window.particleSystem = particleSystem;
-        window.aspectRatioManager = aspectRatioManager;
-    }
+    // Make particle system globally accessible for species synchronization
+    window.particleSystem = particleSystem;
+    window.aspectRatioManager = aspectRatioManager;
     
     // Sync initial state
     uiStateManager.syncFromParticleSystem(particleSystem);
@@ -163,10 +161,8 @@ async function init() {
     
     // Create main UI with new design system
     const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene, presetModal, aspectRatioManager);
-    // Debug mode: Make main UI globally accessible
-    if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
-        window.mainUI = mainUI;
-    }
+    // Make main UI globally accessible for keyboard shortcuts
+    window.mainUI = mainUI;
     
     // Initialize collapsible UI integration
     const collapsibleUI = new CollapsibleUIIntegration(mainUI);
@@ -191,11 +187,9 @@ async function init() {
         leftPanel.show();
     }, 100);
     
-    // Debug mode: Make audio system and left panel globally accessible
-    if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
-        window.audioSystem = audioSystem;
-        window.leftPanel = leftPanel;
-    }
+    // Make audio system and left panel globally accessible for keyboard shortcuts and species sync
+    window.audioSystem = audioSystem;
+    window.leftPanel = leftPanel;
     
     // Function to initialize audio after user interaction
     const initializeAudio = async () => {
