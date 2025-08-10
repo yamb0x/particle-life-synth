@@ -1331,9 +1331,6 @@ export class PresetModal {
     // Update effects from modal UI
     this.updateEffectsFromUI(preset);
     
-    // Update synth assignments from main UI
-    this.updateSynthAssignmentsFromUI(preset);
-    
     return preset;
   }
   
@@ -1410,14 +1407,6 @@ export class PresetModal {
         intensities: [...this.particleSystem.speciesGlowIntensity.slice(0, this.particleSystem.numSpecies)]
       };
       preset.effects.speciesGlowEnabled = preset.effects.speciesGlowArrays.intensities.some(i => i > 0);
-    }
-  }
-  
-  updateSynthAssignmentsFromUI(preset) {
-    // Get synth assignments from main UI
-    const mainUI = window.mainUI;
-    if (mainUI && mainUI.synthAssignments) {
-      preset.synthAssignments = { ...mainUI.synthAssignments };
     }
   }
 

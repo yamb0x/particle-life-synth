@@ -1,6 +1,5 @@
 import { XYGraph } from './XYGraph.js';
 import { DistributionDrawer } from './DistributionDrawer.js';
-import { PARAMETER_MAP, generateDefaultSynthAssignments } from '../utils/ParameterMapping.js';
 import { DOMHelpers } from '../utils/DOMHelpers.js';
 
 export class MainUI {
@@ -16,7 +15,6 @@ export class MainUI {
         this.distributionDrawer = null;
         this.copiedSettings = null;
         this.currentEditingPreset = null;
-        this.synthAssignments = generateDefaultSynthAssignments();
         this.forceDistribution = 0.5; // 0 = uniform, 1 = edges
         this.selectedSpeciesForSize = 0; // Track selected species for size control
         this.patternParameterStates = {}; // Store parameter values for each pattern
@@ -32,9 +30,6 @@ export class MainUI {
         
         this.init();
         this.setupKeyboardShortcuts();
-        
-        // Load synth assignments after initialization
-        this.loadSynthAssignments(this.synthAssignments);
     }
     
     
@@ -1429,25 +1424,8 @@ export class MainUI {
             
             switch(e.key.toLowerCase()) {
                 case 'c':
-                    // Toggle both controls and audio panel together
+                    // Toggle controls
                     this.toggleVisibility();
-                    
-                    // Always try to initialize audio if not done yet
-                    if (window.initializeAudio && !window.isAudioInitialized()) {
-                        window.initializeAudio().then(() => {
-                            console.log('Audio initialized via C key');
-                        });
-                    }
-                    
-                    // Also toggle audio panel (left panel) - sync with right panel visibility
-                    if (window.leftPanel) {
-                        // After toggleVisibility(), this.isVisible has been updated
-                        if (this.isVisible) {
-                            window.leftPanel.show();
-                        } else {
-                            window.leftPanel.hide();
-                        }
-                    }
                     e.preventDefault();
                     break;
                 case 'r':
@@ -1462,20 +1440,6 @@ export class MainUI {
                     break;
                 case 'm':
                     this.toggleMute();
-                    e.preventDefault();
-                    break;
-                case '[':
-                    // Decrease sampling radius
-                    if (window.audioSystem && window.audioSystem.samplingArea) {
-                        window.audioSystem.samplingArea.adjustRadius(-0.02); // Small decrement
-                    }
-                    e.preventDefault();
-                    break;
-                case ']':
-                    // Increase sampling radius
-                    if (window.audioSystem && window.audioSystem.samplingArea) {
-                        window.audioSystem.samplingArea.adjustRadius(0.02); // Small increment
-                    }
                     e.preventDefault();
                     break;
             }
@@ -1502,11 +1466,6 @@ export class MainUI {
     
     toggleMute() {
         const isMuted = this.particleSystem.toggleMute();
-        
-        // Also toggle audio system mute if available
-        if (window.audioSystem && window.audioSystem.isInitialized) {
-            window.audioSystem.toggleMute();
-        }
         
         // Visual feedback - show mute state in console for debugging
         console.log(`System ${isMuted ? 'MUTED' : 'UNMUTED'} - Audio also ${isMuted ? 'MUTED' : 'UNMUTED'}`);
@@ -2591,38 +2550,6 @@ export class MainUI {
         };
     }
     
-    saveSynthAssignments() {
-        const assignments = {};
-        document.querySelectorAll('.synth-field').forEach(field => {
-            const parameter = field.dataset.parameter;
-            const assignment = field.value.trim();
-            if (parameter && assignment) {
-                assignments[parameter] = assignment;
-            }
-        });
-        // Log assignments for debugging
-        if (Object.keys(assignments).length > 0) {
-            // Synth assignments saved
-        }
-        return assignments;
-    }
-    
-    loadSynthAssignments(assignments) {
-        if (!assignments || typeof assignments !== 'object') {
-            // No synth assignments to load
-            return;
-        }
-        
-        Object.entries(assignments).forEach(([parameter, assignment]) => {
-            const field = document.querySelector(`[data-parameter="${parameter}"]`);
-            if (field) {
-                field.value = assignment;
-                // Trigger input event to ensure any handlers are called
-                field.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            // Don't warn for missing fields as some parameters don't have synth assignments
-        });
-    }
     
     setupDistributionCanvasSize(canvas) {
         // Calculate aspect ratio from simulation canvas
@@ -2835,11 +2762,6 @@ export class MainUI {
         this.updateSpeciesSelectors(this.particleSystem.numSpecies);
         this.updateSpeciesButtons(this.particleSystem.numSpecies);
         this.updateDistributionSpeciesSelector(this.particleSystem.numSpecies);
-        
-        // Update left panel species headers if it exists
-        if (window.leftPanel && window.leftPanel.updateSpeciesHeaders) {
-            window.leftPanel.updateSpeciesHeaders();
-        }
     }
 
     getColorName(hexColor) {
@@ -3084,15 +3006,6 @@ export class MainUI {
                     this.updateSpeciesColors(value);
                     this.updateGraph();
                     this.updateTotalParticles();
-                    
-                    // Update left panel species count if audio is enabled
-                    if (window.leftPanel && window.leftPanel.updateSpeciesCount) {
-                        window.leftPanel.updateSpeciesCount(value);
-                        // Also update species headers with new names/colors
-                        if (window.leftPanel.updateSpeciesHeaders) {
-                            window.leftPanel.updateSpeciesHeaders();
-                        }
-                    }
                     
                     // Resize distribution canvas to match current simulation dimensions
                     if (this.distributionDrawer) {

@@ -8,9 +8,6 @@ import { DOMHelpers } from './utils/DOMHelpers.js';
 import { CloudSyncUI } from './ui/CloudSyncUI.js';
 import { Logger } from './utils/Logger.js';
 import { AspectRatioManager } from './utils/AspectRatioManager.js';
-import { getAudioSystem } from './audio/AudioSystem.js';
-import { LeftPanel } from './ui/LeftPanel.js';
-import { PerformanceMonitor } from './ui/PerformanceMonitor.js';
 import { EnvironmentManager } from './utils/EnvironmentManager.js';
 
 // Initialize the simple particle life system
@@ -174,178 +171,6 @@ async function init() {
         window.collapsibleUI = collapsibleUI;
     }
     
-    // Initialize audio system and left panel with improved initialization
-    const audioSystem = getAudioSystem();
-    let audioInitialized = false;
-    let leftPanel = null;
-    
-    // Create and initialize left panel immediately (before audio is enabled)
-    leftPanel = new LeftPanel(audioSystem, particleSystem);
-    leftPanel.initialize();
-    
-    // Ensure it's visible
-    setTimeout(() => {
-        leftPanel.show();
-    }, 100);
-    
-    // Make audio system and left panel globally accessible for keyboard shortcuts and species sync
-    window.audioSystem = audioSystem;
-    window.leftPanel = leftPanel;
-    
-    // Function to initialize audio after user interaction
-    const initializeAudio = async () => {
-        if (audioInitialized) {
-            // Audio already initialized
-            return true;
-        }
-        
-        // Attempting to initialize audio system
-        
-        try {
-            await audioSystem.initialize(aspectRatioManager.canvas.width, aspectRatioManager.canvas.height);
-            
-            // Ensure audio context is resumed (handles Chrome autoplay policy)
-            if (audioSystem.audioEngine && audioSystem.audioEngine.audioContext) {
-                const state = audioSystem.audioEngine.audioContext.state;
-                // Check audio context state
-                
-                if (state === 'suspended') {
-                    // Attempting to resume suspended AudioContext
-                    const resumed = await audioSystem.audioEngine.resume();
-                    if (resumed) {
-                        // Audio context resumed successfully
-                    } else {
-                        // Audio context still suspended - will resume on interaction
-                    }
-                }
-                
-                // Final state check
-                const finalState = audioSystem.audioEngine.audioContext.state;
-                // Audio context state checked
-            }
-            
-            Logger.info('Audio system initialized successfully');
-            audioInitialized = true;
-            
-            // Update UI to reflect audio state
-            if (leftPanel) {
-                leftPanel.updateAudioState(true);
-            }
-            
-            return true;
-        } catch (error) {
-            Logger.error('Failed to initialize audio system:', error);
-            console.error('Audio initialization error details:', error);
-            return false;
-        }
-    };
-    
-    // Make initializeAudio globally available for keyboard shortcut
-    window.initializeAudio = initializeAudio;
-    window.isAudioInitialized = () => audioInitialized;
-    
-    // Multi-layered approach to audio initialization
-    
-    // 1. Try to initialize on any user interaction with the document (more aggressive)
-    let initializationInProgress = false;
-    const initOnInteraction = async (e) => {
-        // Prevent multiple simultaneous initialization attempts
-        if (initializationInProgress) {
-            return;
-        }
-        
-        console.log('User interaction detected:', e.type);
-        
-        // Always try to initialize or resume audio
-        if (!audioInitialized) {
-            initializationInProgress = true;
-            const success = await initializeAudio();
-            initializationInProgress = false;
-            
-            if (success) {
-                // Remove listeners only if audio is fully running
-                if (audioSystem.audioEngine.audioContext.state === 'running') {
-                    document.removeEventListener('click', initOnInteraction);
-                    document.removeEventListener('touchstart', initOnInteraction);
-                    document.removeEventListener('keydown', initOnInteraction);
-                    canvas.removeEventListener('click', initOnInteraction);
-                    canvas.removeEventListener('touchstart', initOnInteraction);
-                    // Audio fully active - removing initialization listeners
-                } else {
-                    // Audio initialized but suspended - keeping listeners
-                }
-            }
-        } else if (audioSystem && audioSystem.audioEngine && audioSystem.audioEngine.audioContext) {
-            // If already initialized but suspended, try to resume
-            if (audioSystem.audioEngine.audioContext.state === 'suspended') {
-                // Audio suspended - attempting to resume
-                const resumed = await audioSystem.audioEngine.resume();
-                if (resumed) {
-                    // Audio resumed from suspended state
-                    // Now remove listeners since audio is running
-                    document.removeEventListener('click', initOnInteraction);
-                    document.removeEventListener('touchstart', initOnInteraction);
-                    document.removeEventListener('keydown', initOnInteraction);
-                    canvas.removeEventListener('click', initOnInteraction);
-                    canvas.removeEventListener('touchstart', initOnInteraction);
-                }
-            }
-        }
-    };
-    
-    // 2. Listen on document level (catches more interactions)
-    document.addEventListener('click', initOnInteraction, { once: false });
-    document.addEventListener('touchstart', initOnInteraction, { once: false });
-    document.addEventListener('keydown', initOnInteraction, { once: false });
-    
-    // 3. Also keep canvas-specific listeners as backup
-    canvas.addEventListener('click', initOnInteraction, { once: false });
-    canvas.addEventListener('touchstart', initOnInteraction, { once: false });
-    
-    // Add mouse event handlers for sampling area drag functionality
-    let isDraggingSamplingArea = false;
-    
-    canvas.addEventListener('mousedown', (e) => {
-        if (audioSystem && audioSystem.isInitialized && audioSystem.samplingArea) {
-            isDraggingSamplingArea = audioSystem.samplingArea.handleMouseDown(e, canvas);
-            if (isDraggingSamplingArea) {
-                canvas.style.cursor = 'move';
-                e.preventDefault();
-            }
-        }
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-        if (isDraggingSamplingArea && audioSystem && audioSystem.samplingArea) {
-            audioSystem.samplingArea.handleMouseMove(e, canvas);
-            e.preventDefault();
-        }
-    });
-    
-    canvas.addEventListener('mouseup', (e) => {
-        if (isDraggingSamplingArea && audioSystem && audioSystem.samplingArea) {
-            audioSystem.samplingArea.handleMouseUp();
-            canvas.style.cursor = 'default';
-            isDraggingSamplingArea = false;
-        }
-    });
-    
-    // Handle mouse leave to stop dragging if mouse leaves canvas
-    canvas.addEventListener('mouseleave', (e) => {
-        if (isDraggingSamplingArea && audioSystem && audioSystem.samplingArea) {
-            audioSystem.samplingArea.handleMouseUp();
-            canvas.style.cursor = 'default';
-            isDraggingSamplingArea = false;
-        }
-    });
-    
-    // 4. Don't auto-initialize - Chrome's autoplay policy requires user gesture
-    // Just log a message to inform the user
-    setTimeout(() => {
-        if (!audioInitialized) {
-            // Audio system ready - waiting for user interaction
-        }
-    }, 500);
     
     // Automatically enable cloud sync
     setTimeout(async () => {
@@ -415,11 +240,10 @@ async function init() {
         // Create shortcuts section
         const shortcutsSection = document.createElement('div');
         shortcutsSection.innerHTML = `
-            C - Toggle controls & audio<br>
+            C - Toggle controls<br>
             V - Randomize values<br>
             R - Randomize forces<br>
-            M - Mute/freeze & audio<br>
-            [ ] - Sampling circle size<br>
+            M - Mute/freeze<br>
             Shift + - Next preset<br>
             Shift - - Previous preset
         `;
@@ -491,18 +315,6 @@ async function init() {
         
         particleSystem.update(deltaTime);
         
-        // Update audio system with particle data
-        if (audioSystem && audioSystem.isInitialized) {
-            audioSystem.updateParticles(particleSystem.particles);
-            
-            // Draw sampling area overlay on canvas
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.save();
-                audioSystem.drawOverlay(ctx);
-                ctx.restore();
-            }
-        }
         
         requestAnimationFrame(animate);
     }

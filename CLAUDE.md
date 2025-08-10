@@ -165,7 +165,7 @@ For ANY changes affecting UI, keyboard shortcuts, global variables, or core func
 2. **Test both environments** - Check the same functionality works on both URLs:
    - Localhost: `http://localhost:8000`
    - Deployment: `https://particle-life-synth-henna.vercel.app/`
-3. **Run environment test** - Visit `/environment-test.html` on deployment and verify all ✅
+3. **Run environment test** - Visit `/tests/environment-test.html` on deployment and verify all ✅
 4. **Confirm with user** - Ask user to test before marking complete
 
 #### Red Flags to Always Avoid:
@@ -195,14 +195,14 @@ When deploying changes, always include in commit messages:
 2. **ALWAYS** assign global variables unconditionally if they're needed for UI features, keyboard shortcuts, or core functionality
 3. **USE** `EnvironmentManager.isDebugMode()` instead of hostname checks for environment detection
 4. **TEST** both localhost and deployment URLs before marking any task complete
-5. **RUN** `/environment-test.html` on both environments to verify parity
+5. **RUN** `/tests/environment-test.html` on both environments to verify parity
 
 ### Pre-Deployment Checklist
 Before pushing any changes that affect UI functionality:
 - [ ] Check if any new global variable assignments are conditional
 - [ ] Verify keyboard shortcuts work on both localhost and deployment  
 - [ ] Test species synchronization features on both environments
-- [ ] Run `/environment-test.html` and ensure all tests pass ✅
+- [ ] Run `/tests/environment-test.html` and ensure all tests pass ✅
 - [ ] Check browser console for JavaScript errors on deployment
 - [ ] Verify all interactive features work identically
 
@@ -245,7 +245,7 @@ Any code that modifies these areas MUST be tested on both environments:
 
 ### Quick Debug Commands
 When deployment issues occur, use these diagnostic steps:
-1. **Check environment**: Open `/environment-test.html` on deployed site
+1. **Check environment**: Open `/tests/environment-test.html` on deployed site
 2. **Console debugging**: Look for "MainUI exists: false" or similar errors
 3. **Compare environments**: Run same test on localhost vs. deployment
 4. **Enable debug mode**: Add `?debug=true` to deployment URL for extra logging
@@ -269,12 +269,12 @@ grep -r "hostname.*localhost" src/ || echo "✅ No hostname checks found"
 grep -r "window\." src/ | grep -i "localhost\|hostname" || echo "✅ No conditional globals found"
 
 # Quick deployment test (run after pushing)
-curl -s https://particle-life-synth-henna.vercel.app/environment-test.html | grep -o "MainUI exists: [a-z]*" 
+curl -s https://particle-life-synth-henna.vercel.app/tests/environment-test.html | grep -o "MainUI exists: [a-z]*" 
 ```
 
 ### Success Indicators
 When everything is working correctly, you should see:
-- ✅ All tests pass in `/environment-test.html`  
+- ✅ All tests pass in `/tests/environment-test.html`  
 - ✅ `MainUI exists: true` in deployment console
 - ✅ `LeftPanel exists: true` in deployment console
 - ✅ C key toggles panels on both localhost and deployment
