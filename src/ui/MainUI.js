@@ -5976,4 +5976,13 @@ export class MainUI {
         // Parameter updated
     }
     
+    // Called when a preset is loaded to refresh modulation display
+    onPresetChanged() {
+        // Refresh modulation references after species changes
+        if (this.modulationManager) {
+            this.modulationManager.refreshParameterReferences();
+            this.updateModulationList();
+        }
+    }
+    
 }

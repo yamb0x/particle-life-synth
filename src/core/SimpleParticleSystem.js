@@ -2972,12 +2972,25 @@ export class SimpleParticleSystem {
             }
         }
         
+        // Load modulation configuration if available
+        if (preset.modulations && window.mainUI && window.mainUI.modulationManager) {
+            try {
+                window.mainUI.modulationManager.importConfig(preset.modulations);
+                console.log(`Imported ${preset.modulations.length} modulations from preset`);
+            } catch (error) {
+                console.warn('Could not load modulation settings:', error);
+            }
+        }
+        
         // Reinitialize particles with new configuration
         this.initializeParticlesWithPositions();
         
         // Notify UI components that preset has changed
         if (window.leftPanel && typeof window.leftPanel.onPresetChanged === 'function') {
             window.leftPanel.onPresetChanged();
+        }
+        if (window.mainUI && typeof window.mainUI.onPresetChanged === 'function') {
+            window.mainUI.onPresetChanged();
         }
     }
     
@@ -3231,6 +3244,18 @@ export class SimpleParticleSystem {
             } catch (error) {
                 // If audio system fails, just skip it
                 console.warn('Could not export audio settings:', error);
+            }
+        }
+        
+        // Include modulations if modulation manager is available
+        if (window.mainUI && window.mainUI.modulationManager) {
+            try {
+                const modulationConfig = window.mainUI.modulationManager.exportConfig();
+                if (modulationConfig && modulationConfig.length > 0) {
+                    preset.modulations = modulationConfig;
+                }
+            } catch (error) {
+                console.warn('Could not export modulation settings:', error);
             }
         }
         
