@@ -313,6 +313,11 @@ async function init() {
             updateOverlayPerformanceData();
         }
         
+        // Update modulations if they exist
+        if (window.mainUI && window.mainUI.modulationManager) {
+            window.mainUI.modulationManager.update();
+        }
+        
         particleSystem.update(deltaTime);
         
         

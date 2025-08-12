@@ -106,13 +106,10 @@ export class SimpleParticleSystem {
         this.collisionMultiplier = 1.0;   // Global multiplier for collision strength (0.5-5.0)
         this.collisionOffset = 0.0;       // Extra spacing between particles (0-10)
         
-        // Breath feature - sinusoidal collision offset modulation
-        this.breathEnabled = false;       // Enable breath behavior
-        this.breathMin = 0.0;            // Minimum collision offset during breath cycle
-        this.breathMax = 5.0;            // Maximum collision offset during breath cycle
-        this.breathTime = 5.0;           // Time in seconds for complete breath cycle
-        this.breathStartTime = 0;        // Start time for breath animation
-        this.cachedBreathOffset = 0.0;   // Cached offset value to avoid repeated calculations
+        // Force scale - global multiplier for social forces
+        this.forceScale = 1.0;  // Global force multiplier (0.0-5.0)
+        
+        // Breath feature removed - use modulation system for oscillating effects
         
         // Advanced physics for organic behaviors
         this.enableDensityForces = false; // Density-dependent force modulation
@@ -120,13 +117,21 @@ export class SimpleParticleSystem {
         this.chaosLevel = 0.0; // Legacy chaos - kept for backwards compatibility
         this.environmentalPressure = 0.0; // Global center attraction/repulsion (-1 to 1)
         
-        // Advanced noise system
-        this.noiseGenerator = new NoiseGenerator();
+        // Advanced noise system with persistent seed
+        const savedSeed = localStorage.getItem('noiseSeed');
+        const seed = savedSeed ? parseInt(savedSeed) : null;
+        this.noiseGenerator = new NoiseGenerator(seed);
+        if (!savedSeed) {
+            // Save the generated seed for persistence
+            localStorage.setItem('noiseSeed', this.noiseGenerator.seed.toString());
+        }
         this.noiseEnabled = false;
         this.noisePattern = 'perlin';
         this.noiseAmplitude = 0.0;
         this.noiseScale = 1.0;
-        this.noiseTimeScale = 1.0
+        this.noiseTimeScale = 1.0;
+        this.noiseVectorEnabled = false;
+        this.noiseVectorScale = 1.0
         
         // Species settings
         this.numSpecies = 5;
@@ -180,6 +185,7 @@ export class SimpleParticleSystem {
         // Cached gradients for performance
         this.gradientCache = new Map();
         this.haloGradientCache = new Map();
+        this.glowGradientCache = new Map();
         
         // Object pools for memory optimization
         this.tempArrayPool = [];
@@ -227,22 +233,7 @@ export class SimpleParticleSystem {
     }
     
     getCurrentCollisionOffset() {
-        return this.breathEnabled ? this.cachedBreathOffset : this.collisionOffset;
-    }
-    
-    updateBreathOffset() {
-        if (!this.breathEnabled) {
-            this.cachedBreathOffset = this.collisionOffset;
-            return;
-        }
-        
-        const currentTime = this.time / 60; // Convert to seconds
-        const cyclePosition = (currentTime - this.breathStartTime) / this.breathTime;
-        const breathPhase = cyclePosition * Math.PI * 2;
-        
-        // Sinusoidal interpolation between min and max
-        const breathValue = (Math.sin(breathPhase) + 1) / 2; // 0 to 1
-        this.cachedBreathOffset = this.breathMin + (this.breathMax - this.breathMin) * breathValue;
+        return this.collisionOffset;
     }
     
     getPerformanceMetrics() {
@@ -615,6 +606,83 @@ export class SimpleParticleSystem {
         }
         this.gradientCache.clear();
         this.haloGradientCache.clear();
+    }
+    
+    // Species size methods
+    getSpeciesSize(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return this.particleSize;
+        return this.species[speciesId]?.size || this.particleSize;
+    }
+    
+    setSpeciesSize(speciesId, size) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return false;
+        if (!this.species[speciesId]) return false;
+        
+        this.species[speciesId].size = Math.max(0.5, Math.min(30.0, size));
+        
+        // Clear gradient caches to force re-render with new size
+        this.gradientCache.clear();
+        this.haloGradientCache.clear();
+        
+        return true;
+    }
+    
+    // Species halo intensity and radius getter/setter methods for modulation
+    getSpeciesHaloIntensity(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return 0;
+        this.ensureHaloArraysSize();
+        return this.speciesHaloIntensity[speciesId] || 0;
+    }
+    
+    setSpeciesHaloIntensity(speciesId, intensity) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return false;
+        this.ensureHaloArraysSize();
+        this.speciesHaloIntensity[speciesId] = Math.max(0, Math.min(0.2, intensity));
+        this.haloGradientCache.clear();
+        return true;
+    }
+    
+    getSpeciesHaloRadius(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return 1.0;
+        this.ensureHaloArraysSize();
+        return this.speciesHaloRadius[speciesId] || 1.0;
+    }
+    
+    setSpeciesHaloRadius(speciesId, radius) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return false;
+        this.ensureHaloArraysSize();
+        this.speciesHaloRadius[speciesId] = Math.max(0.5, Math.min(5.0, radius));
+        this.haloGradientCache.clear();
+        return true;
+    }
+    
+    // Species glow intensity and size getter/setter methods for modulation
+    getSpeciesGlowIntensity(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return 0;
+        this.ensureGlowArraysSize();
+        return this.speciesGlowIntensity[speciesId] || 0;
+    }
+    
+    setSpeciesGlowIntensity(speciesId, intensity) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return false;
+        this.ensureGlowArraysSize();
+        this.speciesGlowIntensity[speciesId] = Math.max(0, Math.min(1.0, intensity));
+        this.glowGradientCache.clear();
+        return true;
+    }
+    
+    getSpeciesGlowSize(speciesId) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return 0;
+        this.ensureGlowArraysSize();
+        return this.speciesGlowSize[speciesId] || 0;
+    }
+    
+    setSpeciesGlowSize(speciesId, size) {
+        if (speciesId < 0 || speciesId >= this.numSpecies) return false;
+        this.ensureGlowArraysSize();
+        this.speciesGlowSize[speciesId] = Math.max(0, Math.min(50, size));
+        this.glowGradientCache.clear();
+        return true;
     }
     
     // Per-species trail management API
@@ -1869,8 +1937,12 @@ export class SimpleParticleSystem {
         
         this.time += dt;
         
-        // Update breath offset if enabled
-        this.updateBreathOffset();
+        // Update noise generator time once per frame (not per particle)
+        // Update time if noise is enabled OR if amplitude > 0 (for animation to work)
+        if (this.noiseGenerator && (this.noiseEnabled || this.noiseGenerator.globalAmplitude > 0)) {
+            this.noiseGenerator.updateTime();
+        }
+        
         
         // Update shockwaves
         this.updateShockwaves(dt);
@@ -2059,11 +2131,6 @@ export class SimpleParticleSystem {
                                 F = baseForce * 0.1 * temporalMod / dist;
                             }
                             
-                            // Add temporal breathing effect for more organic behavior
-                            const breathingPhase = this.time * 0.001 + s1 * 0.5;
-                            const breathingMod = 0.9 + 0.1 * Math.sin(breathingPhase);
-                            F *= breathingMod;
-                            
                         } else if (baseForce < 0) {
                             // Repulsive force with distance zones and temporal modulation
                             const strongRepulsionZone = socialR * 0.3;
@@ -2121,6 +2188,21 @@ export class SimpleParticleSystem {
                 fy += (Math.random() - 0.5) * this.chaosLevel * 2;
             }
             
+            // Apply noise-based forces for organic movement patterns
+            if (this.noiseEnabled && this.noiseGenerator.globalAmplitude > 0) {
+                // Get normalized position for noise sampling (0-1 range)
+                const nx = (p1.x + this.halfWidth) / this.width;
+                const ny = (p1.y + this.halfHeight) / this.height;
+                
+                // Get noise values with particle index for consistent patterns
+                const noiseForce = this.noiseGenerator.getNoise(nx, ny, i);
+                
+                // Apply noise forces with strength scaling
+                const noiseStrength = 50.0; // Base strength for noise forces
+                fx += noiseForce.x * noiseStrength;
+                fy += noiseForce.y * noiseStrength;
+            }
+            
             // Safety check for NaN forces
             if (isNaN(fx) || isNaN(fy)) {
                 fx = 0;
@@ -2130,8 +2212,8 @@ export class SimpleParticleSystem {
             // Apply forces with per-species mobility and NaN protection
             const species = this.species[p1.species];
             const mobility = species?.mobility || 1.0;
-            const forceX = fx * this.forceFactor * mobility;
-            const forceY = fy * this.forceFactor * mobility;
+            const forceX = fx * this.forceFactor * mobility * this.forceScale;
+            const forceY = fy * this.forceFactor * mobility * this.forceScale;
             
             if (!isNaN(forceX) && !isNaN(forceY)) {
                 p1.vx += forceX;
@@ -2268,6 +2350,9 @@ export class SimpleParticleSystem {
         // Render particles
         this.render();
         
+        // Render noise vector field if enabled
+        this.renderNoiseVectorField();
+        
         // Performance monitoring
         this.frameCount++;
         const frameTime = performance.now() - startTime;
@@ -2375,6 +2460,75 @@ export class SimpleParticleSystem {
         
         // Render particles in their current positions
         this.render();
+    }
+    
+    renderNoiseVectorField() {
+        if (!this.noiseVectorEnabled || !this.noiseGenerator || this.noiseGenerator.globalAmplitude <= 0) {
+            return;
+        }
+        
+        const ctx = this.ctx;
+        const spacing = 25; // Tighter grid for better visibility
+        const arrowSize = 15 * (this.noiseVectorScale || 1.0); // Larger base size
+        
+        ctx.save();
+        
+        // Draw vector field grid
+        for (let y = spacing; y < this.height; y += spacing) {
+            for (let x = spacing; x < this.width; x += spacing) {
+                // Get normalized position
+                const nx = x / this.width;
+                const ny = y / this.height;
+                
+                // Get noise at this position
+                const noise = this.noiseGenerator.getNoise(nx, ny);
+                
+                // Amplify Y component for better visibility
+                const amplifiedNoise = {
+                    x: noise.x,
+                    y: noise.y * 1.5 // Amplify Y for clearer arrows
+                };
+                
+                const magnitude = Math.sqrt(amplifiedNoise.x * amplifiedNoise.x + amplifiedNoise.y * amplifiedNoise.y);
+                
+                if (magnitude > 0.01) { // Only draw if there's significant force
+                    ctx.save();
+                    ctx.translate(x, y);
+                    
+                    const angle = Math.atan2(amplifiedNoise.y, amplifiedNoise.x);
+                    ctx.rotate(angle);
+                    
+                    // Animated color based on time and position
+                    const timeOffset = this.noiseGenerator.time * 50;
+                    const hue = (timeOffset + x * 0.5 + y * 0.5) % 360;
+                    const alpha = 0.3 + Math.min(magnitude * 0.6, 0.6);
+                    
+                    ctx.strokeStyle = `hsla(${hue}, 70%, 50%, ${alpha})`;
+                    ctx.fillStyle = `hsla(${hue}, 70%, 60%, ${alpha})`;
+                    ctx.lineWidth = 1.5;
+                    
+                    const arrowLength = arrowSize * Math.min(magnitude, 1.5);
+                    
+                    // Draw arrow line
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(arrowLength, 0);
+                    ctx.stroke();
+                    
+                    // Draw larger arrow head
+                    ctx.beginPath();
+                    ctx.moveTo(arrowLength, 0);
+                    ctx.lineTo(arrowLength - 6, -3);
+                    ctx.lineTo(arrowLength - 6, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.restore();
+                }
+            }
+        }
+        
+        ctx.restore();
     }
     
     render() {
@@ -2754,6 +2908,44 @@ export class SimpleParticleSystem {
             this.glowRadius = preset.glowRadius !== undefined ? preset.glowRadius : 2.0;
         }
         
+        // Load NOISE Section
+        if (preset.noise) {
+            this.noiseEnabled = preset.noise.enabled || false;
+            this.noisePattern = preset.noise.pattern || 'perlin';
+            this.noiseVectorEnabled = preset.noise.vectorEnabled || false;
+            this.noiseVectorScale = preset.noise.vectorScale || 1.0;
+            
+            // Load seed if provided, otherwise keep existing seed
+            if (preset.noise.seed !== undefined) {
+                this.noiseGenerator.setSeed(preset.noise.seed);
+                localStorage.setItem('noiseSeed', preset.noise.seed.toString());
+            }
+            
+            if (preset.noise.globalAmplitude !== undefined) {
+                this.noiseGenerator.setGlobalAmplitude(preset.noise.globalAmplitude);
+            }
+            if (preset.noise.globalScale !== undefined) {
+                this.noiseGenerator.setGlobalScale(preset.noise.globalScale);
+            }
+            if (preset.noise.globalTimeScale !== undefined) {
+                this.noiseGenerator.setGlobalTimeScale(preset.noise.globalTimeScale);
+            }
+            if (preset.noise.contrast !== undefined) {
+                this.noiseGenerator.setContrast(preset.noise.contrast);
+            }
+            if (preset.noise.globalOctaves !== undefined) {
+                this.noiseGenerator.setGlobalOctaves(preset.noise.globalOctaves);
+            }
+            if (preset.noise.timeIncrement !== undefined) {
+                this.noiseGenerator.setTimeIncrement(preset.noise.timeIncrement);
+            }
+            this.noiseGenerator.setPattern(this.noisePattern);
+        } else {
+            // Default noise settings
+            this.noiseEnabled = false;
+            this.noiseGenerator.setGlobalAmplitude(0);
+        }
+        
         // Load FORCES Section
         this.collisionForce = preset.forces.collision;
         this.socialForce = preset.forces.social;
@@ -3012,6 +3204,9 @@ export class SimpleParticleSystem {
                 }
             },
             
+            // NOISE Section
+            noise: this.getNoiseConfig(),
+            
             // FORCES Section
             forces: {
                 collision: this.collisionForce,
@@ -3196,6 +3391,42 @@ export class SimpleParticleSystem {
     
     isMuted() {
         return this.muted;
+    }
+    
+    // Noise control methods
+    setNoiseEnabled(enabled) {
+        this.noiseEnabled = enabled;
+    }
+    
+    setNoisePattern(pattern) {
+        this.noiseGenerator.setPattern(pattern);
+        this.noisePattern = pattern;
+    }
+    
+    setNoiseAmplitude(amplitude) {
+        this.noiseGenerator.setGlobalAmplitude(amplitude);
+    }
+    
+    setNoiseScale(scale) {
+        this.noiseGenerator.setGlobalScale(scale);
+    }
+    
+    setNoiseTimeScale(timeScale) {
+        this.noiseGenerator.setGlobalTimeScale(timeScale);
+    }
+    
+    setNoiseContrast(contrast) {
+        this.noiseGenerator.setContrast(contrast);
+    }
+    
+    getNoiseConfig() {
+        return {
+            enabled: this.noiseEnabled,
+            pattern: this.noisePattern,
+            vectorEnabled: this.noiseVectorEnabled,
+            vectorScale: this.noiseVectorScale,
+            ...this.noiseGenerator.getConfig()
+        };
     }
     
 }

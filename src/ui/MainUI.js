@@ -1,6 +1,7 @@
 import { XYGraph } from './XYGraph.js';
 import { DistributionDrawer } from './DistributionDrawer.js';
 import { DOMHelpers } from '../utils/DOMHelpers.js';
+import { ModulationManager } from '../utils/ModulationManager.js';
 
 export class MainUI {
     constructor(particleSystem, presetManager, autoSaveCallback = null, presetModal = null, aspectRatioManager = null) {
@@ -19,6 +20,7 @@ export class MainUI {
         this.selectedSpeciesForSize = 0; // Track selected species for size control
         this.patternParameterStates = {}; // Store parameter values for each pattern
         this.cachedPresetOrder = []; // Cache preset order for stable navigation
+        this.modulationManager = new ModulationManager(particleSystem);
         
         // Ensure new wall properties are initialized
         if (this.particleSystem.repulsiveForce === undefined) {
@@ -44,7 +46,6 @@ export class MainUI {
             // Physics controls
             'force-strength', 'force-strength-value', 'friction', 'friction-value',
             'collision-strength', 'collision-strength-value', 'collision-offset', 'collision-offset-value', 'link-all-sizes',
-            'breath-enabled', 'breath-controls', 'breath-min', 'breath-min-value', 'breath-max', 'breath-max-value', 'breath-time', 'breath-time-value',
             'social-radius', 'social-radius-value',
             // Advanced Physics controls
             'environmental-pressure', 'environmental-pressure-value',
@@ -232,37 +233,6 @@ export class MainUI {
                                min="0" max="10" step="0.5" value="0.0">
                         <span class="info-text">Extra spacing between particles (independent of size)</span>
                     </div>
-                    
-                    <!-- Breath Settings -->
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="breath-enabled" ${this.safeValue(this.particleSystem.breathEnabled, false) ? 'checked' : ''}>
-                            Enable Breath Effect
-                        </label>
-                        <span class="info-text">Automatically oscillates collision offset for organic movement</span>
-                    </div>
-                    <div class="control-group" id="breath-controls" style="${!this.safeValue(this.particleSystem.breathEnabled, false) ? 'display: none;' : ''}">
-                        <div class="dual-range-slider">
-                            <label>Breath Range (Min - Max)
-                                <div class="dual-range-values">
-                                    <span id="breath-min-value">${this.safeFixed(this.particleSystem.breathMin, 1, '0.0')}</span>
-                                    <span id="breath-max-value">${this.safeFixed(this.particleSystem.breathMax, 1, '5.0')}</span>
-                                </div>
-                            </label>
-                            <div class="range-track"></div>
-                            <div class="range-fill" id="breath-range-fill"></div>
-                            <input type="range" id="breath-min" min="0" max="8" step="0.1" value="${this.safeValue(this.particleSystem.breathMin, 0)}">
-                            <input type="range" id="breath-max" min="0" max="10" step="0.1" value="${this.safeValue(this.particleSystem.breathMax, 5)}">
-                        </div>
-                        <div class="control-group">
-                            <label>
-                                Breath Cycle Time
-                                <span class="value-display" id="breath-time-value">${this.safeFixed(this.particleSystem.breathTime, 1, '3.0')}s</span>
-                            </label>
-                            <input type="range" class="range-slider" id="breath-time" 
-                                   min="1.0" max="20.0" step="0.5" value="${this.safeValue(this.particleSystem.breathTime, 3)}">
-                        </div>
-                    </div>
                 </div>
             </div>
             
@@ -313,7 +283,135 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 4. WALLS Section -->
+            <!-- 4. NOISE Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
+                    <h4 class="section-title">Noise Patterns</h4>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="noise-enabled" ${this.particleSystem.noiseEnabled ? 'checked' : ''}>
+                            Enable Noise
+                        </label>
+                        <span class="info-text">Adds organic movement patterns to particles</span>
+                    </div>
+                    
+                    <div id="noise-controls" style="${!this.particleSystem.noiseEnabled ? 'display: none;' : ''}">
+                        <div class="control-group">
+                            <label>Pattern</label>
+                            <select id="noise-pattern" class="styled-select">
+                                <option value="perlin" ${this.particleSystem.noisePattern === 'perlin' ? 'selected' : ''}>Perlin - Smooth organic flow</option>
+                                <option value="simplex" ${this.particleSystem.noisePattern === 'simplex' ? 'selected' : ''}>Simplex - Natural turbulence</option>
+                                <option value="curl" ${this.particleSystem.noisePattern === 'curl' ? 'selected' : ''}>Curl - Divergence-free swirls</option>
+                                <option value="fbm" ${this.particleSystem.noisePattern === 'fbm' ? 'selected' : ''}>FBM - Fractal layers</option>
+                                <option value="ridged" ${this.particleSystem.noisePattern === 'ridged' ? 'selected' : ''}>Ridged - Sharp valleys</option>
+                                <option value="worley" ${this.particleSystem.noisePattern === 'worley' ? 'selected' : ''}>Worley - Cell regions</option>
+                                <option value="voronoi" ${this.particleSystem.noisePattern === 'voronoi' ? 'selected' : ''}>Voronoi - Organic cells</option>
+                                <option value="flow" ${this.particleSystem.noisePattern === 'flow' ? 'selected' : ''}>Flow Field - Directional streams</option>
+                                <option value="turbulence" ${this.particleSystem.noisePattern === 'turbulence' ? 'selected' : ''}>Turbulence - Chaotic flow</option>
+                                <option value="waves" ${this.particleSystem.noisePattern === 'waves' ? 'selected' : ''}>Waves - Interference patterns</option>
+                                <option value="cubic" ${this.particleSystem.noisePattern === 'cubic' ? 'selected' : ''}>Cubic - Smooth interpolation</option>
+                                <option value="cellular" ${this.particleSystem.noisePattern === 'cellular' ? 'selected' : ''}>Cellular - Discrete regions</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Amplitude
+                                <span class="value-display" id="noise-amplitude-value">${(this.particleSystem.noiseGenerator?.globalAmplitude || 0).toFixed(2)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-amplitude" 
+                                   min="0" max="2" step="0.01" value="${this.particleSystem.noiseGenerator?.globalAmplitude || 0}">
+                            <span class="info-text">Strength of noise influence on particles</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Scale
+                                <span class="value-display" id="noise-scale-value">${(this.particleSystem.noiseGenerator?.globalScale || 1.0).toFixed(2)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-scale" 
+                                   min="0.1" max="5.0" step="0.05" value="${this.particleSystem.noiseGenerator?.globalScale || 1.0}">
+                            <span class="info-text">Pattern size (lower = larger patterns)</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Time Scale
+                                <span class="value-display" id="noise-time-scale-value">${(this.particleSystem.noiseGenerator?.globalTimeScale || 1.0).toFixed(3)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-time-scale" 
+                                   min="0" max="2.0" step="0.01" value="${this.particleSystem.noiseGenerator?.globalTimeScale || 1.0}">
+                            <span class="info-text">Pattern evolution speed</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Contrast
+                                <span class="value-display" id="noise-contrast-value">${(this.particleSystem.noiseGenerator?.contrast || 1.0).toFixed(2)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-contrast" 
+                                   min="0.1" max="3.0" step="0.05" value="${this.particleSystem.noiseGenerator?.contrast || 1.0}">
+                            <span class="info-text">Pattern sharpness (higher = more defined)</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Animation Speed
+                                <span class="value-display" id="noise-animation-value">${(this.particleSystem.noiseGenerator?.timeIncrement || 0.01).toFixed(3)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-animation" 
+                                   min="0" max="0.05" step="0.001" value="${this.particleSystem.noiseGenerator?.timeIncrement || 0.01}">
+                            <span class="info-text">Time increment per frame (0 = frozen)</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Octaves
+                                <span class="value-display" id="noise-octaves-value">${this.particleSystem.noiseGenerator?.globalOctaves || 3}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-octaves" 
+                                   min="1" max="8" step="1" value="${this.particleSystem.noiseGenerator?.globalOctaves || 3}">
+                            <span class="info-text">Number of noise layers (more = finer detail)</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>
+                                Seed
+                                <span class="value-display" id="noise-seed-value">${this.particleSystem.noiseGenerator?.seed || 0}</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="number" class="number-input" id="noise-seed" 
+                                       min="0" max="2147483647" 
+                                       value="${this.particleSystem.noiseGenerator?.seed || 0}">
+                                <button id="noise-seed-random" class="action-button small">Random</button>
+                            </div>
+                            <span class="info-text">Pattern seed for consistent noise</span>
+                        </div>
+                        
+                        <div class="control-group" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 10px;">
+                            <label>
+                                <input type="checkbox" id="noise-vector-enabled" ${(this.particleSystem.noiseVectorEnabled || false) ? 'checked' : ''}>
+                                Show Noise Vector Field
+                            </label>
+                            <span class="info-text">Visualize noise forces as directional vectors</span>
+                        </div>
+                        
+                        <div class="control-group" id="noise-vector-controls" style="${(this.particleSystem.noiseVectorEnabled || false) ? '' : 'display: none;'}">
+                            <label>
+                                Vector Scale
+                                <span class="value-display" id="noise-vector-scale-value">${(this.particleSystem.noiseVectorScale || 1.0).toFixed(2)}</span>
+                            </label>
+                            <input type="range" class="range-slider" id="noise-vector-scale" 
+                                   min="0.1" max="3.0" step="0.1" value="${this.particleSystem.noiseVectorScale || 1.0}">
+                            <span class="info-text">Size of vector arrows</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 5. BOUNDARY Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Boundary Behavior</h4>
@@ -347,7 +445,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 5. MOUSE INTERACTIONS Section -->
+            <!-- 6. MOUSE INTERACTIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Mouse Interactions</h4>
@@ -391,7 +489,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 6. FORCE RELATIONSHIPS Section -->
+            <!-- 7. FORCE RELATIONSHIPS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Force Relationships</h4>
@@ -462,7 +560,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 7. EFFECTS Section -->
+            <!-- 8. EFFECTS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Effects</h4>
@@ -583,7 +681,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 8. COLORS Section -->
+            <!-- 9. COLORS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Colors</h4>
@@ -620,7 +718,80 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 9. ASPECT RATIO Section -->
+            <!-- 10. MODULATIONS Section -->
+            <div class="panel ui-section">
+                <div class="panel-header">
+                    <h4 class="section-title">Modulations</h4>
+                </div>
+                <div class="panel-content">
+                    <div class="modulation-add-section">
+                        <div class="control-group">
+                            <label>Parameter</label>
+                            <select id="modulation-parameter" class="select select-sm" style="width: 100%;">
+                                <option value="">Select parameter...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group" id="modulation-range-controls" style="display: none;">
+                            <label>
+                                <span id="modulation-range-label">Range</span>
+                                <div class="value-display-row">
+                                    <span id="modulation-min-value">0.0</span>
+                                    <span id="modulation-max-value">1.0</span>
+                                </div>
+                            </label>
+                            <div class="modulation-dual-range" id="modulation-numeric-range" style="position: relative; height: 24px; margin: 8px 0;">
+                                <div class="modulation-track" style="position: absolute; top: 11px; left: 0; right: 0; height: 2px; background: var(--bg-primary); border-radius: 1px;"></div>
+                                <div class="modulation-fill" id="modulation-range-fill" style="position: absolute; top: 11px; height: 2px; background: var(--accent-primary); border-radius: 1px;"></div>
+                                <input type="range" id="modulation-min" class="modulation-slider modulation-slider-min" min="0" max="1" step="0.01" value="0" style="position: absolute; width: 100%; background: transparent; -webkit-appearance: none;">
+                                <input type="range" id="modulation-max" class="modulation-slider modulation-slider-max" min="0" max="1" step="0.01" value="1" style="position: absolute; width: 100%; background: transparent; -webkit-appearance: none;">
+                            </div>
+                            <div id="modulation-color-range" style="display: none;">
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="color" id="modulation-color-min" style="width: 50px; height: 30px;">
+                                    <span style="color: var(--text-tertiary);">→</span>
+                                    <input type="color" id="modulation-color-max" style="width: 50px; height: 30px;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="control-group" id="modulation-wave-controls" style="display: none;">
+                            <label>Wave Type</label>
+                            <select id="modulation-wave-type" class="select select-sm" style="width: 100%;">
+                                <option value="sine">Sine (Smooth)</option>
+                                <option value="triangle">Triangle (Linear)</option>
+                                <option value="sawtooth">Sawtooth (Ramp Up)</option>
+                                <option value="square">Square (On/Off)</option>
+                                <option value="smooth-square">Smooth Square</option>
+                                <option value="exponential">Exponential</option>
+                                <option value="logarithmic">Logarithmic</option>
+                                <option value="elastic">Elastic</option>
+                                <option value="bounce">Bounce</option>
+                                <option value="random">Random</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group" id="modulation-time-controls" style="display: none;">
+                            <label>
+                                Duration
+                                <span class="value-display" id="modulation-time-value">3.0s</span>
+                            </label>
+                            <input type="range" class="range-slider" id="modulation-time" 
+                                   min="0.5" max="20.0" step="0.5" value="3.0">
+                        </div>
+                        
+                        <button class="btn btn-primary" id="add-modulation-btn" style="width: 100%; display: none;">
+                            Add Modulation
+                        </button>
+                    </div>
+                    
+                    <div class="modulation-list" id="modulation-list" style="margin-top: 15px;">
+                        <!-- Active modulations will be listed here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 11. ASPECT RATIO Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Aspect Ratio</h4>
@@ -684,7 +855,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 10. ACTIONS Section -->
+            <!-- 12. ACTIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Actions</h4>
@@ -696,7 +867,6 @@ export class MainUI {
                     <button class="btn btn-secondary" id="reset-defaults-btn" style="width: 100%;">
                         Reset to Defaults
                     </button>
-                    </div>
                 </div>
             </div>
         `;
@@ -1724,6 +1894,12 @@ export class MainUI {
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
                     this.currentEditingPreset = presetKey;
+                    
+                    // Update modulation system for new preset
+                    if (this.modulationManager) {
+                        this.updateModulationParameterOptions();
+                        this.modulationManager.refreshParameterReferences();
+                    }
                 }
             }
         }
@@ -1757,6 +1933,12 @@ export class MainUI {
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
                     this.currentEditingPreset = presetKey;
+                    
+                    // Update modulation system for new preset
+                    if (this.modulationManager) {
+                        this.updateModulationParameterOptions();
+                        this.modulationManager.refreshParameterReferences();
+                    }
                 }
             }
         }
@@ -2655,6 +2837,11 @@ export class MainUI {
                     this.updateSpeciesButtons(this.particleSystem.numSpecies);
                     this.updateDistributionSpeciesSelector(this.particleSystem.numSpecies);
                     
+                    // Update modulation parameter options
+                    if (this.modulationManager) {
+                        this.updateModulationParameterOptions();
+                    }
+                    
                     // Update force editor if it exists
                     if (this.forceEditor) {
                         this.forceEditor.setSpecies(this.particleSystem.species);
@@ -2907,6 +3094,14 @@ export class MainUI {
                     this.particleSystem.loadFullPreset(preset);
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
+                    
+                    // Update modulation system for new preset
+                    if (this.modulationManager) {
+                        // Refresh parameter options for new species count/names
+                        this.updateModulationParameterOptions();
+                        // Keep existing modulations but update their references
+                        this.modulationManager.refreshParameterReferences();
+                    }
                 }
             }
         });
@@ -3007,6 +3202,11 @@ export class MainUI {
                     this.updateGraph();
                     this.updateTotalParticles();
                     
+                    // Update modulation parameter options  
+                    if (this.modulationManager) {
+                        this.updateModulationParameterOptions();
+                    }
+                    
                     // Resize distribution canvas to match current simulation dimensions
                     if (this.distributionDrawer) {
                         const distributionCanvas = document.getElementById('distribution-canvas');
@@ -3085,6 +3285,139 @@ export class MainUI {
             this.triggerAutoSave();
         });
         
+        // Noise controls
+        const noiseEnabled = document.getElementById('noise-enabled');
+        const noiseControls = document.getElementById('noise-controls');
+        
+        if (noiseEnabled) {
+            noiseEnabled.addEventListener('change', (e) => {
+                this.particleSystem.setNoiseEnabled(e.target.checked);
+                noiseControls.style.display = e.target.checked ? '' : 'none';
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noisePattern = document.getElementById('noise-pattern');
+        if (noisePattern) {
+            noisePattern.addEventListener('change', (e) => {
+                this.particleSystem.setNoisePattern(e.target.value);
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseAmplitude = document.getElementById('noise-amplitude');
+        if (noiseAmplitude) {
+            noiseAmplitude.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.particleSystem.setNoiseAmplitude(value);
+                document.getElementById('noise-amplitude-value').textContent = value.toFixed(2);
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseScale = document.getElementById('noise-scale');
+        if (noiseScale) {
+            noiseScale.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.particleSystem.setNoiseScale(value);
+                document.getElementById('noise-scale-value').textContent = value.toFixed(2);
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseTimeScale = document.getElementById('noise-time-scale');
+        if (noiseTimeScale) {
+            noiseTimeScale.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.particleSystem.setNoiseTimeScale(value);
+                document.getElementById('noise-time-scale-value').textContent = value.toFixed(3);
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseContrast = document.getElementById('noise-contrast');
+        if (noiseContrast) {
+            noiseContrast.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.particleSystem.setNoiseContrast(value);
+                document.getElementById('noise-contrast-value').textContent = value.toFixed(2);
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseAnimation = document.getElementById('noise-animation');
+        if (noiseAnimation) {
+            noiseAnimation.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                if (this.particleSystem.noiseGenerator) {
+                    this.particleSystem.noiseGenerator.setTimeIncrement(value);
+                }
+                document.getElementById('noise-animation-value').textContent = value.toFixed(3);
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseOctaves = document.getElementById('noise-octaves');
+        if (noiseOctaves) {
+            noiseOctaves.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (this.particleSystem.noiseGenerator) {
+                    this.particleSystem.noiseGenerator.setGlobalOctaves(value);
+                }
+                document.getElementById('noise-octaves-value').textContent = value;
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseVectorEnabled = document.getElementById('noise-vector-enabled');
+        if (noiseVectorEnabled) {
+            noiseVectorEnabled.addEventListener('change', (e) => {
+                this.particleSystem.noiseVectorEnabled = e.target.checked;
+                document.getElementById('noise-vector-controls').style.display = e.target.checked ? '' : 'none';
+                this.triggerAutoSave();
+            });
+        }
+        
+        const noiseVectorScale = document.getElementById('noise-vector-scale');
+        if (noiseVectorScale) {
+            noiseVectorScale.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.particleSystem.noiseVectorScale = value;
+                document.getElementById('noise-vector-scale-value').textContent = value.toFixed(2);
+                this.triggerAutoSave();
+            });
+        }
+        
+        // Noise seed controls
+        const noiseSeed = document.getElementById('noise-seed');
+        if (noiseSeed) {
+            noiseSeed.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 0 && value <= 2147483647) {
+                    if (this.particleSystem.noiseGenerator) {
+                        this.particleSystem.noiseGenerator.setSeed(value);
+                        localStorage.setItem('noiseSeed', value.toString());
+                        document.getElementById('noise-seed-value').textContent = value;
+                        this.triggerAutoSave();
+                    }
+                }
+            });
+        }
+        
+        const noiseSeedRandom = document.getElementById('noise-seed-random');
+        if (noiseSeedRandom) {
+            noiseSeedRandom.addEventListener('click', () => {
+                const newSeed = Math.floor(Math.random() * 2147483647);
+                if (this.particleSystem.noiseGenerator) {
+                    this.particleSystem.noiseGenerator.setSeed(newSeed);
+                    localStorage.setItem('noiseSeed', newSeed.toString());
+                    document.getElementById('noise-seed').value = newSeed;
+                    document.getElementById('noise-seed-value').textContent = newSeed;
+                    this.triggerAutoSave();
+                }
+            });
+        }
+        
         document.getElementById('wall-bounce').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             this.particleSystem.wallDamping = value;
@@ -3142,64 +3475,6 @@ export class MainUI {
             this.triggerAutoSave();
         });
 
-        // Breath controls
-        document.getElementById('breath-enabled').addEventListener('change', (e) => {
-            this.particleSystem.breathEnabled = e.target.checked;
-            const controls = document.getElementById('breath-controls');
-            if (controls) {
-                controls.style.display = e.target.checked ? 'block' : 'none';
-            }
-            if (e.target.checked) {
-                this.particleSystem.breathStartTime = performance.now();
-            }
-            this.triggerAutoSave();
-        });
-
-        // Dual range slider for breath range
-        const updateBreathRange = () => {
-            const minSlider = document.getElementById('breath-min');
-            const maxSlider = document.getElementById('breath-max');
-            const minValue = parseFloat(minSlider.value);
-            const maxValue = parseFloat(maxSlider.value);
-            
-            // Ensure min doesn't exceed max and vice versa
-            if (minValue >= maxValue) {
-                minSlider.value = Math.max(0, maxValue - 0.1);
-            }
-            if (maxValue <= minValue) {
-                maxSlider.value = Math.min(10, minValue + 0.1);
-            }
-            
-            const finalMin = parseFloat(minSlider.value);
-            const finalMax = parseFloat(maxSlider.value);
-            
-            this.particleSystem.breathMin = finalMin;
-            this.particleSystem.breathMax = finalMax;
-            
-            document.getElementById('breath-min-value').textContent = finalMin.toFixed(1);
-            document.getElementById('breath-max-value').textContent = finalMax.toFixed(1);
-            
-            // Update range fill visualization
-            const fill = document.getElementById('breath-range-fill');
-            if (fill) {
-                const minPercent = (finalMin / 10) * 100;
-                const maxPercent = (finalMax / 10) * 100;
-                fill.style.left = minPercent + '%';
-                fill.style.width = (maxPercent - minPercent) + '%';
-            }
-            
-            this.triggerAutoSave();
-        };
-
-        document.getElementById('breath-min').addEventListener('input', updateBreathRange);
-        document.getElementById('breath-max').addEventListener('input', updateBreathRange);
-
-        document.getElementById('breath-time').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            this.particleSystem.breathTime = value;
-            document.getElementById('breath-time-value').textContent = value.toFixed(1) + 's';
-            this.triggerAutoSave();
-        });
         
         document.getElementById('social-radius').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
@@ -3569,6 +3844,699 @@ export class MainUI {
         if (this.aspectRatioManager) {
             this.setupAspectRatioControls();
         }
+        
+        // Modulation controls
+        this.setupModulationControls();
+    }
+    
+    setupModulationControls() {
+        console.log('Setting up modulation controls...');
+        
+        const parameterSelect = document.getElementById('modulation-parameter');
+        const rangeControls = document.getElementById('modulation-range-controls');
+        const waveControls = document.getElementById('modulation-wave-controls');
+        const timeControls = document.getElementById('modulation-time-controls');
+        const addBtn = document.getElementById('add-modulation-btn');
+        const numericRange = document.getElementById('modulation-numeric-range');
+        const colorRange = document.getElementById('modulation-color-range');
+        const minSlider = document.getElementById('modulation-min');
+        const maxSlider = document.getElementById('modulation-max');
+        const minValue = document.getElementById('modulation-min-value');
+        const maxValue = document.getElementById('modulation-max-value');
+        const waveSelect = document.getElementById('modulation-wave-type');
+        const timeSlider = document.getElementById('modulation-time');
+        const timeValue = document.getElementById('modulation-time-value');
+        const colorMin = document.getElementById('modulation-color-min');
+        const colorMax = document.getElementById('modulation-color-max');
+        
+        // Check if elements exist
+        if (!parameterSelect) {
+            console.error('Modulation parameter select not found!');
+            return;
+        }
+        
+        if (!this.modulationManager) {
+            console.error('ModulationManager not initialized!');
+            return;
+        }
+        
+        // Populate parameter dropdown
+        console.log('Populating modulation parameters...');
+        this.updateModulationParameterOptions();
+        
+        // Handle parameter selection
+        parameterSelect.addEventListener('change', (e) => {
+            console.log('Parameter selected:', e.target.value);
+            
+            // Stop any existing preview
+            this.modulationManager.stopPreview();
+            
+            const parameterId = e.target.value;
+            if (!parameterId) {
+                rangeControls.style.display = 'none';
+                waveControls.style.display = 'none';
+                timeControls.style.display = 'none';
+                addBtn.style.display = 'none';
+                return;
+            }
+            
+            const categories = this.modulationManager.getParameterCategories();
+            let paramConfig = null;
+            
+            for (const category of Object.values(categories)) {
+                if (category[parameterId]) {
+                    paramConfig = category[parameterId];
+                    break;
+                }
+            }
+            
+            if (!paramConfig) {
+                console.error('Parameter config not found for:', parameterId);
+                return;
+            }
+            
+            console.log('Parameter config:', paramConfig);
+            
+            rangeControls.style.display = 'block';
+            waveControls.style.display = 'block';
+            timeControls.style.display = 'block';
+            addBtn.style.display = 'block';
+            
+            if (paramConfig.type === 'color') {
+                numericRange.style.display = 'none';
+                colorRange.style.display = 'block';
+                document.getElementById('modulation-range-label').textContent = 'Colors';
+                
+                // Set current color as both min and max initially
+                const currentColor = paramConfig.current();
+                colorMin.value = currentColor;
+                colorMax.value = currentColor;
+            } else {
+                numericRange.style.display = 'block';
+                colorRange.style.display = 'none';
+                document.getElementById('modulation-range-label').textContent = 'Range';
+                
+                // Configure range sliders
+                const min = paramConfig.min || 0;
+                const max = paramConfig.max || 1;
+                const currentValue = paramConfig.current();
+                
+                console.log('Setting up range for', parameterId, {min, max, currentValue});
+                
+                minSlider.min = min;
+                minSlider.max = max;
+                minSlider.step = (max - min) / 100;
+                
+                maxSlider.min = min;
+                maxSlider.max = max;
+                maxSlider.step = (max - min) / 100;
+                
+                // Set initial range around current value
+                // If current value is at the extremes, create a reasonable range
+                let minVal, maxVal;
+                const range = max - min;
+                
+                if (currentValue <= min + range * 0.1) {
+                    // Current is near minimum
+                    minVal = min;
+                    maxVal = Math.min(max, min + range * 0.5);
+                } else if (currentValue >= max - range * 0.1) {
+                    // Current is near maximum
+                    minVal = Math.max(min, max - range * 0.5);
+                    maxVal = max;
+                } else {
+                    // Current is in the middle
+                    minVal = Math.max(min, currentValue - range * 0.2);
+                    maxVal = Math.min(max, currentValue + range * 0.2);
+                }
+                
+                minSlider.value = minVal;
+                maxSlider.value = maxVal;
+                
+                console.log('Initial slider values:', {minVal, maxVal});
+                
+                this.updateModulationRangeDisplay();
+                
+                // Start preview when parameter is selected
+                this.startModulationPreview();
+            }
+        });
+        
+        // Handle range slider updates
+        const updateModulationRangeDisplay = (event) => {
+            const min = parseFloat(minSlider.value);
+            const max = parseFloat(maxSlider.value);
+            
+            // Ensure min doesn't exceed max
+            if (min > max) {
+                if (event && event.target === minSlider) {
+                    maxSlider.value = min;
+                } else if (event && event.target === maxSlider) {
+                    minSlider.value = max;
+                }
+            }
+            
+            minValue.textContent = parseFloat(minSlider.value).toFixed(2);
+            maxValue.textContent = parseFloat(maxSlider.value).toFixed(2);
+            
+            // Update range fill visual
+            const rangeFill = document.getElementById('modulation-range-fill');
+            const minPercent = ((minSlider.value - minSlider.min) / (minSlider.max - minSlider.min)) * 100;
+            const maxPercent = ((maxSlider.value - maxSlider.min) / (maxSlider.max - maxSlider.min)) * 100;
+            rangeFill.style.left = minPercent + '%';
+            rangeFill.style.width = (maxPercent - minPercent) + '%';
+        };
+        
+        this.updateModulationRangeDisplay = updateModulationRangeDisplay;
+        
+        // Add preview functionality
+        this.startModulationPreview = () => {
+            const parameterId = parameterSelect.value;
+            if (!parameterId) return;
+            
+            const categories = this.modulationManager.getParameterCategories();
+            let paramConfig = null;
+            for (const category of Object.values(categories)) {
+                if (category[parameterId]) {
+                    paramConfig = category[parameterId];
+                    break;
+                }
+            }
+            
+            if (!paramConfig) return;
+            
+            let minVal, maxVal;
+            if (paramConfig.type === 'color') {
+                minVal = colorMin.value;
+                maxVal = colorMax.value;
+            } else {
+                minVal = parseFloat(minSlider.value);
+                maxVal = parseFloat(maxSlider.value);
+            }
+            
+            const duration = parseFloat(timeSlider.value);
+            const waveType = waveSelect.value || 'sine';
+            
+            this.modulationManager.previewModulation(
+                parameterId,
+                minVal,
+                maxVal,
+                duration,
+                waveType,
+                paramConfig
+            );
+        };
+        
+        // Update preview when any value changes
+        minSlider.addEventListener('input', (e) => {
+            updateModulationRangeDisplay(e);
+            this.startModulationPreview();
+        });
+        maxSlider.addEventListener('input', (e) => {
+            updateModulationRangeDisplay(e);
+            this.startModulationPreview();
+        });
+        
+        // Handle wave type changes
+        waveSelect.addEventListener('change', () => {
+            this.startModulationPreview();
+        });
+        
+        // Handle time slider
+        timeSlider.addEventListener('input', (e) => {
+            timeValue.textContent = parseFloat(e.target.value).toFixed(1) + 's';
+            this.startModulationPreview();
+        });
+        
+        // Handle color changes for preview
+        colorMin.addEventListener('input', () => {
+            this.startModulationPreview();
+        });
+        colorMax.addEventListener('input', () => {
+            this.startModulationPreview();
+        });
+        
+        // Add modulation button
+        addBtn.addEventListener('click', () => {
+            console.log('Adding modulation...');
+            const parameterId = parameterSelect.value;
+            if (!parameterId) return;
+            
+            const categories = this.modulationManager.getParameterCategories();
+            let paramConfig = null;
+            
+            for (const category of Object.values(categories)) {
+                if (category[parameterId]) {
+                    paramConfig = category[parameterId];
+                    break;
+                }
+            }
+            
+            if (!paramConfig) {
+                console.error('Parameter config not found for:', parameterId);
+                return;
+            }
+            
+            console.log('Parameter config:', paramConfig);
+            
+            let minVal, maxVal;
+            if (paramConfig.type === 'color') {
+                minVal = colorMin.value;
+                maxVal = colorMax.value;
+            } else {
+                minVal = parseFloat(minSlider.value);
+                maxVal = parseFloat(maxSlider.value);
+                
+                // Debug: check what the display shows vs what the sliders have
+                console.log('Display shows:', minValue.textContent, 'to', maxValue.textContent);
+                console.log('Slider values:', minSlider.value, 'to', maxSlider.value);
+            }
+            
+            const duration = parseFloat(timeSlider.value);
+            
+            console.log('Adding modulation with:', { parameterId, minVal, maxVal, duration });
+            
+            const waveType = waveSelect.value || 'sine';
+            const modId = this.modulationManager.addModulation(
+                parameterId,
+                minVal,
+                maxVal,
+                duration,
+                paramConfig,
+                waveType
+            );
+            
+            console.log('Modulation added with ID:', modId);
+            this.updateModulationList();
+            
+            // Stop preview when adding
+            this.modulationManager.stopPreview();
+            
+            // Reset form
+            parameterSelect.value = '';
+            rangeControls.style.display = 'none';
+            waveControls.style.display = 'none';
+            timeControls.style.display = 'none';
+            addBtn.style.display = 'none';
+        });
+        
+        this.updateModulationList();
+    }
+    
+    updateModulationParameterOptions() {
+        const select = document.getElementById('modulation-parameter');
+        if (!select) {
+            console.error('Modulation parameter select not found!');
+            return;
+        }
+        
+        const categories = this.modulationManager.getParameterCategories();
+        console.log('Available parameter categories:', categories);
+        
+        // Clear existing options except the placeholder
+        select.innerHTML = '<option value="">Select parameter...</option>';
+        
+        // Add categorized options
+        for (const [categoryName, parameters] of Object.entries(categories)) {
+            if (Object.keys(parameters).length === 0) continue;
+            
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = categoryName;
+            
+            for (const [paramId, paramConfig] of Object.entries(parameters)) {
+                const option = document.createElement('option');
+                option.value = paramId;
+                option.textContent = paramConfig.name;
+                optgroup.appendChild(option);
+            }
+            
+            select.appendChild(optgroup);
+        }
+    }
+    
+    updateModulationList() {
+        const listContainer = document.getElementById('modulation-list');
+        const modulations = this.modulationManager.getActiveModulations();
+        
+        console.log('Updating modulation list, found', modulations.length, 'modulations');
+        
+        if (modulations.length === 0) {
+            listContainer.innerHTML = '<div style="color: var(--text-tertiary); text-align: center; padding: 10px;">No active modulations</div>';
+            return;
+        }
+        
+        listContainer.innerHTML = '';
+        
+        for (const mod of modulations) {
+            const item = document.createElement('div');
+            item.className = 'modulation-item';
+            item.dataset.modId = mod.id;
+            item.style.cssText = `
+                padding: 8px;
+                margin-bottom: 8px;
+                background: var(--background-elevated);
+                border-radius: 4px;
+                font-size: 12px;
+            `;
+            
+            // Create normal view
+            const normalView = document.createElement('div');
+            normalView.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            `;
+            normalView.className = 'modulation-normal-view';
+            
+            const info = document.createElement('div');
+            info.style.flex = '1';
+            
+            if (mod.type === 'color') {
+                info.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <strong>${mod.parameterName}</strong>
+                        <span style="display: inline-block; width: 20px; height: 20px; background: ${mod.minValue}; border: 1px solid var(--border-color); border-radius: 2px;"></span>
+                        <span>↔</span>
+                        <span style="display: inline-block; width: 20px; height: 20px; background: ${mod.maxValue}; border: 1px solid var(--border-color); border-radius: 2px;"></span>
+                        <span style="color: var(--text-secondary);">${(mod.duration / 1000).toFixed(1)}s</span>
+                    </div>
+                `;
+            } else {
+                info.innerHTML = `
+                    <div>
+                        <strong>${mod.parameterName}</strong>
+                        <span style="color: var(--text-secondary); margin-left: 8px;">
+                            ${mod.minValue.toFixed(2)} ↔ ${mod.maxValue.toFixed(2)} • ${(mod.duration / 1000).toFixed(1)}s
+                        </span>
+                    </div>
+                `;
+            }
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'display: flex; gap: 4px;';
+            
+            const editBtn = document.createElement('button');
+            editBtn.innerHTML = '✎';
+            editBtn.title = 'Edit modulation';
+            editBtn.style.cssText = `
+                background: transparent;
+                border: none;
+                color: var(--text-tertiary);
+                font-size: 16px;
+                cursor: pointer;
+                padding: 0 4px;
+                line-height: 1;
+            `;
+            editBtn.addEventListener('click', () => this.editModulation(mod));
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '×';
+            removeBtn.title = 'Remove modulation';
+            removeBtn.style.cssText = `
+                background: transparent;
+                border: none;
+                color: var(--text-tertiary);
+                font-size: 20px;
+                cursor: pointer;
+                padding: 0 4px;
+                line-height: 1;
+            `;
+            removeBtn.addEventListener('click', () => {
+                this.modulationManager.removeModulation(mod.id);
+                this.updateModulationList();
+            });
+            
+            normalView.appendChild(info);
+            buttonContainer.appendChild(editBtn);
+            buttonContainer.appendChild(removeBtn);
+            normalView.appendChild(buttonContainer);
+            
+            item.appendChild(normalView);
+            
+            // Create edit view (initially hidden)
+            const editView = this.createModulationEditView(mod);
+            editView.style.display = 'none';
+            item.appendChild(editView);
+            
+            listContainer.appendChild(item);
+        }
+    }
+    
+    createModulationEditView(mod) {
+        const editView = document.createElement('div');
+        editView.className = 'modulation-edit-view';
+        editView.style.cssText = 'padding: 8px 0;';
+        
+        if (mod.type === 'color') {
+            editView.innerHTML = `
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 11px; color: var(--text-secondary);">Color Range</label>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                        <input type="color" class="edit-color-min" value="${mod.minValue}" style="width: 50px; height: 30px;">
+                        <span style="color: var(--text-tertiary);">→</span>
+                        <input type="color" class="edit-color-max" value="${mod.maxValue}" style="width: 50px; height: 30px;">
+                    </div>
+                </div>
+            `;
+        } else {
+            // Get the parameter config to know the min/max bounds
+            const categories = this.modulationManager.getParameterCategories();
+            let paramConfig = null;
+            for (const category of Object.values(categories)) {
+                if (category[mod.parameterId]) {
+                    paramConfig = category[mod.parameterId];
+                    break;
+                }
+            }
+            
+            const min = paramConfig?.min || 0;
+            const max = paramConfig?.max || 1;
+            
+            editView.innerHTML = `
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 11px; color: var(--text-secondary);">
+                        Range
+                        <span class="edit-range-display" style="margin-left: 8px;">
+                            ${mod.minValue.toFixed(2)} - ${mod.maxValue.toFixed(2)}
+                        </span>
+                    </label>
+                    <div style="position: relative; margin-top: 4px;">
+                        <div class="range-fill edit-range-fill" style="
+                            position: absolute;
+                            height: 4px;
+                            background: var(--accent-color);
+                            opacity: 0.3;
+                            pointer-events: none;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            border-radius: 2px;
+                        "></div>
+                        <input type="range" class="modulation-slider edit-range-min" 
+                               min="${min}" max="${max}" step="${(max - min) / 100}" 
+                               value="${mod.minValue}"
+                               style="position: absolute; width: 100%; background: transparent; -webkit-appearance: none;">
+                        <input type="range" class="modulation-slider edit-range-max" 
+                               min="${min}" max="${max}" step="${(max - min) / 100}" 
+                               value="${mod.maxValue}"
+                               style="position: relative; width: 100%; background: transparent; -webkit-appearance: none;">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add wave type control
+        const waveControl = document.createElement('div');
+        waveControl.style.marginTop = '12px';
+        waveControl.innerHTML = `
+            <label style="font-size: 11px; color: var(--text-secondary);">Wave Type</label>
+            <select class="edit-wave-type" style="width: 100%; margin-top: 4px; padding: 4px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; font-size: 11px;">
+                <option value="sine" ${mod.waveType === 'sine' || !mod.waveType ? 'selected' : ''}>Sine (Smooth)</option>
+                <option value="triangle" ${mod.waveType === 'triangle' ? 'selected' : ''}>Triangle (Linear)</option>
+                <option value="sawtooth" ${mod.waveType === 'sawtooth' ? 'selected' : ''}>Sawtooth (Ramp Up)</option>
+                <option value="square" ${mod.waveType === 'square' ? 'selected' : ''}>Square (On/Off)</option>
+                <option value="smooth-square" ${mod.waveType === 'smooth-square' ? 'selected' : ''}>Smooth Square</option>
+                <option value="exponential" ${mod.waveType === 'exponential' ? 'selected' : ''}>Exponential</option>
+                <option value="logarithmic" ${mod.waveType === 'logarithmic' ? 'selected' : ''}>Logarithmic</option>
+                <option value="elastic" ${mod.waveType === 'elastic' ? 'selected' : ''}>Elastic</option>
+                <option value="bounce" ${mod.waveType === 'bounce' ? 'selected' : ''}>Bounce</option>
+                <option value="random" ${mod.waveType === 'random' ? 'selected' : ''}>Random</option>
+            </select>
+        `;
+        editView.appendChild(waveControl);
+        
+        // Add duration control
+        const durationControl = document.createElement('div');
+        durationControl.style.marginTop = '12px';
+        durationControl.innerHTML = `
+            <label style="font-size: 11px; color: var(--text-secondary);">
+                Duration
+                <span class="edit-duration-display" style="margin-left: 8px;">
+                    ${(mod.duration / 1000).toFixed(1)}s
+                </span>
+            </label>
+            <input type="range" class="edit-duration" 
+                   min="0.5" max="20" step="0.5" 
+                   value="${mod.duration / 1000}"
+                   style="width: 100%; margin-top: 4px;">
+        `;
+        editView.appendChild(durationControl);
+        
+        // Add save/cancel buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 12px;';
+        buttonContainer.innerHTML = `
+            <button class="save-edit-btn" style="
+                flex: 1;
+                padding: 4px 8px;
+                background: var(--accent-color);
+                color: white;
+                border: none;
+                border-radius: 3px;
+                font-size: 11px;
+                cursor: pointer;
+            ">Save</button>
+            <button class="cancel-edit-btn" style="
+                flex: 1;
+                padding: 4px 8px;
+                background: var(--background-secondary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+                border-radius: 3px;
+                font-size: 11px;
+                cursor: pointer;
+            ">Cancel</button>
+        `;
+        editView.appendChild(buttonContainer);
+        
+        // Set up event handlers after elements are created
+        setTimeout(() => this.setupEditViewHandlers(editView, mod), 0);
+        
+        return editView;
+    }
+    
+    setupEditViewHandlers(editView, mod) {
+        const parent = editView.parentElement;
+        if (!parent) return;
+        
+        // Function to update live preview during editing
+        const updateEditPreview = () => {
+            let newMin, newMax;
+            
+            if (mod.type === 'color') {
+                newMin = editView.querySelector('.edit-color-min')?.value || mod.minValue;
+                newMax = editView.querySelector('.edit-color-max')?.value || mod.maxValue;
+            } else {
+                newMin = parseFloat(editView.querySelector('.edit-range-min')?.value || mod.minValue);
+                newMax = parseFloat(editView.querySelector('.edit-range-max')?.value || mod.maxValue);
+            }
+            
+            const newDuration = parseFloat(editView.querySelector('.edit-duration')?.value || mod.duration / 1000);
+            const newWaveType = editView.querySelector('.edit-wave-type')?.value || mod.waveType || 'sine';
+            
+            // Update the actual modulation temporarily for preview
+            this.modulationManager.updateModulation(mod.id, newMin, newMax, newDuration, newWaveType);
+        };
+        
+        // Handle range sliders for numeric values
+        if (mod.type !== 'color') {
+            const minSlider = editView.querySelector('.edit-range-min');
+            const maxSlider = editView.querySelector('.edit-range-max');
+            const rangeDisplay = editView.querySelector('.edit-range-display');
+            const rangeFill = editView.querySelector('.edit-range-fill');
+            
+            const updateRangeDisplay = () => {
+                const min = parseFloat(minSlider.value);
+                const max = parseFloat(maxSlider.value);
+                
+                // Ensure min doesn't exceed max
+                if (min > max) {
+                    if (document.activeElement === minSlider) {
+                        maxSlider.value = min;
+                    } else {
+                        minSlider.value = max;
+                    }
+                }
+                
+                rangeDisplay.textContent = `${parseFloat(minSlider.value).toFixed(2)} - ${parseFloat(maxSlider.value).toFixed(2)}`;
+                
+                // Update range fill
+                const minPercent = ((minSlider.value - minSlider.min) / (minSlider.max - minSlider.min)) * 100;
+                const maxPercent = ((maxSlider.value - maxSlider.min) / (maxSlider.max - maxSlider.min)) * 100;
+                rangeFill.style.left = minPercent + '%';
+                rangeFill.style.width = (maxPercent - minPercent) + '%';
+            };
+            
+            minSlider.addEventListener('input', () => {
+                updateRangeDisplay();
+                updateEditPreview();
+            });
+            maxSlider.addEventListener('input', () => {
+                updateRangeDisplay();
+                updateEditPreview();
+            });
+            updateRangeDisplay();
+        } else {
+            // Handle color inputs for color modulations
+            const colorMin = editView.querySelector('.edit-color-min');
+            const colorMax = editView.querySelector('.edit-color-max');
+            if (colorMin && colorMax) {
+                colorMin.addEventListener('input', updateEditPreview);
+                colorMax.addEventListener('input', updateEditPreview);
+            }
+        }
+        
+        // Handle wave type changes
+        const waveSelect = editView.querySelector('.edit-wave-type');
+        if (waveSelect) {
+            waveSelect.addEventListener('change', updateEditPreview);
+        }
+        
+        // Handle duration slider
+        const durationSlider = editView.querySelector('.edit-duration');
+        const durationDisplay = editView.querySelector('.edit-duration-display');
+        durationSlider.addEventListener('input', () => {
+            durationDisplay.textContent = parseFloat(durationSlider.value).toFixed(1) + 's';
+            updateEditPreview();
+        });
+        
+        // Handle save button
+        editView.querySelector('.save-edit-btn').addEventListener('click', () => {
+            let newMin, newMax;
+            
+            if (mod.type === 'color') {
+                newMin = editView.querySelector('.edit-color-min').value;
+                newMax = editView.querySelector('.edit-color-max').value;
+            } else {
+                newMin = parseFloat(editView.querySelector('.edit-range-min').value);
+                newMax = parseFloat(editView.querySelector('.edit-range-max').value);
+            }
+            
+            const newDuration = parseFloat(durationSlider.value);
+            const newWaveType = editView.querySelector('.edit-wave-type')?.value || mod.waveType || 'sine';
+            
+            // Update the modulation
+            this.modulationManager.updateModulation(mod.id, newMin, newMax, newDuration, newWaveType);
+            
+            // Exit edit mode and refresh list
+            this.updateModulationList();
+        });
+        
+        // Handle cancel button
+        editView.querySelector('.cancel-edit-btn').addEventListener('click', () => {
+            // Exit edit mode without saving
+            editView.style.display = 'none';
+            parent.querySelector('.modulation-normal-view').style.display = 'flex';
+        });
+    }
+    
+    editModulation(mod) {
+        // Find the modulation item
+        const item = document.querySelector(`[data-mod-id="${mod.id}"]`);
+        if (!item) return;
+        
+        // Hide normal view, show edit view
+        item.querySelector('.modulation-normal-view').style.display = 'none';
+        item.querySelector('.modulation-edit-view').style.display = 'block';
     }
     
     setupAspectRatioControls() {
@@ -4451,30 +5419,6 @@ export class MainUI {
         document.getElementById('collision-offset').value = ps.collisionOffset || 0.0;
         document.getElementById('collision-offset-value').textContent = (ps.collisionOffset || 0.0).toFixed(1);
         
-        // Breath controls
-        document.getElementById('breath-enabled').checked = ps.breathEnabled || false;
-        const breathControls = document.getElementById('breath-controls');
-        if (breathControls) {
-            breathControls.style.display = ps.breathEnabled ? 'block' : 'none';
-        }
-        document.getElementById('breath-min').value = ps.breathMin || 0.0;
-        document.getElementById('breath-max').value = ps.breathMax || 5.0;
-        document.getElementById('breath-time').value = ps.breathTime || 5.0;
-        
-        // Update breath UI display
-        document.getElementById('breath-min-value').textContent = (ps.breathMin || 0.0).toFixed(1);
-        document.getElementById('breath-max-value').textContent = (ps.breathMax || 5.0).toFixed(1);
-        document.getElementById('breath-time-value').textContent = (ps.breathTime || 5.0).toFixed(1) + 's';
-        
-        // Update range fill visualization
-        const breathFill = document.getElementById('breath-range-fill');
-        if (breathFill) {
-            const minPercent = ((ps.breathMin || 0.0) / 10) * 100;
-            const maxPercent = ((ps.breathMax || 5.0) / 10) * 100;
-            breathFill.style.left = minPercent + '%';
-            breathFill.style.width = (maxPercent - minPercent) + '%';
-        }
-        
         document.getElementById('social-radius').value = ps.socialRadius[0]?.[0] || 50;
         document.getElementById('social-radius-value').textContent = ps.socialRadius[0]?.[0] || 50;
         
@@ -4509,6 +5453,33 @@ export class MainUI {
         document.getElementById('shockwave-size-value').textContent = ps.shockwaveSize || 100;
         document.getElementById('shockwave-falloff').value = ps.shockwaveFalloff || 2.0;
         document.getElementById('shockwave-falloff-value').textContent = (ps.shockwaveFalloff || 2.0).toFixed(1);
+        
+        // Noise controls
+        const noiseConfig = ps.getNoiseConfig();
+        document.getElementById('noise-enabled').checked = noiseConfig.enabled || false;
+        const noiseControls = document.getElementById('noise-controls');
+        if (noiseControls) {
+            noiseControls.style.display = noiseConfig.enabled ? '' : 'none';
+        }
+        document.getElementById('noise-pattern').value = noiseConfig.pattern || 'perlin';
+        document.getElementById('noise-amplitude').value = noiseConfig.globalAmplitude || 0;
+        document.getElementById('noise-amplitude-value').textContent = (noiseConfig.globalAmplitude || 0).toFixed(2);
+        document.getElementById('noise-scale').value = noiseConfig.globalScale || 1.0;
+        document.getElementById('noise-scale-value').textContent = (noiseConfig.globalScale || 1.0).toFixed(2);
+        document.getElementById('noise-time-scale').value = noiseConfig.globalTimeScale || 1.0;
+        document.getElementById('noise-time-scale-value').textContent = (noiseConfig.globalTimeScale || 1.0).toFixed(3);
+        document.getElementById('noise-contrast').value = noiseConfig.contrast || 1.0;
+        document.getElementById('noise-contrast-value').textContent = (noiseConfig.contrast || 1.0).toFixed(2);
+        document.getElementById('noise-animation').value = noiseConfig.timeIncrement || 0.01;
+        document.getElementById('noise-animation-value').textContent = (noiseConfig.timeIncrement || 0.01).toFixed(3);
+        document.getElementById('noise-octaves').value = noiseConfig.globalOctaves || 3;
+        document.getElementById('noise-octaves-value').textContent = noiseConfig.globalOctaves || 3;
+        document.getElementById('noise-seed').value = noiseConfig.seed || 0;
+        document.getElementById('noise-seed-value').textContent = noiseConfig.seed || 0;
+        document.getElementById('noise-vector-enabled').checked = ps.noiseVectorEnabled || false;
+        document.getElementById('noise-vector-controls').style.display = (ps.noiseVectorEnabled || false) ? '' : 'none';
+        document.getElementById('noise-vector-scale').value = ps.noiseVectorScale || 1.0;
+        document.getElementById('noise-vector-scale-value').textContent = (ps.noiseVectorScale || 1.0).toFixed(2);
         
         // EFFECTS Section
         // Trail Effect

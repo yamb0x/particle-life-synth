@@ -982,6 +982,57 @@ input[type="checkbox"]:hover {
   color: var(--text-tertiary);
 }
 
+/* Modulation Dual Range Slider */
+.modulation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  border: 2px solid var(--bg-secondary);
+  transition: all 0.2s ease;
+}
+
+.modulation-slider::-webkit-slider-thumb:hover {
+  background: var(--text-primary);
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.modulation-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  border: 2px solid var(--bg-secondary);
+  transition: all 0.2s ease;
+}
+
+.modulation-slider::-moz-range-thumb:hover {
+  background: var(--text-primary);
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.modulation-slider::-webkit-slider-runnable-track {
+  height: 0;
+  background: transparent;
+}
+
+.modulation-slider::-moz-range-track {
+  height: 0;
+  background: transparent;
+}
+
 .section-subtitle {
   font-size: var(--font-size-sm);
   font-weight: 500;

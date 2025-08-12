@@ -105,11 +105,13 @@ export class CollapsibleUIIntegration {
             { id: 'presets', title: 'Presets' },
             { id: 'particles', title: 'Particles' },
             { id: 'physics', title: 'Physics' },
+            { id: 'noise', title: 'Noise Patterns' },
             { id: 'boundary', title: 'Boundary Behavior' },
             { id: 'mouse', title: 'Mouse Interactions' },
-            { id: 'forces', title: 'Force Relationships' },
+            { id: 'force-relationships', title: 'Force Relationships' },
             { id: 'effects', title: 'Effects' },
             { id: 'colors', title: 'Colors' },
+            { id: 'modulations', title: 'Modulations' },
             { id: 'aspect-ratio', title: 'Aspect Ratio' },
             { id: 'actions', title: 'Actions' }
         ];
@@ -239,6 +241,9 @@ export class CollapsibleUIIntegration {
                     }
                     if (this.id === 'forces') {
                         return 1200; // Enough for force matrix
+                    }
+                    if (this.id === 'noise') {
+                        return 600; // Enough for noise controls
                     }
                     if (this.id === 'mouse') {
                         return 400; // Enough for shockwave controls

@@ -1,125 +1,184 @@
 /**
  * Advanced noise generation system for particle motion
- * Provides multiple noise patterns with configurable parameters
+ * Provides multiple noise patterns with clear, distinct visual characteristics
  */
 
 export class NoiseGenerator {
-    constructor() {
-        // Noise configuration for each pattern - optimized for flocking behavior
+    constructor(seed = null) {
+        // Use provided seed or generate a random one
+        this.seed = seed !== null ? seed : Math.floor(Math.random() * 2147483647);
+        this.rng = this.createSeededRandom(this.seed);
+        // Noise configuration - optimized for clear, large-scale patterns
         this.patterns = {
             perlin: {
                 name: 'Perlin',
-                scale: 0.003,  // Much larger scale for smoother gradients
-                timeScale: 0.0002,  // Slower evolution
+                scale: 2.5,       // Smooth, organic flow
+                timeScale: 0.3,   // Slow evolution
                 amplitude: 1.0,
-                octaves: 2,  // Fewer octaves for simpler patterns
-                persistence: 0.7,  // Higher persistence for smoother flow
+                octaves: 3,
+                persistence: 0.5,
                 lacunarity: 2.0
             },
             simplex: {
                 name: 'Simplex',
-                scale: 0.0025,  // Larger scale patterns
-                timeScale: 0.00015,  // Very slow evolution
+                scale: 1.8,       // Larger, smoother patterns
+                timeScale: 0.4,
                 amplitude: 1.0,
-                octaves: 2,  // Simpler patterns
-                persistence: 0.8  // Smoother transitions
+                octaves: 2,       // Fewer octaves for cleaner look
+                persistence: 0.6
             },
             voronoi: {
                 name: 'Voronoi',
-                scale: 0.002,  // Larger cells
-                timeScale: 0.0001,  // Very slow movement
+                scale: 4.0,       // Clear cell regions
+                timeScale: 0.2,   // Slow cell movement
                 amplitude: 1.0,
-                cellCount: 8,  // Fewer cells for clearer regions
-                distanceFunction: 'euclidean'
+                cellCount: 8,     // Fewer, larger cells
+                jitter: 0.5       // Less randomness
             },
-            cubic: {
-                name: 'Cubic',
-                scale: 0.004,  // Larger wave patterns
-                timeScale: 0.0002,  // Slow evolution
+            worley: {
+                name: 'Worley',
+                scale: 3.5,       // Distinct cellular structure
+                timeScale: 0.25,
                 amplitude: 1.0,
-                frequency: 1.5  // Lower frequency for broader waves
+                cellsPerAxis: 4,  // 4x4 grid for larger cells
+                distanceFunction: 'euclidean',
+                featurePoint: 1
+            },
+            fbm: {
+                name: 'FBM',
+                scale: 2.0,       // Multi-scale detail
+                timeScale: 0.35,
+                amplitude: 1.0,
+                octaves: 5,       // More octaves for fractal detail
+                lacunarity: 2.3,  // Higher frequency ratio
+                gain: 0.45        // Slightly less amplitude decay
+            },
+            ridged: {
+                name: 'Ridged',
+                scale: 2.8,       // Mountain ridge patterns
+                timeScale: 0.3,
+                amplitude: 1.0,
+                octaves: 3,
+                lacunarity: 2.5,  // Sharp frequency jumps
+                gain: 0.4,
+                offset: 1.0       // More pronounced ridges
             },
             turbulence: {
                 name: 'Turbulence',
-                scale: 0.0035,  // Larger turbulence patterns
-                timeScale: 0.00025,  // Moderate evolution
+                scale: 3.2,       // Chaotic swirls
+                timeScale: 0.5,   // Faster animation
                 amplitude: 1.0,
-                octaves: 2,  // Simpler turbulence
-                roughness: 0.6  // Smoother turbulence
+                octaves: 4,
+                roughness: 0.65   // More turbulent
+            },
+            curl: {
+                name: 'Curl',
+                scale: 2.2,       // Swirling vortices
+                timeScale: 0.35,
+                amplitude: 1.0,
+                epsilon: 0.02     // Larger gradient sampling
             },
             flow: {
                 name: 'Flow Field',
-                scale: 0.0025,  // Larger flow patterns
-                timeScale: 0.00008,  // Very slow rotation
+                scale: 1.5,       // Large flow patterns
+                timeScale: 0.25,
                 amplitude: 1.0,
-                vortexCount: 3,  // Fewer, clearer vortices
-                vortexStrength: 1.5  // Moderate strength
+                vortexCount: 3,   // Fewer, stronger vortices
+                vortexStrength: 3.0
             },
             waves: {
                 name: 'Wave Interference',
-                scale: 0.005,  // Larger wave patterns
-                timeScale: 0.0003,  // Slow wave evolution
+                scale: 4.5,       // Wave frequency
+                timeScale: 0.6,   // Wave speed
                 amplitude: 1.0,
-                waveCount: 2,  // Fewer wave sources
-                frequency: 1.0  // Lower frequency
+                waveCount: 4,     // More wave sources
+                frequency: 3.0    // Higher frequency
+            },
+            cubic: {
+                name: 'Cubic',
+                scale: 3.0,       // Smooth interpolation
+                timeScale: 0.45,
+                amplitude: 1.0,
+                frequency: 1.5    // More variation
             },
             cellular: {
                 name: 'Cellular',
-                scale: 0.003,  // Larger cells
-                timeScale: 0.00015,  // Slow transitions
+                scale: 5.0,       // Binary cell patterns
+                timeScale: 0.15,  // Very slow evolution
                 amplitude: 1.0,
-                cellSize: 30,  // Larger cell size
-                threshold: 0.5
+                cellSize: 6,      // Medium cells
+                threshold: 0.4    // More filled cells
             }
         };
         
         // Active pattern
         this.activePattern = 'perlin';
         
-        // Global noise parameters
+        // Global parameters
         this.globalScale = 1.0;
         this.globalTimeScale = 1.0;
-        this.globalAmplitude = 0.0; // Start with no noise
+        this.globalAmplitude = 0.0;
+        this.contrast = 1.0;
+        this.globalOctaves = 3;  // Default octaves for patterns that support it
         
-        // Performance optimization
-        this.cache = new Map();
-        this.cacheSize = 1000;
-        this.frameCount = 0;
+        // Time tracking - reasonable increment for visible evolution
+        this.time = 0;
+        this.timeIncrement = 0.01; // Visible animation speed
         
-        // Precomputed values for performance
+        // Precomputed values for Perlin/Simplex
         this.permutation = this.generatePermutation();
-        this.gradients3D = this.generateGradients3D();
+        this.gradients = this.generateGradients();
         
-        // Voronoi seed points
-        this.voronoiSeeds = this.generateVoronoiSeeds(30);
+        // Seeds for cellular patterns
+        this.voronoiSeeds = [];
+        this.worleyGrid = new Map();
+        this.cellularGrid = [];
+        this.generateVoronoiSeeds();
+        this.generateWorleyGrid();
+        this.generateCellularGrid();
         
         // Flow field vortices
-        this.vortices = this.generateVortices(8);
+        this.vortices = this.generateVortices();
         
         // Wave sources
-        this.waveSources = this.generateWaveSources(5);
+        this.waveSources = this.generateWaveSources();
+    }
+    
+    // Create a seeded random number generator
+    createSeededRandom(seed) {
+        let s = seed;
+        return function() {
+            s = Math.sin(s) * 10000;
+            return s - Math.floor(s);
+        };
+    }
+    
+    setSeed(seed) {
+        this.seed = seed;
+        this.rng = this.createSeededRandom(seed);
         
-        // Time tracking for evolution
-        this.time = 0;
-        
-        // Smoothing parameters for flow-like behavior
-        this.smoothingFactor = 0.85;  // How much to smooth between frames
-        this.previousNoiseValues = new Map();  // Store previous noise values for smoothing
+        // Regenerate all random elements with new seed
+        this.permutation = this.generatePermutation();
+        this.generateVoronoiSeeds();
+        this.generateWorleyGrid();
+        this.generateCellularGrid();
+        this.vortices = this.generateVortices();
+        this.waveSources = this.generateWaveSources();
     }
     
     generatePermutation() {
-        const p = [];
+        const p = new Uint8Array(512);
         for (let i = 0; i < 256; i++) {
             p[i] = i;
         }
         
-        // Shuffle
+        // Fisher-Yates shuffle with seeded random
         for (let i = 255; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(this.rng() * (i + 1));
             [p[i], p[j]] = [p[j], p[i]];
         }
         
-        // Duplicate for wrapping
+        // Duplicate for overflow
         for (let i = 0; i < 256; i++) {
             p[256 + i] = p[i];
         }
@@ -127,117 +186,160 @@ export class NoiseGenerator {
         return p;
     }
     
-    generateGradients3D() {
-        const gradients = [];
-        const vectors = [
+    generateGradients() {
+        // 3D gradient vectors for Perlin noise - normalized vectors to cube edges
+        const gradients = [
             [1,1,0], [-1,1,0], [1,-1,0], [-1,-1,0],
             [1,0,1], [-1,0,1], [1,0,-1], [-1,0,-1],
             [0,1,1], [0,-1,1], [0,1,-1], [0,-1,-1]
         ];
         
-        for (const v of vectors) {
-            const len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-            gradients.push([v[0]/len, v[1]/len, v[2]/len]);
+        // Normalize
+        return gradients.map(g => {
+            const len = Math.sqrt(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
+            return [g[0]/len, g[1]/len, g[2]/len];
+        });
+    }
+    
+    generateVoronoiSeeds() {
+        const config = this.patterns.voronoi;
+        this.voronoiSeeds = [];
+        
+        // Create a grid of cells with jittered points
+        const gridSize = Math.ceil(Math.sqrt(config.cellCount));
+        const cellSize = 1.0 / gridSize;
+        
+        for (let y = 0; y < gridSize; y++) {
+            for (let x = 0; x < gridSize; x++) {
+                if (this.voronoiSeeds.length >= config.cellCount) break;
+                
+                // Jittered grid position with seeded random
+                const jitterX = (this.rng() - 0.5) * config.jitter;
+                const jitterY = (this.rng() - 0.5) * config.jitter;
+                
+                this.voronoiSeeds.push({
+                    x: (x + 0.5) * cellSize + jitterX * cellSize,
+                    y: (y + 0.5) * cellSize + jitterY * cellSize,
+                    vx: (this.rng() - 0.5) * 0.001,
+                    vy: (this.rng() - 0.5) * 0.001
+                });
+            }
+        }
+    }
+    
+    generateWorleyGrid() {
+        const config = this.patterns.worley;
+        this.worleyGrid.clear();
+        
+        // Generate points in a grid
+        const cellSize = 1.0 / config.cellsPerAxis;
+        
+        for (let cy = 0; cy < config.cellsPerAxis; cy++) {
+            for (let cx = 0; cx < config.cellsPerAxis; cx++) {
+                const key = `${cx},${cy}`;
+                this.worleyGrid.set(key, {
+                    x: (cx + this.rng()) * cellSize,
+                    y: (cy + this.rng()) * cellSize
+                });
+            }
+        }
+    }
+    
+    generateVortices() {
+        const config = this.patterns.flow;
+        const vortices = [];
+        
+        for (let i = 0; i < config.vortexCount; i++) {
+            vortices.push({
+                x: this.rng(),
+                y: this.rng(),
+                strength: (this.rng() - 0.5) * config.vortexStrength,
+                radius: 0.2 + this.rng() * 0.3
+            });
         }
         
-        return gradients;
-    }
-    
-    generateVoronoiSeeds(count) {
-        const seeds = [];
-        for (let i = 0; i < count; i++) {
-            seeds.push({
-                x: Math.random(),
-                y: Math.random(),
-                vx: (Math.random() - 0.5) * 0.001,
-                vy: (Math.random() - 0.5) * 0.001
-            });
-        }
-        return seeds;
-    }
-    
-    generateVortices(count) {
-        const vortices = [];
-        for (let i = 0; i < count; i++) {
-            vortices.push({
-                x: Math.random(),
-                y: Math.random(),
-                strength: (Math.random() - 0.5) * 3,
-                radius: 0.1 + Math.random() * 0.2,
-                angleOffset: Math.random() * Math.PI * 2
-            });
-        }
         return vortices;
     }
     
-    generateWaveSources(count) {
+    generateWaveSources() {
+        const config = this.patterns.waves;
         const sources = [];
-        for (let i = 0; i < count; i++) {
+        
+        for (let i = 0; i < config.waveCount; i++) {
             sources.push({
-                x: Math.random(),
-                y: Math.random(),
-                frequency: 1 + Math.random() * 3,
-                amplitude: 0.5 + Math.random() * 0.5,
-                phase: Math.random() * Math.PI * 2
+                x: this.rng(),
+                y: this.rng(),
+                frequency: 0.5 + this.rng() * 2,
+                amplitude: 0.5 + this.rng() * 0.5,
+                phase: this.rng() * Math.PI * 2
             });
         }
+        
         return sources;
     }
     
-    // Fade function for smooth interpolation
+    generateCellularGrid() {
+        // Generate random cellular automata-like grid
+        this.cellularGrid = [];
+        const gridSize = 20;
+        for (let y = 0; y < gridSize; y++) {
+            this.cellularGrid[y] = [];
+            for (let x = 0; x < gridSize; x++) {
+                this.cellularGrid[y][x] = this.rng() > 0.5 ? 1 : 0;
+            }
+        }
+    }
+    
+    // Improved fade function for smoother interpolation
     fade(t) {
+        // 6t^5 - 15t^4 + 10t^3 (Perlin's improved fade)
         return t * t * t * (t * (t * 6 - 15) + 10);
     }
     
-    // Linear interpolation
     lerp(a, b, t) {
         return a + t * (b - a);
     }
     
-    // Dot product for gradient and distance vector
-    grad(hash, x, y, z) {
-        const h = hash & 15;
-        const u = h < 8 ? x : y;
-        const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
-        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    dot3(g, x, y, z) {
+        return g[0] * x + g[1] * y + g[2] * z;
     }
     
-    // Perlin noise implementation - simplified for clearer patterns
+    // Improved Perlin noise with proper gradients
     perlinNoise(x, y, t) {
-        const p = this.permutation;
         const config = this.patterns.perlin;
         
-        // Apply scales
+        // Apply scale
         x *= config.scale * this.globalScale;
         y *= config.scale * this.globalScale;
-        t *= config.timeScale * this.globalTimeScale;
+        t *= config.timeScale * this.globalTimeScale ; // Slower time
         
         let total = 0;
         let amplitude = config.amplitude;
+        let frequency = 1;
         let maxValue = 0;
         
         for (let octave = 0; octave < config.octaves; octave++) {
-            const freq = Math.pow(config.lacunarity, octave);
-            const px = x * freq;
-            const py = y * freq;
-            const pz = t;
+            const fx = x * frequency;
+            const fy = y * frequency;
+            const fz = t;
             
-            // Find unit cube
-            const X = Math.floor(px) & 255;
-            const Y = Math.floor(py) & 255;
-            const Z = Math.floor(pz) & 255;
+            // Integer coordinates
+            const X = Math.floor(fx) & 255;
+            const Y = Math.floor(fy) & 255;
+            const Z = Math.floor(fz) & 255;
             
-            // Find relative position in cube
-            const xf = px - Math.floor(px);
-            const yf = py - Math.floor(py);
-            const zf = pz - Math.floor(pz);
+            // Fractional coordinates
+            const xf = fx - Math.floor(fx);
+            const yf = fy - Math.floor(fy);
+            const zf = fz - Math.floor(fz);
             
-            // Compute fade curves with stronger contrast
+            // Fade curves
             const u = this.fade(xf);
             const v = this.fade(yf);
             const w = this.fade(zf);
             
             // Hash coordinates
+            const p = this.permutation;
             const A = p[X] + Y;
             const AA = p[A] + Z;
             const AB = p[A + 1] + Z;
@@ -245,63 +347,71 @@ export class NoiseGenerator {
             const BA = p[B] + Z;
             const BB = p[B + 1] + Z;
             
-            // Blend results
-            const res = this.lerp(
-                this.lerp(
-                    this.lerp(this.grad(p[AA], xf, yf, zf),
-                             this.grad(p[BA], xf - 1, yf, zf), u),
-                    this.lerp(this.grad(p[AB], xf, yf - 1, zf),
-                             this.grad(p[BB], xf - 1, yf - 1, zf), u),
-                    v
-                ),
-                this.lerp(
-                    this.lerp(this.grad(p[AA + 1], xf, yf, zf - 1),
-                             this.grad(p[BA + 1], xf - 1, yf, zf - 1), u),
-                    this.lerp(this.grad(p[AB + 1], xf, yf - 1, zf - 1),
-                             this.grad(p[BB + 1], xf - 1, yf - 1, zf - 1), u),
-                    v
-                ),
-                w
-            );
+            // Get gradients
+            const g = this.gradients;
             
-            total += res * amplitude;
+            // Calculate dot products and interpolate
+            const x1 = this.lerp(
+                this.dot3(g[p[AA] % 12], xf, yf, zf),
+                this.dot3(g[p[BA] % 12], xf - 1, yf, zf),
+                u
+            );
+            const x2 = this.lerp(
+                this.dot3(g[p[AB] % 12], xf, yf - 1, zf),
+                this.dot3(g[p[BB] % 12], xf - 1, yf - 1, zf),
+                u
+            );
+            const y1 = this.lerp(x1, x2, v);
+            
+            const x3 = this.lerp(
+                this.dot3(g[p[AA + 1] % 12], xf, yf, zf - 1),
+                this.dot3(g[p[BA + 1] % 12], xf - 1, yf, zf - 1),
+                u
+            );
+            const x4 = this.lerp(
+                this.dot3(g[p[AB + 1] % 12], xf, yf - 1, zf - 1),
+                this.dot3(g[p[BB + 1] % 12], xf - 1, yf - 1, zf - 1),
+                u
+            );
+            const y2 = this.lerp(x3, x4, v);
+            
+            const result = this.lerp(y1, y2, w);
+            
+            total += result * amplitude;
             maxValue += amplitude;
+            
             amplitude *= config.persistence;
+            frequency *= config.lacunarity;
         }
         
-        // Apply contrast enhancement for clearer patterns
-        const result = total / maxValue;
-        return Math.sign(result) * Math.pow(Math.abs(result), 0.7);  // Power curve for contrast
+        return total / maxValue;
     }
     
-    // Simplex noise (2D simplified version)
+    // Simplex noise (2D)
     simplexNoise(x, y, t) {
         const config = this.patterns.simplex;
         
         x *= config.scale * this.globalScale;
         y *= config.scale * this.globalScale;
-        t *= config.timeScale * this.globalTimeScale;
+        t *= config.timeScale * this.globalTimeScale ;
         
-        // Add time as a third dimension for evolution
-        const x3 = x + t;
-        const y3 = y + t * 0.7;
+        // Use time to create a 3D coordinate
+        const z = t;
         
         // Skewing factors for 2D
         const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
         const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
         
-        let n0, n1, n2;
-        
         // Skew the input space
-        const s = (x3 + y3) * F2;
-        const i = Math.floor(x3 + s);
-        const j = Math.floor(y3 + s);
+        const s = (x + y) * F2;
+        const i = Math.floor(x + s);
+        const j = Math.floor(y + s);
         
         const t0 = (i + j) * G2;
         const X0 = i - t0;
         const Y0 = j - t0;
-        const x0 = x3 - X0;
-        const y0 = y3 - Y0;
+        const x0 = x - X0;
+        const y0 = y - Y0;
         
         // Determine simplex
         let i1, j1;
@@ -319,113 +429,200 @@ export class NoiseGenerator {
         // Hash
         const ii = i & 255;
         const jj = j & 255;
-        const gi0 = this.permutation[ii + this.permutation[jj]] % 12;
-        const gi1 = this.permutation[ii + i1 + this.permutation[jj + j1]] % 12;
-        const gi2 = this.permutation[ii + 1 + this.permutation[jj + 1]] % 12;
+        const p = this.permutation;
+        const gi0 = p[ii + p[jj]] % 12;
+        const gi1 = p[ii + i1 + p[jj + j1]] % 12;
+        const gi2 = p[ii + 1 + p[jj + 1]] % 12;
         
         // Calculate contributions
+        const g = this.gradients;
+        let n0 = 0, n1 = 0, n2 = 0;
+        
         let t1 = 0.5 - x0*x0 - y0*y0;
-        if (t1 < 0) {
-            n0 = 0;
-        } else {
+        if (t1 >= 0) {
             t1 *= t1;
-            n0 = t1 * t1 * this.dot2D(this.gradients3D[gi0], x0, y0);
+            n0 = t1 * t1 * this.dot3(g[gi0], x0, y0, 0);
         }
         
         let t2 = 0.5 - x1*x1 - y1*y1;
-        if (t2 < 0) {
-            n1 = 0;
-        } else {
+        if (t2 >= 0) {
             t2 *= t2;
-            n1 = t2 * t2 * this.dot2D(this.gradients3D[gi1], x1, y1);
+            n1 = t2 * t2 * this.dot3(g[gi1], x1, y1, 0);
         }
         
         let t3 = 0.5 - x2*x2 - y2*y2;
-        if (t3 < 0) {
-            n2 = 0;
-        } else {
+        if (t3 >= 0) {
             t3 *= t3;
-            n2 = t3 * t3 * this.dot2D(this.gradients3D[gi2], x2, y2);
+            n2 = t3 * t3 * this.dot3(g[gi2], x2, y2, 0);
         }
         
-        // Scale output
-        return 70.0 * (n0 + n1 + n2);
+        // Scale output to [-1, 1]
+        return 70.0 * (n0 + n1 + n2) / 70.0; // Normalize properly
     }
     
-    dot2D(g, x, y) {
-        return g[0] * x + g[1] * y;
-    }
-    
-    // Voronoi noise - simplified for clear cellular regions
+    // Proper Voronoi noise with cellular structure
     voronoiNoise(x, y, t) {
         const config = this.patterns.voronoi;
         
         x *= config.scale * this.globalScale;
         y *= config.scale * this.globalScale;
-        t *= config.timeScale * this.globalTimeScale;
+        t *= config.timeScale * this.globalTimeScale ;
         
-        // Slowly rotate seed positions for organic movement
-        const rotationSpeed = t * 0.1;
+        // Animate seeds slightly
+        const animatedSeeds = this.voronoiSeeds.map(seed => ({
+            x: seed.x + Math.sin(t + seed.x * 10) * 0.02,
+            y: seed.y + Math.cos(t + seed.y * 10) * 0.02
+        }));
         
-        // Find closest seed point with clear regions
+        // Find closest seed
         let minDist = Infinity;
-        let closestSeedIndex = -1;
+        let secondMinDist = Infinity;
         
-        for (let i = 0; i < this.voronoiSeeds.length; i++) {
-            const seed = this.voronoiSeeds[i];
-            
-            // Apply slow rotation to seed positions
-            const angle = rotationSpeed + i * (Math.PI * 2 / this.voronoiSeeds.length);
-            const rotatedX = seed.x + Math.cos(angle) * 0.05;
-            const rotatedY = seed.y + Math.sin(angle) * 0.05;
-            
-            const dx = x - rotatedX;
-            const dy = y - rotatedY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist < minDist) {
-                minDist = dist;
-                closestSeedIndex = i;
+        // Check main space and wrapped positions for seamless tiling
+        for (let wx = -1; wx <= 1; wx++) {
+            for (let wy = -1; wy <= 1; wy++) {
+                for (const seed of animatedSeeds) {
+                    const sx = seed.x + wx;
+                    const sy = seed.y + wy;
+                    
+                    const dx = x - sx;
+                    const dy = y - sy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < minDist) {
+                        secondMinDist = minDist;
+                        minDist = dist;
+                    } else if (dist < secondMinDist) {
+                        secondMinDist = dist;
+                    }
+                }
             }
         }
         
-        // Create clear regional patterns based on seed index
-        const regionAngle = (closestSeedIndex / this.voronoiSeeds.length) * Math.PI * 2;
-        const regionValue = Math.sin(regionAngle + t * 0.5);
+        // Use difference between closest and second closest for edge detection
+        const edgeDist = secondMinDist - minDist;
         
-        // Add edge detection for more contrast
-        const edgeStrength = Math.exp(-minDist * 10) * 0.5;
-        
-        return regionValue * (1 - edgeStrength);  // Clear regions with defined edges
+        // Create clear cellular pattern
+        return 1.0 - minDist * 2; // Invert and scale for clear cells
     }
     
-    // Cubic noise (smooth interpolated noise)
-    cubicNoise(x, y, t) {
-        const config = this.patterns.cubic;
+    // Proper Worley noise
+    worleyNoise(x, y, t) {
+        const config = this.patterns.worley;
+        
+        x *= config.scale * this.globalScale;
+        y *= config.scale * this.globalScale;
+        t *= config.timeScale * this.globalTimeScale ;
+        
+        // Determine which cell we're in
+        const cellSize = 1.0 / config.cellsPerAxis;
+        const cellX = Math.floor(x / cellSize);
+        const cellY = Math.floor(y / cellSize);
+        
+        // Find distances to points in neighboring cells
+        const distances = [];
+        
+        for (let cy = cellY - 1; cy <= cellY + 1; cy++) {
+            for (let cx = cellX - 1; cx <= cellX + 1; cx++) {
+                // Wrap cells
+                const wcx = ((cx % config.cellsPerAxis) + config.cellsPerAxis) % config.cellsPerAxis;
+                const wcy = ((cy % config.cellsPerAxis) + config.cellsPerAxis) % config.cellsPerAxis;
+                
+                const key = `${wcx},${wcy}`;
+                const point = this.worleyGrid.get(key);
+                
+                if (point) {
+                    // Adjust point position for wrapped cells
+                    const px = point.x + (cx - wcx) * cellSize;
+                    const py = point.y + (cy - wcy) * cellSize;
+                    
+                    // Animate slightly
+                    const apx = px + Math.sin(t + px * 10) * 0.01;
+                    const apy = py + Math.cos(t + py * 10) * 0.01;
+                    
+                    const dx = x - apx;
+                    const dy = y - apy;
+                    
+                    let dist;
+                    if (config.distanceFunction === 'manhattan') {
+                        dist = Math.abs(dx) + Math.abs(dy);
+                    } else if (config.distanceFunction === 'chebyshev') {
+                        dist = Math.max(Math.abs(dx), Math.abs(dy));
+                    } else {
+                        dist = Math.sqrt(dx * dx + dy * dy);
+                    }
+                    
+                    distances.push(dist);
+                }
+            }
+        }
+        
+        // Sort distances
+        distances.sort((a, b) => a - b);
+        
+        // Use nth closest point
+        const n = Math.min(config.featurePoint - 1, distances.length - 1);
+        const value = distances[n] || 0;
+        
+        // Normalize and invert for clear pattern
+        return 1.0 - Math.min(1.0, value * 3);
+    }
+    
+    // Fractal Brownian Motion
+    fbmNoise(x, y, t) {
+        const config = this.patterns.fbm;
         
         x *= config.scale * this.globalScale;
         y *= config.scale * this.globalScale;
         t *= config.timeScale * this.globalTimeScale;
         
-        // Create a cubic wave pattern
-        const fx = x * config.frequency;
-        const fy = y * config.frequency;
+        let total = 0;
+        let amplitude = 1;
+        let frequency = 1;
+        let maxValue = 0;
         
-        // Cubic interpolation function
-        const cubic = (v) => {
-            const v2 = v * v;
-            const v3 = v2 * v;
-            return -2 * v3 + 3 * v2;
-        };
+        for (let i = 0; i < config.octaves; i++) {
+            total += this.perlinNoise(x * frequency, y * frequency, t) * amplitude;
+            maxValue += amplitude;
+            frequency *= config.lacunarity;
+            amplitude *= config.gain;
+        }
         
-        // Generate smooth noise using cubic interpolation
-        const nx = cubic((Math.sin(fx + t) + 1) * 0.5);
-        const ny = cubic((Math.cos(fy - t * 0.7) + 1) * 0.5);
+        return total / maxValue;
+    }
+    
+    // Ridged noise - creates ridge-like patterns
+    ridgedNoise(x, y, t) {
+        const config = this.patterns.ridged;
         
-        // Combine for interesting patterns
-        const combined = nx * ny + Math.sin(fx * fy + t * 2) * 0.3;
+        x *= config.scale * this.globalScale;
+        y *= config.scale * this.globalScale;
+        t *= config.timeScale * this.globalTimeScale;
         
-        return combined * 2 - 1;
+        let total = 0;
+        let frequency = 1;
+        let amplitude = 1;
+        let weight = 1;
+        let maxValue = 0;
+        
+        for (let i = 0; i < config.octaves; i++) {
+            const noise = this.perlinNoise(x * frequency, y * frequency, t);
+            
+            // Create ridges
+            const ridge = config.offset - Math.abs(noise);
+            const sharpRidge = ridge * ridge * weight;
+            
+            total += sharpRidge * amplitude;
+            maxValue += amplitude;
+            
+            // Update weight based on current octave
+            weight = Math.max(0, Math.min(1, sharpRidge));
+            
+            frequency *= config.lacunarity;
+            amplitude *= config.gain;
+        }
+        
+        return (total / maxValue) * 2 - 1;
     }
     
     // Turbulence noise
@@ -452,7 +649,35 @@ export class NoiseGenerator {
         return (total / maxValue) * 2 - 1;
     }
     
-    // Flow field noise - improved for clear directional flow
+    // Curl noise - divergence-free field
+    curlNoise(x, y, t) {
+        const config = this.patterns.curl;
+        
+        x *= config.scale * this.globalScale;
+        y *= config.scale * this.globalScale;
+        t *= config.timeScale * this.globalTimeScale;
+        
+        const epsilon = config.epsilon;
+        
+        // Sample noise at offset positions
+        const n1 = this.perlinNoise(x, y + epsilon, t);
+        const n2 = this.perlinNoise(x, y - epsilon, t);
+        const n3 = this.perlinNoise(x + epsilon, y, t);
+        const n4 = this.perlinNoise(x - epsilon, y, t);
+        
+        // Compute curl (2D rotation of gradient)
+        const curlX = (n1 - n2) / (2 * epsilon);
+        const curlY = -(n3 - n4) / (2 * epsilon);
+        
+        // Normalize
+        const len = Math.sqrt(curlX * curlX + curlY * curlY);
+        if (len > 0) {
+            return { x: curlX / len, y: curlY / len };
+        }
+        return { x: 0, y: 0 };
+    }
+    
+    // Flow field noise
     flowFieldNoise(x, y, t) {
         const config = this.patterns.flow;
         
@@ -463,33 +688,31 @@ export class NoiseGenerator {
         let flowX = 0;
         let flowY = 0;
         
-        // Calculate influence from each vortex with clearer patterns
+        // Calculate influence from vortices
         for (const vortex of this.vortices) {
             const dx = x - vortex.x;
             const dy = y - vortex.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             
-            if (dist < vortex.radius * 2) {  // Larger influence radius
-                const angle = Math.atan2(dy, dx) + vortex.angleOffset + t * vortex.strength * 0.5;
-                const influence = Math.exp(-dist / vortex.radius) * vortex.strength;  // Exponential falloff
+            if (dist < vortex.radius) {
+                const influence = Math.exp(-dist / (vortex.radius * 0.3));
+                const angle = Math.atan2(dy, dx) + Math.PI / 2;
                 
-                // Create clear rotational flow
-                flowX += Math.cos(angle + Math.PI / 2) * influence;
-                flowY += Math.sin(angle + Math.PI / 2) * influence;
+                flowX += Math.cos(angle) * influence * vortex.strength;
+                flowY += Math.sin(angle) * influence * vortex.strength;
             }
         }
         
-        // Add a global flow direction for more coherent movement
-        const globalFlow = Math.sin(t * 0.5) * 0.3;
-        flowX += globalFlow;
+        // Add base flow
+        flowX += Math.sin(t * 0.5) * 0.3;
         flowY += Math.cos(t * 0.3) * 0.2;
         
-        // Return normalized directional flow
-        const magnitude = Math.sqrt(flowX * flowX + flowY * flowY);
-        if (magnitude > 0) {
-            return Math.atan2(flowY, flowX) / Math.PI;  // Normalized angle
+        // Normalize
+        const len = Math.sqrt(flowX * flowX + flowY * flowY);
+        if (len > 0) {
+            return { x: flowX / len, y: flowY / len };
         }
-        return 0;
+        return { x: 0, y: 0 };
     }
     
     // Wave interference noise
@@ -502,7 +725,6 @@ export class NoiseGenerator {
         
         let total = 0;
         
-        // Calculate wave interference from multiple sources
         for (const source of this.waveSources) {
             const dx = x - source.x;
             const dy = y - source.y;
@@ -517,8 +739,31 @@ export class NoiseGenerator {
             total += wave;
         }
         
-        // Normalize
         return total / this.waveSources.length;
+    }
+    
+    // Cubic noise
+    cubicNoise(x, y, t) {
+        const config = this.patterns.cubic;
+        
+        x *= config.scale * this.globalScale;
+        y *= config.scale * this.globalScale;
+        t *= config.timeScale * this.globalTimeScale;
+        
+        // Cubic interpolation
+        const cubic = (v) => {
+            const v2 = v * v;
+            const v3 = v2 * v;
+            return -2 * v3 + 3 * v2;
+        };
+        
+        const fx = x * config.frequency;
+        const fy = y * config.frequency;
+        
+        const nx = cubic((Math.sin(fx + t) + 1) * 0.5);
+        const ny = cubic((Math.cos(fy - t * 0.7) + 1) * 0.5);
+        
+        return nx * ny * 2 - 1;
     }
     
     // Cellular noise
@@ -529,40 +774,25 @@ export class NoiseGenerator {
         y *= config.scale * this.globalScale;
         t *= config.timeScale * this.globalTimeScale;
         
-        // Create cellular automaton-like pattern
         const cellX = Math.floor(x * config.cellSize);
         const cellY = Math.floor(y * config.cellSize);
         
         // Hash cell coordinates
-        const hash = this.hashCell(cellX, cellY, Math.floor(t * 10));
-        
-        // Create threshold-based pattern
-        const value = (hash % 1000) / 1000;
-        
-        if (value < config.threshold) {
-            return -1;
-        } else {
-            return 1;
-        }
-    }
-    
-    hashCell(x, y, t) {
-        // Simple hash function for cell coordinates
-        let h = x * 374761393 + y * 668265263 + t * 1274126177;
+        let h = cellX * 374761393 + cellY * 668265263 + Math.floor(t * 10) * 1274126177;
         h = ((h ^ (h >>> 13)) * 1274126177) ^ (h >>> 16);
-        return Math.abs(h);
+        const value = (Math.abs(h) % 1000) / 1000;
+        
+        return value < config.threshold ? -1 : 1;
     }
     
-    // Main noise function that routes to the appropriate pattern
+    // Update time (should be called once per frame, not per particle)
+    updateTime() {
+        this.time += this.timeIncrement;
+    }
+    
+    // Main noise function
     getNoise(x, y, particleIndex = 0) {
-        // Update time with slower increment for smoother evolution
-        this.time += 0.008; // Half speed for smoother motion
-        
-        // Check cache
-        const cacheKey = `${this.activePattern}_${Math.floor(x*100)}_${Math.floor(y*100)}_${Math.floor(this.time*10)}`;
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
+        // Time is now updated externally, once per frame
         
         let noiseX = 0;
         let noiseY = 0;
@@ -571,33 +801,49 @@ export class NoiseGenerator {
         switch (this.activePattern) {
             case 'perlin':
                 noiseX = this.perlinNoise(x, y, this.time);
-                noiseY = this.perlinNoise(x + 1000, y + 1000, this.time);
+                noiseY = this.perlinNoise(x + 100, y + 100, this.time);
                 break;
                 
             case 'simplex':
                 noiseX = this.simplexNoise(x, y, this.time);
-                noiseY = this.simplexNoise(x + 1000, y + 1000, this.time);
+                noiseY = this.simplexNoise(x + 100, y + 100, this.time);
                 break;
                 
             case 'voronoi':
                 noiseX = this.voronoiNoise(x, y, this.time);
-                noiseY = this.voronoiNoise(x + 0.1, y + 0.1, this.time);
+                noiseY = this.voronoiNoise(x + 0.5, y + 0.5, this.time);
                 break;
                 
-            case 'cubic':
-                noiseX = this.cubicNoise(x, y, this.time);
-                noiseY = this.cubicNoise(x + 1000, y + 1000, this.time);
+            case 'worley':
+                noiseX = this.worleyNoise(x, y, this.time);
+                noiseY = this.worleyNoise(x + 0.5, y + 0.5, this.time);
+                break;
+                
+            case 'fbm':
+                noiseX = this.fbmNoise(x, y, this.time);
+                noiseY = this.fbmNoise(x + 100, y + 100, this.time);
+                break;
+                
+            case 'ridged':
+                noiseX = this.ridgedNoise(x, y, this.time);
+                noiseY = this.ridgedNoise(x + 100, y + 100, this.time);
                 break;
                 
             case 'turbulence':
                 noiseX = this.turbulenceNoise(x, y, this.time);
-                noiseY = this.turbulenceNoise(x + 1000, y + 1000, this.time);
+                noiseY = this.turbulenceNoise(x + 100, y + 100, this.time);
+                break;
+                
+            case 'curl':
+                const curlResult = this.curlNoise(x, y, this.time);
+                noiseX = curlResult.x;
+                noiseY = curlResult.y;
                 break;
                 
             case 'flow':
-                const flowNoise = this.flowFieldNoise(x, y, this.time);
-                noiseX = Math.cos(flowNoise);
-                noiseY = Math.sin(flowNoise);
+                const flowResult = this.flowFieldNoise(x, y, this.time);
+                noiseX = flowResult.x;
+                noiseY = flowResult.y;
                 break;
                 
             case 'waves':
@@ -605,9 +851,14 @@ export class NoiseGenerator {
                 noiseY = this.waveNoise(x + 0.1, y + 0.1, this.time);
                 break;
                 
+            case 'cubic':
+                noiseX = this.cubicNoise(x, y, this.time);
+                noiseY = this.cubicNoise(x + 100, y + 100, this.time);
+                break;
+                
             case 'cellular':
                 noiseX = this.cellularNoise(x, y, this.time);
-                noiseY = this.cellularNoise(x + 0.05, y + 0.05, this.time);
+                noiseY = this.cellularNoise(x + 0.5, y + 0.5, this.time);
                 break;
                 
             default:
@@ -615,97 +866,87 @@ export class NoiseGenerator {
                 noiseY = 0;
         }
         
-        // Apply smoothing for flow-like behavior
-        const particleKey = `p_${particleIndex}`;
-        const prevNoise = this.previousNoiseValues.get(particleKey) || { x: 0, y: 0 };
-        
-        // Smooth the noise values
-        const smoothedX = prevNoise.x * this.smoothingFactor + noiseX * (1 - this.smoothingFactor);
-        const smoothedY = prevNoise.y * this.smoothingFactor + noiseY * (1 - this.smoothingFactor);
-        
-        // Store for next frame
-        this.previousNoiseValues.set(particleKey, { x: smoothedX, y: smoothedY });
-        
-        // Clean up old entries if too many
-        if (this.previousNoiseValues.size > 2000) {
-            const firstKey = this.previousNoiseValues.keys().next().value;
-            this.previousNoiseValues.delete(firstKey);
+        // Apply contrast
+        if (this.contrast !== 1.0) {
+            const sign_x = Math.sign(noiseX);
+            const sign_y = Math.sign(noiseY);
+            noiseX = sign_x * Math.pow(Math.abs(noiseX), 1 / this.contrast);
+            noiseY = sign_y * Math.pow(Math.abs(noiseY), 1 / this.contrast);
         }
         
-        // Apply global amplitude with contrast enhancement
-        const contrast = 1.5;  // Increase contrast for clearer patterns
-        const result = {
-            x: Math.tanh(smoothedX * contrast) * this.globalAmplitude,
-            y: Math.tanh(smoothedY * contrast) * this.globalAmplitude
+        // Apply global amplitude
+        return {
+            x: noiseX * this.globalAmplitude,
+            y: noiseY * this.globalAmplitude
         };
-        
-        // Cache result
-        if (this.cache.size > this.cacheSize) {
-            // Clear oldest entries
-            const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
-        }
-        this.cache.set(cacheKey, result);
-        
-        return result;
     }
     
-    // Set active noise pattern
+    // Control methods
     setPattern(patternName) {
         if (this.patterns[patternName]) {
             this.activePattern = patternName;
-            this.cache.clear(); // Clear cache when pattern changes
-        }
-    }
-    
-    // Update pattern configuration
-    updatePatternConfig(patternName, config) {
-        if (this.patterns[patternName]) {
-            Object.assign(this.patterns[patternName], config);
-            if (patternName === this.activePattern) {
-                this.cache.clear();
+            // Regenerate seeds for cellular patterns
+            if (patternName === 'voronoi') {
+                this.generateVoronoiSeeds();
+            } else if (patternName === 'worley') {
+                this.generateWorleyGrid();
             }
         }
     }
     
-    // Set global parameters
     setGlobalScale(scale) {
         this.globalScale = scale;
-        this.cache.clear();
     }
     
     setGlobalTimeScale(timeScale) {
         this.globalTimeScale = timeScale;
-        this.cache.clear();
     }
     
     setGlobalAmplitude(amplitude) {
         this.globalAmplitude = amplitude;
     }
     
-    // Get current configuration for UI
+    setContrast(contrast) {
+        this.contrast = Math.max(0.1, Math.min(5.0, contrast));
+    }
+    
+    setGlobalOctaves(octaves) {
+        this.globalOctaves = Math.max(1, Math.min(8, octaves));
+    }
+    
+    setTimeIncrement(increment) {
+        this.timeIncrement = Math.max(0, Math.min(0.05, increment));
+    }
+    
     getConfig() {
         return {
+            seed: this.seed,
             activePattern: this.activePattern,
             patterns: this.patterns,
             globalScale: this.globalScale,
             globalTimeScale: this.globalTimeScale,
-            globalAmplitude: this.globalAmplitude
+            globalAmplitude: this.globalAmplitude,
+            contrast: this.contrast,
+            globalOctaves: this.globalOctaves,
+            timeIncrement: this.timeIncrement
         };
     }
     
-    // Reset to defaults
     reset() {
         this.activePattern = 'perlin';
         this.globalScale = 1.0;
         this.globalTimeScale = 1.0;
         this.globalAmplitude = 0.0;
+        this.contrast = 1.0;
+        this.globalOctaves = 3;
+        this.timeIncrement = 0.01;
         this.time = 0;
-        this.cache.clear();
         
         // Regenerate random elements
-        this.voronoiSeeds = this.generateVoronoiSeeds(30);
-        this.vortices = this.generateVortices(8);
-        this.waveSources = this.generateWaveSources(5);
+        this.generateVoronoiSeeds();
+        this.generateWorleyGrid();
+        this.generateCellularGrid();
+        this.vortices = this.generateVortices();
+        this.waveSources = this.generateWaveSources();
     }
 }
