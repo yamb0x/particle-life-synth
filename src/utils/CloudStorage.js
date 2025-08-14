@@ -83,9 +83,9 @@ class CloudStorage {
       }, 2, 2000); // Reduced retries, longer delay
 
       this.initialized = true;
-      console.log('✓ Cloud storage connected');
+      // Cloud storage connected
     } catch (error) {
-      console.warn('⚠️ Working offline - cloud features unavailable');
+      // Working offline - cloud features unavailable
       this.initialized = false;
     }
   }
@@ -138,7 +138,7 @@ class CloudStorage {
       );
       return { ...presetData, id };
     } catch (error) {
-      console.error('Failed to save preset to cloud:', error.message);
+      // Failed to save preset to cloud
       throw error;
     }
   }
@@ -276,7 +276,7 @@ class CloudStorage {
       }
       return null;
     } catch (error) {
-      console.error('Failed to get preset from cloud:', error.message);
+      // Failed to get preset from cloud
       throw error;
     }
   }
@@ -335,7 +335,7 @@ class CloudStorage {
       
       return presets;
     } catch (error) {
-      console.error('Failed to get presets from cloud:', error.message);
+      // Failed to get presets from cloud
       // Fallback to getting all presets without filters
       return await this.getAllPresetsWithFallback(null, null, queryLimit);
     }
@@ -379,7 +379,7 @@ class CloudStorage {
       
       return filteredPresets;
     } catch (error) {
-      console.error('Fallback query also failed:', error.message);
+      // Fallback query also failed
       return [];
     }
   }
@@ -393,7 +393,7 @@ class CloudStorage {
       );
       return true;
     } catch (error) {
-      console.error('Failed to delete preset from cloud:', error.message);
+      // Failed to delete preset from cloud
       throw error;
     }
   }
@@ -409,7 +409,7 @@ class CloudStorage {
       );
       return true;
     } catch (error) {
-      console.error('Failed to update preset status:', error.message);
+      // Failed to update preset status
       throw error;
     }
   }
@@ -438,7 +438,7 @@ class CloudStorage {
         url: `${window.location.origin}?preset=${shareId}`
       };
     } catch (error) {
-      console.error('Failed to create share link:', error.message);
+      // Failed to create share link
       throw error;
     }
   }
@@ -473,7 +473,7 @@ class CloudStorage {
       // Get the actual preset
       return await this.getPreset(shareData.presetId);
     } catch (error) {
-      console.error('Failed to get shared preset:', error.message);
+      // Failed to get shared preset
       throw error;
     }
   }
@@ -502,7 +502,7 @@ class CloudStorage {
           pollInterval = 10000;
           pollAttempts = 0;
         } catch (error) {
-          console.warn('Polling failed, retrying with longer interval:', error.message);
+          // Polling failed, retrying with longer interval
           pollAttempts++;
           
           // Exponential backoff
@@ -542,7 +542,7 @@ class CloudStorage {
       
       return listenerId;
     }).catch((error) => {
-      console.warn('Failed to initialize preset subscription:', error.message);
+      // Failed to initialize preset subscription
       // Call callback with empty array on initialization failure
       callback([]);
       return null;
@@ -648,16 +648,16 @@ class CloudStorage {
           // Delete invalid or duplicate preset
           await this.deletePreset(preset.id);
         } catch (error) {
-          console.warn(`Failed to delete preset ${preset.id}:`, error);
+          // Failed to delete preset
         }
       }
       
       if (toDelete.length > 0) {
-        console.log(`Cleaned up ${toDelete.length} invalid presets`);
+        // Cleaned up invalid presets
       }
       return toDelete.length;
     } catch (error) {
-      console.error('Cleanup failed:', error.message);
+      // Cleanup failed
       throw error;
     }
   }

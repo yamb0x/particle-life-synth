@@ -89,6 +89,11 @@ export class SimpleParticleSystem {
         this.linkAllSpeciesTrails = true; // Link all species trails to global value (simplified UX)
         this.speciesTrailLength = new Array(20).fill(0.95); // Trail length per species (0.5-0.99)
         
+        // Trail exclusion system for performance
+        this.trailExclusionEnabled = false; // Enable exclusion mode
+        this.excludedSpeciesId = -1; // Species ID to exclude from trails (-1 = none)
+        this.excludedSpeciesTrail = 0.95; // Trail value for excluded species
+        
         // Trail canvas cache for per-species trails
         this.trailCanvasCache = null;
         this.lastFrameImageData = null;
@@ -473,55 +478,125 @@ export class SimpleParticleSystem {
     }
     
     applyPerSpeciesTrailDecay(bgColor) {
-        // Simple approach: Apply different trail intensities to circular areas around each particle
-        // This gives the visual effect of per-species trails without complex pixel manipulation
-        
+        // Simplified exclusion mode: Apply trail based on species
         this.ensureTrailArraysSize();
         
-        // Parse background color
-        let bgR = 0, bgG = 0, bgB = 0;
-        if (bgColor.startsWith('#')) {
-            const hex = bgColor.slice(1);
-            bgR = parseInt(hex.substr(0, 2), 16) || 0;
-            bgG = parseInt(hex.substr(2, 2), 16) || 0;
-            bgB = parseInt(hex.substr(4, 2), 16) || 0;
-        }
-        
-        this.ctx.save();
-        
-        // Apply trail decay for each species
-        for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
-            const trailLength = this.speciesTrailLength[speciesId] || this.blur;
-            const trailAlpha = 1 - trailLength;
+        if (this.trailExclusionEnabled && this.excludedSpeciesId >= 0 && this.excludedSpeciesId < this.numSpecies) {
+            // Apply appropriate trail to all areas
+            // We'll paint over non-excluded species normally, and excluded species differently
             
-            if (trailAlpha > 0) {
-                // Create a radial gradient for smoother blending
-                const speciesParticles = this.particles.filter(p => p.species === speciesId);
+            const globalTrailAlpha = 1 - this.blur;
+            const excludedTrailAlpha = 1 - this.excludedSpeciesTrail;
+            
+            // Debug logging (remove after testing)
+            console.log('Trail Exclusion:', {
+                excludedSpecies: this.excludedSpeciesId,
+                globalAlpha: globalTrailAlpha.toFixed(3),
+                excludedAlpha: excludedTrailAlpha.toFixed(3)
+            });
+            
+            this.ctx.save();
+            
+            // First, apply the base fade to the entire canvas
+            this.ctx.globalAlpha = globalTrailAlpha;
+            this.ctx.fillStyle = bgColor;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+            
+            // If excluded species has different trail, handle it
+            if (Math.abs(excludedTrailAlpha - globalTrailAlpha) > 0.01) {
+                const excludedParticles = this.particles.filter(p => p.species === this.excludedSpeciesId);
                 
-                for (const particle of speciesParticles) {
-                    const radius = 25; // Influence radius around each particle
+                if (excludedParticles.length > 0) {
+                    // Apply localized trail effect for excluded species
+                    // Using destination-out to "erase" some of the fade, then reapply with correct alpha
                     
-                    // Create radial gradient from particle position
-                    const gradient = this.ctx.createRadialGradient(
-                        particle.x, particle.y, 0,
-                        particle.x, particle.y, radius
-                    );
-                    
-                    // Inner circle: full species trail effect
-                    gradient.addColorStop(0, `rgba(${bgR}, ${bgG}, ${bgB}, ${trailAlpha})`);
-                    // Outer edge: fade to transparent
-                    gradient.addColorStop(1, `rgba(${bgR}, ${bgG}, ${bgB}, 0)`);
-                    
-                    this.ctx.globalCompositeOperation = 'source-over';
-                    this.ctx.fillStyle = gradient;
-                    this.ctx.beginPath();
-                    this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
-                    this.ctx.fill();
+                    if (this.excludedSpeciesTrail > this.blur) {
+                        // Excluded has longer trails (less fade) - we need to reduce the fade in those areas
+                        // This is complex with current approach, so for now just apply different regions
+                        console.log('Excluded species has longer trails - applying less fade');
+                        
+                        // Create regions around excluded particles with less fade
+                        this.ctx.globalCompositeOperation = 'destination-out';
+                        this.ctx.globalAlpha = globalTrailAlpha * 0.5; // Remove some of the fade
+                        
+                        for (const particle of excludedParticles) {
+                            const radius = 25;
+                            this.ctx.beginPath();
+                            this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+                            this.ctx.fill();
+                        }
+                        
+                        // Restore and apply the correct fade for excluded areas
+                        this.ctx.globalCompositeOperation = 'source-over';
+                        this.ctx.globalAlpha = excludedTrailAlpha;
+                        this.ctx.fillStyle = bgColor;
+                        
+                        for (const particle of excludedParticles) {
+                            const radius = 25;
+                            this.ctx.beginPath();
+                            this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+                            this.ctx.fill();
+                        }
+                    } else {
+                        // Excluded has shorter trails (more fade) - apply extra fade
+                        console.log('Excluded species has shorter trails - applying more fade');
+                        
+                        const extraFade = excludedTrailAlpha - globalTrailAlpha;
+                        this.ctx.globalAlpha = Math.abs(extraFade);
+                        this.ctx.fillStyle = bgColor;
+                        
+                        for (const particle of excludedParticles) {
+                            const radius = 30;
+                            this.ctx.beginPath();
+                            this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+                            this.ctx.fill();
+                        }
+                    }
                 }
             }
+            
+            this.ctx.restore();
+        } else {
+            // Legacy per-species mode (kept for compatibility but not recommended)
+            // Optimized version with single-pass approach
+            this.ctx.save();
+            
+            // Apply a base trail for all particles first
+            const baseTrailAlpha = 1 - this.blur;
+            this.ctx.globalAlpha = baseTrailAlpha;
+            this.ctx.fillStyle = bgColor;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+            
+            // Only apply additional trail effects for species with different values
+            for (let speciesId = 0; speciesId < this.numSpecies; speciesId++) {
+                const trailLength = this.speciesTrailLength[speciesId] || this.blur;
+                const trailAlpha = 1 - trailLength;
+                const difference = Math.abs(trailAlpha - baseTrailAlpha);
+                
+                // Skip if trail is same as base
+                if (difference < 0.01) continue;
+                
+                const speciesParticles = this.particles.filter(p => p.species === speciesId);
+                
+                if (speciesParticles.length > 0) {
+                    this.ctx.globalAlpha = difference;
+                    this.ctx.fillStyle = bgColor;
+                    
+                    // Use simpler shapes for better performance
+                    for (const particle of speciesParticles) {
+                        const radius = 15;
+                        this.ctx.fillRect(
+                            particle.x - radius,
+                            particle.y - radius,
+                            radius * 2,
+                            radius * 2
+                        );
+                    }
+                }
+            }
+            
+            this.ctx.restore();
         }
-        
-        this.ctx.restore();
     }
     
     // Species glow management API
@@ -705,6 +780,25 @@ export class SimpleParticleSystem {
         
         this.ensureTrailArraysSize();
         return this.speciesTrailLength[speciesId] || this.blur;
+    }
+    
+    // Trail exclusion system API
+    setTrailExclusion(enabled, speciesId = -1, trailValue = 0.95) {
+        this.trailExclusionEnabled = enabled;
+        if (enabled && speciesId >= 0 && speciesId < this.numSpecies) {
+            this.excludedSpeciesId = speciesId;
+            this.excludedSpeciesTrail = Math.max(0.5, Math.min(0.99, trailValue));
+        } else if (!enabled) {
+            this.excludedSpeciesId = -1;
+        }
+    }
+    
+    getTrailExclusion() {
+        return {
+            enabled: this.trailExclusionEnabled,
+            speciesId: this.excludedSpeciesId,
+            trailValue: this.excludedSpeciesTrail
+        };
     }
     
     resetAllSpeciesTrails() {
@@ -2801,6 +2895,7 @@ export class SimpleParticleSystem {
         this.friction = 1.0 - preset.physics.friction;
         this.wallDamping = preset.physics.wallDamping !== undefined ? preset.physics.wallDamping : 0.8;
         this.forceFactor = preset.physics.forceFactor;
+        this.forceScale = preset.physics.forceScale !== undefined ? preset.physics.forceScale : 1.0;
         
         // Load WALLS Section (new parameters)
         if (preset.walls) {
@@ -2901,6 +2996,13 @@ export class SimpleParticleSystem {
             if (preset.effects.speciesTrailArrays) {
                 this.speciesTrailLength = [...preset.effects.speciesTrailArrays.lengths] || [...this.speciesTrailLength];
             }
+            
+            // Load trail exclusion settings
+            if (preset.effects.trailExclusion) {
+                this.trailExclusionEnabled = preset.effects.trailExclusion.enabled || false;
+                this.excludedSpeciesId = preset.effects.trailExclusion.speciesId || -1;
+                this.excludedSpeciesTrail = preset.effects.trailExclusion.trailValue || 0.95;
+            }
         } else {
             // Fallback to old structure
             this.renderMode = preset.renderMode || 'normal';
@@ -2972,14 +3074,31 @@ export class SimpleParticleSystem {
             }
         }
         
+        // ALWAYS clear existing modulations first when loading a preset
+        // This prevents modulations from carrying over between presets
+        if (window.mainUI && window.mainUI.modulationManager) {
+            console.log('Clearing existing modulations before loading preset');
+            window.mainUI.modulationManager.clearAll();
+        }
+        
         // Load modulation configuration if available
-        if (preset.modulations && window.mainUI && window.mainUI.modulationManager) {
-            try {
-                window.mainUI.modulationManager.importConfig(preset.modulations);
-                console.log(`Imported ${preset.modulations.length} modulations from preset`);
-            } catch (error) {
-                console.warn('Could not load modulation settings:', error);
+        if (preset.modulations && preset.modulations.length > 0) {
+            // Store modulations for later loading if UI not ready yet
+            this.pendingModulations = preset.modulations;
+            
+            if (window.mainUI && window.mainUI.modulationManager) {
+                try {
+                    window.mainUI.modulationManager.importConfig(preset.modulations);
+                    // Modulations imported from preset
+                } catch (error) {
+                    console.warn('Could not load modulation settings:', error);
+                }
+            } else {
+                // Modulations stored for later loading
             }
+        } else {
+            // No modulations in this preset, clear pending
+            this.pendingModulations = [];
         }
         
         // Reinitialize particles with new configuration
@@ -3147,6 +3266,7 @@ export class SimpleParticleSystem {
                 // Convert friction from physics value (0.8-1.0) to UI value (0-0.2)
                 friction: 1.0 - this.friction,
                 forceFactor: this.forceFactor,
+                forceScale: this.forceScale || 1.0,  // Global force multiplier for modulation
                 // Store full matrices, not just [0][0] values
                 collisionRadius: this.collisionRadius,
                 socialRadius: this.socialRadius,
@@ -3214,6 +3334,13 @@ export class SimpleParticleSystem {
                 linkAllSpeciesTrails: this.linkAllSpeciesTrails,
                 speciesTrailArrays: {
                     lengths: [...this.speciesTrailLength]
+                },
+                
+                // Trail Exclusion System
+                trailExclusion: {
+                    enabled: this.trailExclusionEnabled,
+                    speciesId: this.excludedSpeciesId,
+                    trailValue: this.excludedSpeciesTrail
                 }
             },
             
@@ -3248,11 +3375,16 @@ export class SimpleParticleSystem {
         }
         
         // Include modulations if modulation manager is available
-        if (window.mainUI && window.mainUI.modulationManager) {
+        // Store modulations directly on particle system for persistence
+        if (this.pendingModulations && this.pendingModulations.length > 0) {
+            preset.modulations = this.pendingModulations;
+        } else if (window.mainUI && window.mainUI.modulationManager) {
             try {
                 const modulationConfig = window.mainUI.modulationManager.exportConfig();
                 if (modulationConfig && modulationConfig.length > 0) {
                     preset.modulations = modulationConfig;
+                    // Cache modulations for future exports
+                    this.pendingModulations = modulationConfig;
                 }
             } catch (error) {
                 console.warn('Could not export modulation settings:', error);
@@ -3336,6 +3468,11 @@ export class SimpleParticleSystem {
         // Reset per-species trail arrays
         this.linkAllSpeciesTrails = true;
         this.speciesTrailLength = new Array(20).fill(0.95);
+        
+        // Reset trail exclusion
+        this.trailExclusionEnabled = false;
+        this.excludedSpeciesId = -1;
+        this.excludedSpeciesTrail = 0.95;
         
         // Reinitialize species and particles
         this.initializeSpecies();

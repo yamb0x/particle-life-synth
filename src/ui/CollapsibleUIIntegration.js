@@ -102,7 +102,6 @@ export class CollapsibleUIIntegration {
         const sections = container.querySelectorAll('.ui-section');
         
         const sectionConfigs = [
-            { id: 'presets', title: 'Presets' },
             { id: 'particles', title: 'Particles' },
             { id: 'physics', title: 'Physics' },
             { id: 'noise', title: 'Noise Patterns' },
@@ -113,7 +112,7 @@ export class CollapsibleUIIntegration {
             { id: 'colors', title: 'Colors' },
             { id: 'modulations', title: 'Modulations' },
             { id: 'aspect-ratio', title: 'Aspect Ratio' },
-            { id: 'actions', title: 'Actions' }
+            { id: 'presets-actions', title: 'Presets & Actions' }
         ];
         
         
@@ -355,9 +354,10 @@ export class CollapsibleUIIntegration {
                     const clientHeight = container.clientHeight;
                     const canScroll = scrollHeight > clientHeight;
                     
-                    if (this.id === 'particles' || this.id === 'forces') {
-                        console.log(`[${this.id}] Simple scroll check - scrollHeight: ${scrollHeight}px, clientHeight: ${clientHeight}px, canScroll: ${canScroll}`);
-                    }
+                    // Scroll check for debugging (disabled)
+                    // if (this.id === 'particles' || this.id === 'forces') {
+                    //     console.log(`[${this.id}] Simple scroll check - scrollHeight: ${scrollHeight}px, clientHeight: ${clientHeight}px, canScroll: ${canScroll}`);
+                    // }
                 },
                 
                 saveState() {

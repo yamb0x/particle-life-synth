@@ -8,7 +8,7 @@ export class MainUI {
         this.particleSystem = particleSystem;
         this.presetManager = presetManager;
         this.autoSaveCallback = autoSaveCallback;
-        this.presetModal = presetModal;
+        // PresetModal parameter kept for backwards compatibility but not used
         this.aspectRatioManager = aspectRatioManager;
         this.isVisible = true;
         this.container = null;
@@ -39,7 +39,7 @@ export class MainUI {
         // List of all expected UI element IDs
         const expectedIds = [
             // Preset controls
-            'minimize-btn', 'preset-selector', 'load-preset-btn', 'randomize-values-btn', 'configure-preset-btn',
+            'minimize-btn', 'preset-selector', 'preset-name-input', 'save-preset-btn', 'firebase-status', 'connection-status', 'preset-count',
             // Particle controls
             'particles-per-species', 'particles-per-species-value', 'species-count', 'species-count-value',
             'distribution-canvas', 'distribution-brush', 'distribution-brush-slider', 'distribution-brush-value', 'distribution-clear',
@@ -59,7 +59,8 @@ export class MainUI {
             // Effects controls
             'trails-enabled', 'trail-controls', 'trail-length', 'trail-length-value',
             // Trail mode controls
-            'link-all-species-trails', 'trail-species-selector-container', 'trail-species-selector',
+            'link-all-species-trails', 'trail-exclusion-container', 'trail-exclusion-enabled',
+            'trail-species-selector-container', 'trail-species-selector',
             // Per-species halo controls
             'per-species-halo-enabled', 'per-species-halo-controls', 'per-species-halo-intensity-control',
             'per-species-halo-radius-control', 'halo-species-selector', 'per-species-halo-intensity',
@@ -122,29 +123,7 @@ export class MainUI {
             </div>
                 
             
-            <!-- 1. PRESETS Section -->
-            <div class="panel ui-section">
-                <div class="panel-header">
-                    <h4 class="section-title">Presets</h4>
-                </div>
-                <div class="panel-content">
-                    <div class="control-group">
-                        <select class="select" id="preset-selector">
-                            <option value="">Custom</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <button class="btn btn-primary" id="load-preset-btn" style="width: 100%;">Load Preset</button>
-                    </div>
-                    <div class="control-group">
-                        <button class="btn btn-secondary" id="randomize-values-btn" style="width: 100%;">
-                            Randomize Values
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 2. PARTICLES Section -->
+            <!-- 1. PARTICLES Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Particles</h4>
@@ -236,7 +215,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 3. PHYSICS Section -->
+            <!-- 2. PHYSICS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Physics</h4>
@@ -283,7 +262,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 4. NOISE Section -->
+            <!-- 3. NOISE Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Noise Patterns</h4>
@@ -411,7 +390,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 5. BOUNDARY Section -->
+            <!-- 4. BOUNDARY Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Boundary Behavior</h4>
@@ -445,7 +424,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 6. MOUSE INTERACTIONS Section -->
+            <!-- 5. MOUSE INTERACTIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Mouse Interactions</h4>
@@ -489,7 +468,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 7. FORCE RELATIONSHIPS Section -->
+            <!-- 6. FORCE RELATIONSHIPS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Force Relationships</h4>
@@ -560,7 +539,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 8. EFFECTS Section -->
+            <!-- 7. EFFECTS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Effects</h4>
@@ -581,23 +560,32 @@ export class MainUI {
                                     <input type="checkbox" id="link-all-species-trails" ${this.particleSystem.linkAllSpeciesTrails ? 'checked' : ''}>
                                     Link All Species
                                 </label>
-                                <span class="info-text">When unchecked, control trails per species</span>
+                                <span class="info-text">When unchecked, enable exclusion mode</span>
                             </div>
                             
-                            <div class="control-group" id="trail-species-selector-container" style="${this.particleSystem.linkAllSpeciesTrails ? 'display: none;' : ''}">
-                                <label>Species</label>
+                            <div class="control-group" id="trail-exclusion-container" style="${this.particleSystem.linkAllSpeciesTrails ? 'display: none;' : ''}">
+                                <label>
+                                    <input type="checkbox" id="trail-exclusion-enabled" ${this.particleSystem.trailExclusionEnabled ? 'checked' : ''}>
+                                    Exclude One Species
+                                </label>
+                                <span class="info-text">Give one species a different trail than all others</span>
+                            </div>
+                            
+                            <div class="control-group" id="trail-species-selector-container" style="${!this.particleSystem.trailExclusionEnabled || this.particleSystem.linkAllSpeciesTrails ? 'display: none;' : ''}">
+                                <label>Excluded Species</label>
                                 <select class="select select-sm" id="trail-species-selector">
-                                    <option value="0">Red</option>
-                                    <option value="1">Green</option>
-                                    <option value="2">Blue</option>
-                                    <option value="3">Yellow</option>
-                                    <option value="4">Purple</option>
+                                    <option value="-1">None</option>
+                                    <option value="0" ${this.particleSystem.excludedSpeciesId === 0 ? 'selected' : ''}>Red</option>
+                                    <option value="1" ${this.particleSystem.excludedSpeciesId === 1 ? 'selected' : ''}>Green</option>
+                                    <option value="2" ${this.particleSystem.excludedSpeciesId === 2 ? 'selected' : ''}>Blue</option>
+                                    <option value="3" ${this.particleSystem.excludedSpeciesId === 3 ? 'selected' : ''}>Yellow</option>
+                                    <option value="4" ${this.particleSystem.excludedSpeciesId === 4 ? 'selected' : ''}>Purple</option>
                                 </select>
                             </div>
                             
                             <div class="control-group">
                                 <label>
-                                    <span id="trail-length-label">${this.particleSystem.linkAllSpeciesTrails ? 'Trail Length (All Species)' : 'Trail Length (Selected Species)'}</span>
+                                    <span id="trail-length-label">${this.particleSystem.linkAllSpeciesTrails ? 'Trail Length (All Species)' : this.particleSystem.trailExclusionEnabled ? 'Trail Length (Excluded Species Only)' : 'Trail Length (Selected Species)'}</span>
                                     <span class="value-display" id="trail-length-value">${this.particleSystem.blur.toFixed(3)}</span>
                                 </label>
                                 <input type="range" class="range-slider" id="trail-length" 
@@ -681,7 +669,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 9. COLORS Section -->
+            <!-- 8. COLORS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Colors</h4>
@@ -718,7 +706,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 10. MODULATIONS Section -->
+            <!-- 9. MODULATIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Modulations</h4>
@@ -791,7 +779,7 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 11. ASPECT RATIO Section -->
+            <!-- 10. ASPECT RATIO Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
                     <h4 class="section-title">Aspect Ratio</h4>
@@ -855,18 +843,44 @@ export class MainUI {
                 </div>
             </div>
             
-            <!-- 12. ACTIONS Section -->
+            <!-- 11. PRESETS & ACTIONS Section -->
             <div class="panel ui-section">
                 <div class="panel-header">
-                    <h4 class="section-title">Actions</h4>
+                    <h4 class="section-title">Presets & Actions</h4>
                 </div>
                 <div class="panel-content">
-                    <button class="btn btn-primary" id="configure-preset-btn" style="width: 100%; margin-bottom: var(--space-sm);">
-                        Configure Presets
+                    <!-- Firebase Status -->
+                    <div id="firebase-status" style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); text-align: center; color: var(--text-secondary);">
+                        <span id="connection-status">Connecting...</span>
+                        <span id="preset-count" style="margin-left: var(--space-sm);"></span>
+                    </div>
+                    
+                    <!-- Preset Selector -->
+                    <div class="control-group" style="margin-bottom: var(--space-md);">
+                        <label>Load Preset</label>
+                        <select class="select" id="preset-selector" style="width: 100%;">
+                            <option value="">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Preset Name Input -->
+                    <div class="control-group" style="margin-bottom: var(--space-md);">
+                        <label>Preset Name</label>
+                        <input type="text" class="input" id="preset-name-input" placeholder="Enter new preset name" style="width: 100%;">
+                    </div>
+                    
+                    <!-- Save/Update Button -->
+                    <button class="btn btn-primary" id="save-preset-btn" style="width: 100%; margin-bottom: var(--space-sm);">
+                        Update Preset
                     </button>
+                    
+                    <!-- Reset Button -->
                     <button class="btn btn-secondary" id="reset-defaults-btn" style="width: 100%;">
                         Reset to Defaults
                     </button>
+                    
+                    <!-- Status Message -->
+                    <div id="preset-save-status" style="margin-top: var(--space-sm); font-size: var(--font-size-xs); color: var(--text-secondary); text-align: center;"></div>
                 </div>
             </div>
         `;
@@ -1562,6 +1576,16 @@ export class MainUI {
     }
     
     triggerAutoSave() {
+        // Update pending modulations on particle system for persistence
+        if (this.modulationManager && this.particleSystem) {
+            const modConfig = this.modulationManager.exportConfig();
+            if (modConfig && modConfig.length > 0) {
+                this.particleSystem.pendingModulations = modConfig;
+            } else {
+                this.particleSystem.pendingModulations = [];
+            }
+        }
+        
         if (this.autoSaveCallback) {
             this.autoSaveCallback();
         }
@@ -1569,8 +1593,10 @@ export class MainUI {
     
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // Skip all shortcuts if modal is open to avoid conflicts with text input
-            if (window.presetModal && window.presetModal.isOpen) {
+            // Skip shortcuts if an input field is focused
+            if (document.activeElement && 
+                (document.activeElement.tagName === 'INPUT' || 
+                 document.activeElement.tagName === 'TEXTAREA')) {
                 return;
             }
             
@@ -1644,6 +1670,189 @@ export class MainUI {
     }
     
     
+    initializeFirebaseStatus() {
+        const statusElement = document.getElementById('connection-status');
+        const countElement = document.getElementById('preset-count');
+        
+        // Initial status
+        this.updateFirebaseStatus();
+        
+        // Update status periodically
+        setInterval(() => {
+            this.updateFirebaseStatus();
+        }, 2000);
+        
+        // Listen for preset updates
+        window.addEventListener('presetsUpdated', () => {
+            this.updateFirebaseStatus();
+        });
+    }
+    
+    updateFirebaseStatus() {
+        const statusElement = document.getElementById('connection-status');
+        const countElement = document.getElementById('preset-count');
+        
+        if (!statusElement || !countElement) return;
+        
+        const isConnected = this.presetManager.isCloudEnabled();
+        
+        if (isConnected) {
+            // Get the cloud preset count directly from the presetManager's cloudPresets Map
+            const cloudStatus = this.presetManager.getCloudStatus();
+            const cloudPresetCount = cloudStatus.presetCount || 0;
+            
+            // Alternative: count presets with isCloud flag
+            const allPresets = this.presetManager.getUserPresets();
+            const cloudPresets = allPresets.filter(p => p.isCloud || p.key?.startsWith('cloud_'));
+            const displayCount = Math.max(cloudPresetCount, cloudPresets.length);
+            
+            statusElement.textContent = '✅ Connected';
+            statusElement.style.color = 'var(--success-color, #4a9eff)';
+            countElement.textContent = `${displayCount} cloud presets`;
+        } else {
+            statusElement.textContent = '⚠️ Connecting...';
+            statusElement.style.color = 'var(--warning-color, #ffa500)';
+            countElement.textContent = '';
+        }
+    }
+    
+    updateSaveButton() {
+        const saveBtn = document.getElementById('save-preset-btn');
+        const presetNameInput = document.getElementById('preset-name-input');
+        const presetSelector = document.getElementById('preset-selector');
+        
+        if (!saveBtn || !presetNameInput) return;
+        
+        const newName = presetNameInput.value.trim();
+        const hasNewName = newName.length > 0;
+        const currentPresetKey = this.currentEditingPreset || presetSelector.value;
+        
+        if (hasNewName) {
+            // User entered a new name - save as new preset
+            saveBtn.textContent = 'Save New Preset';
+            saveBtn.className = 'btn btn-primary';
+        } else if (currentPresetKey && currentPresetKey !== '') {
+            // No new name but preset selected - update mode
+            saveBtn.textContent = 'Update Preset';
+            saveBtn.className = 'btn btn-secondary';
+        } else {
+            // No preset selected and no name - disabled
+            saveBtn.textContent = 'Enter Name to Save';
+            saveBtn.disabled = true;
+            return;
+        }
+        
+        saveBtn.disabled = false;
+    }
+    
+    async savePreset() {
+        const presetNameInput = document.getElementById('preset-name-input');
+        const statusDiv = document.getElementById('preset-save-status');
+        const presetSelector = document.getElementById('preset-selector');
+        
+        const newPresetName = presetNameInput.value.trim();
+        const currentPresetKey = this.currentEditingPreset || presetSelector.value;
+        
+        // Determine if we're updating or creating new
+        const isNewPreset = newPresetName.length > 0;
+        
+        if (!isNewPreset && !currentPresetKey) {
+            statusDiv.textContent = '❌ Please select a preset or enter a new name';
+            statusDiv.style.color = '#ff4444';
+            return;
+        }
+        
+        // Check for invalid preset names if creating new
+        if (isNewPreset && this.isInvalidPresetName(newPresetName)) {
+            statusDiv.textContent = '❌ Cannot use system preset names';
+            statusDiv.style.color = '#ff4444';
+            alert('Cannot save presets named "Custom", "New Preset", "Untitled", or "Default". Please choose a different name.');
+            return;
+        }
+        
+        try {
+            // Export current state as preset
+            const preset = this.particleSystem.exportPreset();
+            
+            // Include modulations if they exist
+            if (this.modulationManager) {
+                preset.modulations = this.modulationManager.exportConfig();
+            }
+            
+            let saveKey;
+            let statusMessage;
+            
+            if (isNewPreset) {
+                // Creating new preset with the provided name
+                preset.name = newPresetName;
+                saveKey = this.presetManager.generateUniqueKey(newPresetName);
+                statusMessage = '⏳ Saving new preset...';
+            } else {
+                // Updating existing preset
+                const currentPreset = this.presetManager.getPreset(currentPresetKey);
+                if (currentPreset) {
+                    preset.name = currentPreset.name; // Keep original name
+                    saveKey = currentPresetKey;
+                    statusMessage = '⏳ Updating preset...';
+                } else {
+                    throw new Error('Selected preset not found');
+                }
+            }
+            
+            statusDiv.textContent = statusMessage;
+            statusDiv.style.color = '#888';
+            
+            // Save the preset
+            await this.presetManager.savePreset(saveKey, preset);
+            
+            // Update the UI
+            this.currentEditingPreset = saveKey;
+            statusDiv.textContent = isNewPreset ? '✅ New preset saved!' : '✅ Preset updated!';
+            statusDiv.style.color = '#4a9eff';
+            
+            // Update preset selector
+            this.updatePresetSelector();
+            
+            // Select the saved preset
+            presetSelector.value = saveKey;
+            
+            // Clear the name input if it was a new preset
+            if (isNewPreset) {
+                presetNameInput.value = '';
+                this.updateSaveButton();
+            }
+            
+            // Clear status after 3 seconds
+            setTimeout(() => {
+                statusDiv.textContent = '';
+            }, 3000);
+            
+        } catch (error) {
+            console.error('Failed to save preset:', error);
+            statusDiv.textContent = '❌ Save failed: ' + error.message;
+            statusDiv.style.color = '#ff4444';
+        }
+    }
+    
+    isInvalidPresetName(name) {
+        if (!name || typeof name !== 'string') return true;
+        
+        // Normalize name for comparison
+        const normalizedName = name.trim().toLowerCase();
+        
+        // Block various forms of invalid names
+        const invalidNames = [
+            'custom',
+            'new preset',
+            'untitled',
+            'default',
+            '',
+            'preset'
+        ];
+        
+        return invalidNames.includes(normalizedName);
+    }
+    
     randomizeForces() {
         // Enhanced force randomization with sophisticated pattern selection
         const edgeBias = this.forceDistribution || 0.7; // Default to cluster-friendly bias
@@ -1694,15 +1903,7 @@ export class MainUI {
         this.updateUIFromParticleSystem();
         this.updateGraph();
         
-        // Visual feedback
-        const btn = document.getElementById('randomize-values-btn');
-        if (btn) {
-            const originalText = btn.innerHTML;
-            btn.innerHTML = `✓ ${scenario.charAt(0).toUpperCase() + scenario.slice(1)}!`;
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-            }, 2000);
-        }
+        // Visual feedback removed - button no longer exists
     }
     
     // Clusters-inspired random parameter generation
@@ -1896,9 +2097,10 @@ export class MainUI {
                     this.currentEditingPreset = presetKey;
                     
                     // Update modulation system for new preset
+                    // Note: modulations are already imported by loadFullPreset, 
+                    // and onPresetChanged is called which updates the list
                     if (this.modulationManager) {
                         this.updateModulationParameterOptions();
-                        this.modulationManager.refreshParameterReferences();
                     }
                 }
             }
@@ -1935,9 +2137,10 @@ export class MainUI {
                     this.currentEditingPreset = presetKey;
                     
                     // Update modulation system for new preset
+                    // Note: modulations are already imported by loadFullPreset, 
+                    // and onPresetChanged is called which updates the list
                     if (this.modulationManager) {
                         this.updateModulationParameterOptions();
-                        this.modulationManager.refreshParameterReferences();
                     }
                 }
             }
@@ -3073,50 +3276,58 @@ export class MainUI {
             this.toggleVisibility();
         });
         
-        // Preset controls
-        document.getElementById('preset-selector').addEventListener('change', (e) => {
-            const presetKey = e.target.value;
-            if (presetKey && presetKey !== 'custom') {
-                this.currentEditingPreset = presetKey;
-                document.getElementById('load-preset-btn').textContent = 
-                    presetKey ? `Load ${this.presetManager.getPreset(presetKey)?.name || presetKey}` : 'Load Preset';
-            } else {
-                this.currentEditingPreset = null;
-                document.getElementById('load-preset-btn').textContent = 'Load Preset';
-            }
-        });
+        // Initialize Firebase status monitoring
+        this.initializeFirebaseStatus();
         
-        document.getElementById('load-preset-btn').addEventListener('click', () => {
-            const presetKey = document.getElementById('preset-selector').value;
+        // Preset controls with auto-load on selection
+        const presetSelector = document.getElementById('preset-selector');
+        const presetNameInput = document.getElementById('preset-name-input');
+        
+        // Single change handler for preset selector - auto-loads preset
+        presetSelector.addEventListener('change', () => {
+            const presetKey = presetSelector.value;
+            console.log('Preset selector changed to:', presetKey);
+            
             if (presetKey) {
+                // Load the selected preset automatically
                 const preset = this.presetManager.getPreset(presetKey);
                 if (preset) {
                     this.particleSystem.loadFullPreset(preset);
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
                     
-                    // Update modulation system for new preset
+                    // Update modulation system
                     if (this.modulationManager) {
-                        // Refresh parameter options for new species count/names
                         this.updateModulationParameterOptions();
-                        // Keep existing modulations but update their references
-                        this.modulationManager.refreshParameterReferences();
                     }
+                    
+                    // Store selected preset for persistence
+                    localStorage.setItem('lastSelectedPreset', presetKey);
+                    
+                    // Clear preset name input and set to update mode
+                    presetNameInput.value = '';
+                    this.currentEditingPreset = presetKey;
+                    this.updateSaveButton();
+                    
+                    // Trigger auto-save
+                    this.triggerAutoSave();
                 }
-            }
-        });
-        
-        document.getElementById('randomize-values-btn').addEventListener('click', () => {
-            this.randomizeValues();
-        });
-        
-        document.getElementById('configure-preset-btn').addEventListener('click', () => {
-            const currentPresetKey = document.getElementById('preset-selector').value;
-            if (this.presetModal) {
-                this.presetModal.open(currentPresetKey);
             } else {
-                console.warn('Preset modal not available');
+                // Custom preset selected
+                this.currentEditingPreset = null;
+                presetNameInput.value = '';
+                this.updateSaveButton();
             }
+        });
+        
+        // Monitor preset name input for save button updates
+        presetNameInput.addEventListener('input', () => {
+            this.updateSaveButton();
+        });
+        
+        // Save preset button handler
+        document.getElementById('save-preset-btn').addEventListener('click', async () => {
+            await this.savePreset();
         });
         
         // Particle controls
@@ -3557,8 +3768,13 @@ export class MainUI {
             if (this.particleSystem.linkAllSpeciesTrails) {
                 // Linked mode: update global blur and sync all species
                 this.particleSystem.setGlobalBlur(mappedValue);
+            } else if (this.particleSystem.trailExclusionEnabled) {
+                // Exclusion mode: slider controls ONLY the excluded species trail
+                // Global blur stays at its default value
+                this.particleSystem.excludedSpeciesTrail = mappedValue;
+                console.log('Exclusion mode - setting excluded trail to:', mappedValue, 'global blur remains:', this.particleSystem.blur);
             } else {
-                // Per-species mode: update only the selected species (don't touch global blur)
+                // Legacy per-species mode: update only the selected species
                 const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value);
                 this.particleSystem.setSpeciesTrail(selectedSpecies, mappedValue);
             }
@@ -3573,35 +3789,81 @@ export class MainUI {
             this.particleSystem.linkAllSpeciesTrails = linked;
             
             // Update UI visibility
-            document.getElementById('trail-species-selector-container').style.display = linked ? 'none' : '';
+            document.getElementById('trail-exclusion-container').style.display = linked ? 'none' : '';
+            document.getElementById('trail-species-selector-container').style.display = 
+                (!linked && this.particleSystem.trailExclusionEnabled) ? '' : 'none';
             
             // Update label
             const label = document.getElementById('trail-length-label');
-            label.textContent = linked ? 'Trail Length (All Species)' : 'Trail Length (Selected Species)';
+            if (linked) {
+                label.textContent = 'Trail Length (All Species)';
+            } else if (this.particleSystem.trailExclusionEnabled) {
+                label.textContent = 'Trail Length (Excluded Species Only)';
+            } else {
+                label.textContent = 'Trail Length (Selected Species)';
+            }
             
             if (linked) {
+                // Disable exclusion mode when linking all species
+                this.particleSystem.setTrailExclusion(false);
+                document.getElementById('trail-exclusion-enabled').checked = false;
                 // Sync all species to current global blur value
                 this.particleSystem.syncAllSpeciesTrails();
                 // Update slider to show global value
                 document.getElementById('trail-length').value = this.reverseMapTrailValue(this.particleSystem.blur);
                 document.getElementById('trail-length-value').textContent = this.particleSystem.blur.toFixed(3);
-            } else {
-                // Switch to per-species mode: show selected species value (don't modify global blur)
-                const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value);
-                const currentTrail = this.particleSystem.getSpeciesTrail(selectedSpecies);
-                
-                // Update UI to show selected species trail value
-                document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
-                document.getElementById('trail-length-value').textContent = currentTrail.toFixed(3);
             }
             
             this.triggerAutoSave();
         });
         
-        // Trail species selector (only active in per-species mode)
+        // Trail exclusion mode toggle
+        document.getElementById('trail-exclusion-enabled').addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value);
+            
+            if (enabled) {
+                // Enable exclusion mode with selected species
+                // Start with excluded species having same trail as global
+                const currentTrail = this.particleSystem.blur;
+                this.particleSystem.setTrailExclusion(true, selectedSpecies, currentTrail);
+                
+                // Update slider to show excluded species trail value
+                document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
+                document.getElementById('trail-length-value').textContent = currentTrail.toFixed(3);
+                
+                console.log('Exclusion enabled - species', selectedSpecies, 'with trail', currentTrail);
+            } else {
+                // Disable exclusion mode
+                this.particleSystem.setTrailExclusion(false);
+            }
+            
+            // Update UI visibility
+            document.getElementById('trail-species-selector-container').style.display = enabled ? '' : 'none';
+            
+            // Update label
+            const label = document.getElementById('trail-length-label');
+            label.textContent = enabled ? 'Trail Length (Excluded Species Only)' : 'Trail Length (Selected Species)';
+            
+            this.triggerAutoSave();
+        });
+        
+        // Trail species selector (for exclusion mode)
         document.getElementById('trail-species-selector').addEventListener('change', (e) => {
-            if (!this.particleSystem.linkAllSpeciesTrails) {
-                const selectedSpecies = parseInt(e.target.value);
+            const selectedSpecies = parseInt(e.target.value);
+            
+            if (this.particleSystem.trailExclusionEnabled) {
+                // Update excluded species
+                this.particleSystem.excludedSpeciesId = selectedSpecies;
+                
+                // If "None" is selected, disable exclusion
+                if (selectedSpecies === -1) {
+                    this.particleSystem.setTrailExclusion(false);
+                    document.getElementById('trail-exclusion-enabled').checked = false;
+                    document.getElementById('trail-species-selector-container').style.display = 'none';
+                }
+            } else if (!this.particleSystem.linkAllSpeciesTrails) {
+                // Legacy per-species mode (compatibility)
                 const currentTrail = this.particleSystem.getSpeciesTrail(selectedSpecies);
                 
                 // Update slider to show current species trail value
@@ -3611,6 +3873,8 @@ export class MainUI {
                 // Update global blur to show this species' trail immediately
                 this.particleSystem.blur = currentTrail;
             }
+            
+            this.triggerAutoSave();
         });
         
         // Per-species halo enable/disable
@@ -3850,7 +4114,7 @@ export class MainUI {
     }
     
     setupModulationControls() {
-        console.log('Setting up modulation controls...');
+        // Setting up modulation controls
         
         const parameterSelect = document.getElementById('modulation-parameter');
         const rangeControls = document.getElementById('modulation-range-controls');
@@ -3881,7 +4145,7 @@ export class MainUI {
         }
         
         // Populate parameter dropdown
-        console.log('Populating modulation parameters...');
+        // Populating modulation parameters
         this.updateModulationParameterOptions();
         
         // Handle parameter selection
@@ -4129,6 +4393,14 @@ export class MainUI {
             console.log('Modulation added with ID:', modId);
             this.updateModulationList();
             
+            // Update pending modulations immediately
+            if (this.particleSystem) {
+                const modConfig = this.modulationManager.exportConfig();
+                this.particleSystem.pendingModulations = modConfig;
+            }
+            
+            this.triggerAutoSave();  // Auto-save modulation changes
+            
             // Stop preview when adding
             this.modulationManager.stopPreview();
             
@@ -4151,7 +4423,7 @@ export class MainUI {
         }
         
         const categories = this.modulationManager.getParameterCategories();
-        console.log('Available parameter categories:', categories);
+        // Parameter categories loaded
         
         // Clear existing options except the placeholder
         select.innerHTML = '<option value="">Select parameter...</option>';
@@ -4178,7 +4450,7 @@ export class MainUI {
         const listContainer = document.getElementById('modulation-list');
         const modulations = this.modulationManager.getActiveModulations();
         
-        console.log('Updating modulation list, found', modulations.length, 'modulations');
+        // Updating modulation list
         
         if (modulations.length === 0) {
             listContainer.innerHTML = '<div style="color: var(--text-tertiary); text-align: center; padding: 10px;">No active modulations</div>';
@@ -4264,6 +4536,14 @@ export class MainUI {
             removeBtn.addEventListener('click', () => {
                 this.modulationManager.removeModulation(mod.id);
                 this.updateModulationList();
+                
+                // Update pending modulations immediately
+                if (this.particleSystem) {
+                    const modConfig = this.modulationManager.exportConfig();
+                    this.particleSystem.pendingModulations = modConfig;
+                }
+                
+                this.triggerAutoSave();  // Auto-save after removing modulation
             });
             
             normalView.appendChild(info);
@@ -4519,6 +4799,14 @@ export class MainUI {
             
             // Exit edit mode and refresh list
             this.updateModulationList();
+            
+            // Update pending modulations immediately
+            if (this.particleSystem) {
+                const modConfig = this.modulationManager.exportConfig();
+                this.particleSystem.pendingModulations = modConfig;
+            }
+            
+            this.triggerAutoSave();  // Auto-save after updating modulation
         });
         
         // Handle cancel button
@@ -4648,6 +4936,14 @@ export class MainUI {
             const currentValue = select.value;
             select.innerHTML = '';
             
+            // Add "None" option for trail-species-selector in exclusion mode
+            if (selectorId === 'trail-species-selector' && this.particleSystem.trailExclusionEnabled) {
+                const noneOption = document.createElement('option');
+                noneOption.value = '-1';
+                noneOption.textContent = 'None';
+                select.appendChild(noneOption);
+            }
+            
             for (let i = 0; i < numSpecies; i++) {
                 const option = document.createElement('option');
                 option.value = i;
@@ -4657,7 +4953,7 @@ export class MainUI {
             }
             
             // Restore previous value if valid
-            if (currentValue && parseInt(currentValue) < numSpecies) {
+            if (currentValue && (parseInt(currentValue) < numSpecies || (selectorId === 'trail-species-selector' && currentValue === '-1'))) {
                 select.value = currentValue;
             } else if (selectorId === 'to-species' && numSpecies > 1) {
                 select.value = '1';
@@ -5486,22 +5782,40 @@ export class MainUI {
         document.getElementById('trails-enabled').checked = ps.trailEnabled;
         document.getElementById('trail-controls').style.display = ps.trailEnabled ? '' : 'none';
         
-        // Trail linking and per-species controls
+        // Trail linking and exclusion controls
         document.getElementById('link-all-species-trails').checked = ps.linkAllSpeciesTrails;
-        document.getElementById('trail-species-selector-container').style.display = ps.linkAllSpeciesTrails ? 'none' : '';
+        document.getElementById('trail-exclusion-container').style.display = ps.linkAllSpeciesTrails ? 'none' : '';
+        document.getElementById('trail-exclusion-enabled').checked = ps.trailExclusionEnabled;
+        document.getElementById('trail-species-selector-container').style.display = 
+            (!ps.linkAllSpeciesTrails && ps.trailExclusionEnabled) ? '' : 'none';
+        
+        // Update species selector for exclusion mode
+        if (ps.trailExclusionEnabled && ps.excludedSpeciesId >= 0) {
+            document.getElementById('trail-species-selector').value = ps.excludedSpeciesId;
+        }
         
         // Update trail length slider and label
         const label = document.getElementById('trail-length-label');
         if (label) {
-            label.textContent = ps.linkAllSpeciesTrails ? 'Trail Length (All Species)' : 'Trail Length (Selected Species)';
+            if (ps.linkAllSpeciesTrails) {
+                label.textContent = 'Trail Length (All Species)';
+            } else if (ps.trailExclusionEnabled) {
+                label.textContent = 'Trail Length (Excluded Species Only)';
+            } else {
+                label.textContent = 'Trail Length (Selected Species)';
+            }
         }
         
         if (ps.linkAllSpeciesTrails) {
             // Linked mode: show global blur value
             document.getElementById('trail-length').value = this.reverseMapTrailValue(ps.blur);
             document.getElementById('trail-length-value').textContent = ps.blur.toFixed(3);
+        } else if (ps.trailExclusionEnabled) {
+            // Exclusion mode: show excluded species trail value
+            document.getElementById('trail-length').value = this.reverseMapTrailValue(ps.excludedSpeciesTrail);
+            document.getElementById('trail-length-value').textContent = ps.excludedSpeciesTrail.toFixed(3);
         } else {
-            // Per-species mode: show selected species value and sync global blur
+            // Legacy per-species mode: show selected species value
             const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value) || 0;
             const currentTrail = ps.getSpeciesTrail(selectedSpecies);
             document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
@@ -5978,10 +6292,41 @@ export class MainUI {
     
     // Called when a preset is loaded to refresh modulation display
     onPresetChanged() {
+        console.log('MainUI.onPresetChanged called');
+        
+        // Note: Modulations have already been cleared and loaded by SimpleParticleSystem.loadFullPreset
+        // We just need to check for any pending modulations that couldn't be loaded earlier
+        if (this.particleSystem.pendingModulations && 
+            this.particleSystem.pendingModulations.length > 0 && 
+            this.modulationManager) {
+            
+            // Only import if modulations aren't already loaded
+            const currentMods = this.modulationManager.getActiveModulations();
+            if (currentMods.length === 0) {
+                console.log('Loading pending modulations from preset:', this.particleSystem.pendingModulations);
+                try {
+                    this.modulationManager.importConfig(this.particleSystem.pendingModulations);
+                    console.log(`Imported ${this.particleSystem.pendingModulations.length} modulations from preset`);
+                } catch (error) {
+                    console.error('Failed to load pending modulations:', error);
+                }
+            }
+        }
+        
         // Refresh modulation references after species changes
         if (this.modulationManager) {
+            console.log('Refreshing modulation system after preset change');
             this.modulationManager.refreshParameterReferences();
             this.updateModulationList();
+            
+            // Update the UI list to reflect the current state
+            const activeMods = this.modulationManager.getActiveModulations();
+            console.log(`Active modulations after preset change: ${activeMods.length}`);
+            
+            // Also update pending modulations to match current state
+            if (this.particleSystem) {
+                this.particleSystem.pendingModulations = this.modulationManager.exportConfig();
+            }
         }
     }
     

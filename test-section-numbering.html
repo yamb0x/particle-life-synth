@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Section Numbering Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #ccc;
+            padding: 20px;
+        }
+        .test {
+            margin: 10px 0;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        .pass { color: #4a9eff; }
+        .fail { color: #ff4444; }
+        .info { color: #888; }
+    </style>
+</head>
+<body>
+    <h1>Section Numbering Verification Test</h1>
+    <div id="results"></div>
+    
+    <script type="module">
+        const results = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        async function runTests() {
+            log('Starting section numbering verification...', 'info');
+            
+            // Wait for page to fully load
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Expected sections in correct order
+            const expectedSections = [
+                'Particles',
+                'Physics',
+                'Noise Patterns',
+                'Boundary Behavior',
+                'Mouse Interactions',
+                'Force Relationships',
+                'Effects',
+                'Colors',
+                'Modulations',
+                'Aspect Ratio',
+                'Presets & Actions'
+            ];
+            
+            // Get all section titles
+            const sectionTitles = Array.from(document.querySelectorAll('h4.section-title'));
+            const sectionNames = sectionTitles.map(h => h.textContent.trim());
+            
+            log(`Found ${sectionNames.length} sections`, 'info');
+            
+            // Check each section
+            let allCorrect = true;
+            expectedSections.forEach((expected, index) => {
+                const actual = sectionNames[index];
+                const sectionNumber = index + 1;
+                
+                if (actual === expected) {
+                    log(`✅ Section ${sectionNumber}: "${expected}" - Correct`, 'pass');
+                } else if (!actual) {
+                    log(`❌ Section ${sectionNumber}: Expected "${expected}" but section not found`, 'fail');
+                    allCorrect = false;
+                } else {
+                    log(`❌ Section ${sectionNumber}: Expected "${expected}" but found "${actual}"`, 'fail');
+                    allCorrect = false;
+                }
+            });
+            
+            // Check for extra sections
+            if (sectionNames.length > expectedSections.length) {
+                log(`⚠️ Found ${sectionNames.length - expectedSections.length} extra sections:`, 'fail');
+                for (let i = expectedSections.length; i < sectionNames.length; i++) {
+                    log(`   - "${sectionNames[i]}"`, 'fail');
+                }
+                allCorrect = false;
+            }
+            
+            // Check that old PRESETS section doesn't exist
+            log('\nChecking for removed sections...', 'info');
+            const hasOldPresets = sectionNames.some(name => 
+                name === 'Presets' && name !== 'Presets & Actions'
+            );
+            
+            if (!hasOldPresets) {
+                log('✅ Old "Presets" section successfully removed', 'pass');
+            } else {
+                log('❌ Old "Presets" section still exists', 'fail');
+                allCorrect = false;
+            }
+            
+            // Final result
+            log('\n' + '='.repeat(50), 'info');
+            if (allCorrect) {
+                log('✅ ALL SECTIONS ARE CORRECTLY NUMBERED AND ORDERED!', 'pass');
+            } else {
+                log('❌ Some sections need correction', 'fail');
+            }
+            
+            // Additional info
+            log('\nActual section order found:', 'info');
+            sectionNames.forEach((name, i) => {
+                log(`   ${i + 1}. ${name}`, 'info');
+            });
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>

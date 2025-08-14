@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Particle Life Synth - Section Test</title>
+    <link rel="stylesheet" href="styles/design-system.css">
+    <style>
+        #test-overlay {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: rgba(26, 26, 26, 0.95);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 10000;
+            font-family: monospace;
+            color: #ccc;
+        }
+        
+        #test-overlay h2 {
+            color: #4a9eff;
+            margin-bottom: 15px;
+        }
+        
+        .test-item {
+            margin: 8px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .pass { 
+            color: #4a9eff; 
+            background: rgba(74, 158, 255, 0.1);
+        }
+        
+        .fail { 
+            color: #ff4444; 
+            background: rgba(255, 68, 68, 0.1);
+        }
+        
+        .info { 
+            color: #888; 
+            background: rgba(136, 136, 136, 0.1);
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .close-btn:hover {
+            background: #ff6666;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls-container"></div>
+    
+    <!-- Test overlay -->
+    <div id="test-overlay">
+        <button class="close-btn" onclick="document.getElementById('test-overlay').remove()">×</button>
+        <h2>Section Verification Test</h2>
+        <div id="test-results"></div>
+    </div>
+    
+    <script type="module">
+        import('./main.js');
+        
+        const results = document.getElementById('test-results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-item ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        async function runTests() {
+            log('Waiting for UI to load...', 'info');
+            
+            // Wait for UI to be fully loaded
+            let attempts = 0;
+            while (attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                const sections = document.querySelectorAll('.collapsible-title, h4.section-title');
+                if (sections.length > 0) {
+                    break;
+                }
+                attempts++;
+            }
+            
+            log('Starting section verification...', 'info');
+            
+            // Expected sections in correct order
+            const expectedSections = [
+                'Particles',
+                'Physics',
+                'Noise Patterns',
+                'Boundary Behavior',
+                'Mouse Interactions',
+                'Force Relationships',
+                'Effects',
+                'Colors',
+                'Modulations',
+                'Aspect Ratio',
+                'Presets & Actions'
+            ];
+            
+            // Get all section titles (checking both collapsible and regular titles)
+            const sectionElements = document.querySelectorAll('.collapsible-title, h4.section-title');
+            const sectionNames = Array.from(sectionElements).map(h => h.textContent.trim());
+            
+            log(`Found ${sectionNames.length} sections`, 'info');
+            
+            // Check each section
+            let allCorrect = true;
+            let correctCount = 0;
+            
+            expectedSections.forEach((expected, index) => {
+                const actual = sectionNames[index];
+                const sectionNumber = index + 1;
+                
+                if (actual === expected) {
+                    log(`✅ Section ${sectionNumber}: "${expected}"`, 'pass');
+                    correctCount++;
+                } else if (!actual) {
+                    log(`❌ Section ${sectionNumber}: Expected "${expected}" - NOT FOUND`, 'fail');
+                    allCorrect = false;
+                } else {
+                    log(`❌ Section ${sectionNumber}: Expected "${expected}" but found "${actual}"`, 'fail');
+                    allCorrect = false;
+                }
+            });
+            
+            // Check for extra sections
+            if (sectionNames.length > expectedSections.length) {
+                log(`⚠️ Found ${sectionNames.length - expectedSections.length} extra sections:`, 'fail');
+                for (let i = expectedSections.length; i < sectionNames.length; i++) {
+                    log(`   Extra: "${sectionNames[i]}"`, 'fail');
+                }
+                allCorrect = false;
+            }
+            
+            // Check that old PRESETS section doesn't exist
+            log('', 'info');
+            log('Checking for removed sections...', 'info');
+            const hasOldPresets = sectionNames.some(name => 
+                name === 'Presets' && name !== 'Presets & Actions'
+            );
+            
+            if (!hasOldPresets) {
+                log('✅ Old "Presets" section removed', 'pass');
+            } else {
+                log('❌ Old "Presets" section still exists', 'fail');
+                allCorrect = false;
+            }
+            
+            // Check for Actions section
+            const hasOldActions = sectionNames.some(name => name === 'Actions');
+            if (!hasOldActions) {
+                log('✅ Old "Actions" section removed', 'pass');
+            } else {
+                log('❌ Old "Actions" section still exists', 'fail');
+                allCorrect = false;
+            }
+            
+            // Final result
+            log('', 'info');
+            log('═'.repeat(40), 'info');
+            if (allCorrect) {
+                log(`✅ ALL ${expectedSections.length} SECTIONS CORRECT!`, 'pass');
+                log('The UI sections are properly ordered.', 'pass');
+            } else {
+                log(`❌ ${correctCount}/${expectedSections.length} sections correct`, 'fail');
+                log('Some sections need correction.', 'fail');
+            }
+            
+            // Show actual order for debugging
+            if (!allCorrect) {
+                log('', 'info');
+                log('Actual section order found:', 'info');
+                sectionNames.forEach((name, i) => {
+                    log(`   ${i + 1}. ${name}`, 'info');
+                });
+            }
+        }
+        
+        // Run tests after a delay to ensure everything is loaded
+        setTimeout(runTests, 3000);
+    </script>
+</body>
+</html>

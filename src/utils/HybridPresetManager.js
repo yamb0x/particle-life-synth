@@ -36,13 +36,13 @@ export class HybridPresetManager extends PresetManager {
         try {
           await this.cleanupCloudPresets();
         } catch (error) {
-          console.log('Cloud cleanup failed (non-critical):', error.message);
+          // Cloud cleanup failed (non-critical)
         }
       }, 2000);
       
       // Cloud sync enabled
     } catch (error) {
-      console.error('Failed to enable cloud sync:', error.message);
+      // Failed to enable cloud sync
       this.cloudEnabled = false;
     }
   }
@@ -80,15 +80,15 @@ export class HybridPresetManager extends PresetManager {
         validCount++;
       }
 
-      console.log(`Cloud sync: ${validCount} valid presets loaded (${cloudPresets.length} total retrieved)`);
+      // Cloud sync: valid presets loaded
       
       // If we got significantly fewer presets than expected, try fallback
       if (validCount < 10) {
-        console.log('Low preset count detected, trying fallback sync...');
+        // Low preset count detected, trying fallback sync
         await this.fallbackSyncWithCloud();
       }
     } catch (error) {
-      console.error('Cloud sync failed, trying fallback:', error.message);
+      // Cloud sync failed, trying fallback
       await this.fallbackSyncWithCloud();
     } finally {
       this.syncInProgress = false;
@@ -114,10 +114,10 @@ export class HybridPresetManager extends PresetManager {
       }
 
       if (publicCount > 0) {
-        console.log(`Fallback sync: ${publicCount} presets loaded from ${allPresets.length} total`);
+        // Fallback sync: presets loaded
       }
     } catch (error) {
-      console.error('Fallback sync also failed:', error.message);
+      // Fallback sync also failed
     }
   }
 
@@ -129,7 +129,7 @@ export class HybridPresetManager extends PresetManager {
       // Upload batch in parallel
       const uploadPromises = batch.map(({ key, preset }) => 
         this.uploadPresetToCloud(key, preset).catch(error => {
-          console.error(`Failed to sync preset to cloud:`, error.message);
+          // Failed to sync preset to cloud
           return null; // Continue with other uploads
         })
       );
@@ -184,7 +184,7 @@ export class HybridPresetManager extends PresetManager {
     // Normalize name for comparison
     const normalizedName = name.trim().toLowerCase();
     
-    // Block test artifacts and invalid names
+    // Block test artifacts and invalid names (exact matches only)
     const invalidNames = [
       'custom',
       'new preset',
@@ -205,15 +205,15 @@ export class HybridPresetManager extends PresetManager {
       return true;
     }
     
-    // Block names that start with test patterns
-    const invalidPatterns = ['test_', 'temp_', 'auto_', 'conf_'];
+    // Block names that start with specific test patterns (more restrictive)
+    const invalidPatterns = ['test_', 'temp_', 'auto_test_', 'workflow_test_', 'debug_test_'];
     if (invalidPatterns.some(pattern => normalizedName.startsWith(pattern))) {
       return true;
     }
     
-    // Block names that contain test indicators
-    const testIndicators = ['test', 'workflow', 'debug', 'validation'];
-    if (testIndicators.some(indicator => normalizedName.includes(indicator))) {
+    // Only block if it starts with 'test' followed by underscore or digit
+    // This allows names like 'ppp-test' but blocks 'test_123' or 'test1'
+    if (/^test[_\d]/.test(normalizedName)) {
       return true;
     }
     
@@ -229,14 +229,14 @@ export class HybridPresetManager extends PresetManager {
       try {
         await this.uploadPresetToCloud(key, preset);
       } catch (error) {
-        console.error('Cloud upload failed:', error);
+        // Cloud upload failed
         // Don't throw - local save succeeded, but log warning
         if (error.message && error.message.includes('Invalid preset name')) {
           // Preset blocked from cloud due to invalid name
         }
       }
     } else if (this.isInvalidPresetName(preset.name)) {
-      console.log('Skipping cloud upload for temporary preset:', preset.name);
+      // Skipping cloud upload for temporary preset
     }
   }
 
@@ -252,7 +252,7 @@ export class HybridPresetManager extends PresetManager {
 
       return cloudPreset;
     } catch (error) {
-      console.error('Failed to upload preset to cloud:', error);
+      // Failed to upload preset to cloud
       throw error;
     }
   }
@@ -270,9 +270,9 @@ export class HybridPresetManager extends PresetManager {
       if (cloudPreset) {
         try {
           await cloudStorage.deletePreset(cloudPreset.id);
-          console.log('Preset deleted from cloud:', cloudPreset.id);
+          // Preset deleted from cloud
         } catch (error) {
-          console.error('Failed to delete preset from cloud:', error);
+          // Failed to delete preset from cloud
         }
       }
     }
@@ -298,7 +298,7 @@ export class HybridPresetManager extends PresetManager {
       
       return key;
     } catch (error) {
-      console.error('Failed to import from cloud:', error.message);
+      // Failed to import from cloud
       throw error;
     }
   }
@@ -327,7 +327,7 @@ export class HybridPresetManager extends PresetManager {
       const shareLink = await cloudStorage.createShareLink(cloudPreset.id);
       return shareLink;
     } catch (error) {
-      console.error('Failed to share preset:', error.message);
+      // Failed to share preset
       throw error;
     }
   }
@@ -352,7 +352,7 @@ export class HybridPresetManager extends PresetManager {
       
       return key;
     } catch (error) {
-      console.error('Failed to import shared preset:', error.message);
+      // Failed to import shared preset
       throw error;
     }
   }
@@ -394,13 +394,17 @@ export class HybridPresetManager extends PresetManager {
       const cloudId = key.substring(6); // Remove 'cloud_' prefix
       const cloudPreset = this.cloudPresets.get(cloudId);
       if (cloudPreset) {
-        // Loading cloud preset
+        // Loading cloud preset with modulations
         return cloudPreset;
       }
     }
     
     // Otherwise, get from local storage
-    return super.getPreset(key);
+    const localPreset = super.getPreset(key);
+    if (localPreset) {
+      // Loading local preset with modulations
+    }
+    return localPreset;
   }
 
   // Override getUserPresets to include cloud presets
@@ -493,7 +497,7 @@ export class HybridPresetManager extends PresetManager {
     try {
       const cleanedCount = await cloudStorage.cleanupTestPresets();
       if (cleanedCount > 0) {
-        console.log(`Cloud cleanup: ${cleanedCount} presets removed`);
+        // Cloud cleanup: presets removed
       }
       
       // Refresh cloud presets after cleanup
@@ -501,7 +505,7 @@ export class HybridPresetManager extends PresetManager {
       
       return cleanedCount;
     } catch (error) {
-      console.error('Failed to cleanup cloud presets:', error.message);
+      // Failed to cleanup cloud presets
       throw error;
     }
   }
@@ -513,7 +517,7 @@ export class HybridPresetManager extends PresetManager {
     // Clean up from memory
     for (const [key, preset] of this.presets.entries()) {
       if (preset.name && this.isInvalidPresetName(preset.name)) {
-        console.log(`Removing test preset from memory: ${preset.name}`);
+        // Removing test preset from memory
         this.presets.delete(key);
         cleanedCount++;
       }
@@ -528,7 +532,7 @@ export class HybridPresetManager extends PresetManager {
         
         for (const [key, preset] of Object.entries(customPresets)) {
           if (preset.name && this.isInvalidPresetName(preset.name)) {
-            console.log(`Removing test preset from localStorage: ${preset.name}`);
+            // Removing test preset from localStorage
             delete customPresets[key];
             cleanedCount++;
             storageChanged = true;
@@ -540,24 +544,24 @@ export class HybridPresetManager extends PresetManager {
         }
       }
     } catch (error) {
-      console.error('Failed to cleanup localStorage:', error);
+      // Failed to cleanup localStorage
     }
     
     // Clean up from IndexedDB storage
     this.storage.getAllPresets().then(allPresets => {
       for (const [key, preset] of Object.entries(allPresets)) {
         if (preset.name && this.isInvalidPresetName(preset.name)) {
-          console.log(`Removing test preset from IndexedDB: ${preset.name}`);
+          // Removing test preset from IndexedDB
           this.storage.deletePreset(key);
           cleanedCount++;
         }
       }
     }).catch(error => {
-      console.error('Failed to cleanup IndexedDB:', error);
+      // Failed to cleanup IndexedDB
     });
     
     if (cleanedCount > 0) {
-      console.log(`Local cleanup: ${cleanedCount} test presets removed`);
+      // Local cleanup: test presets removed
     }
     
     return cleanedCount;

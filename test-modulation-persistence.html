@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulation Persistence Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #111;
+            color: #0f0;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #0f0;
+        }
+        button {
+            background: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #333;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a1a1a;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #ff0; }
+        .warning { color: #fa0; }
+        .test-result {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid;
+        }
+        .test-pass {
+            border-color: #0f0;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        .test-fail {
+            border-color: #f00;
+            background: rgba(255, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Modulation Persistence Test</h1>
+    
+    <div class="test-section">
+        <h2>System Status</h2>
+        <div id="status" class="status">Initializing...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runFullTest()">Run Full Persistence Test</button>
+        <button onclick="testSaveWithModulations()">Test Save with Modulations</button>
+        <button onclick="testLoadWithModulations()">Test Load with Modulations</button>
+        <button onclick="testExportImport()">Test Export/Import</button>
+        <button onclick="clearEverything()">Clear All Data</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="test-results" class="status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Current State</h2>
+        <div id="current-state" class="status">
+            <div>Active Modulations: <span id="mod-count">0</span></div>
+            <div>Current Preset: <span id="current-preset">None</span></div>
+            <div id="modulation-details"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        import { ModulationManager } from './src/utils/ModulationManager.js';
+        import { MainUI } from './src/ui/MainUI.js';
+        import { PresetManager } from './src/utils/PresetManager.js';
+        
+        let particleSystem;
+        let modulationManager;
+        let mainUI;
+        let presetManager;
+        
+        function log(message, type = 'info') {
+            const status = document.getElementById('status');
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            status.appendChild(entry);
+            status.scrollTop = status.scrollHeight;
+            
+            // Also log to console
+            console.log(`[${type}] ${message}`);
+        }
+        
+        function addTestResult(testName, passed, details = '') {
+            const results = document.getElementById('test-results');
+            const result = document.createElement('div');
+            result.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
+            result.innerHTML = `
+                <strong>${passed ? '✓' : '✗'} ${testName}</strong>
+                ${details ? `<div style="margin-left: 20px; font-size: 0.9em; color: #888;">${details}</div>` : ''}
+            `;
+            results.appendChild(result);
+        }
+        
+        function updateCurrentState() {
+            const modCount = document.getElementById('mod-count');
+            const currentPreset = document.getElementById('current-preset');
+            const modDetails = document.getElementById('modulation-details');
+            
+            if (!modulationManager) {
+                modCount.textContent = 'N/A';
+                return;
+            }
+            
+            const modulations = modulationManager.getActiveModulations();
+            modCount.textContent = modulations.length;
+            
+            modDetails.innerHTML = modulations.map(mod => 
+                `<div style="margin: 5px 0; padding: 5px; background: rgba(255,255,255,0.05);">
+                    ${mod.parameterName}: ${mod.minValue} ↔ ${mod.maxValue} (${mod.duration/1000}s, ${mod.waveType})
+                </div>`
+            ).join('');
+        }
+        
+        // Initialize system
+        async function init() {
+            try {
+                log('Creating particle system...', 'info');
+                
+                // Create canvas for particle system
+                const canvas = document.createElement('canvas');
+                canvas.width = 800;
+                canvas.height = 600;
+                canvas.style.display = 'none';
+                document.body.appendChild(canvas);
+                
+                particleSystem = new SimpleParticleSystem(800, 600);
+                particleSystem.canvas = canvas;
+                particleSystem.ctx = canvas.getContext('2d');
+                
+                // Initialize with some species
+                particleSystem.numSpecies = 3;
+                particleSystem.initializeSpecies();
+                
+                log('Creating preset manager...', 'info');
+                presetManager = new PresetManager();
+                // Wait for async initialization
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                log('Creating UI with modulation manager...', 'info');
+                mainUI = new MainUI(particleSystem, presetManager);
+                modulationManager = mainUI.modulationManager;
+                
+                // Make them global for testing
+                window.particleSystem = particleSystem;
+                window.modulationManager = modulationManager;
+                window.mainUI = mainUI;
+                window.presetManager = presetManager;
+                
+                log('System ready!', 'success');
+                updateCurrentState();
+                
+                // Start monitoring
+                setInterval(updateCurrentState, 1000);
+                
+            } catch (error) {
+                log('Initialization failed: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+        
+        window.runFullTest = async function() {
+            document.getElementById('test-results').innerHTML = '';
+            log('Starting full persistence test...', 'info');
+            
+            try {
+                // Step 1: Clear existing modulations
+                log('Step 1: Clearing existing modulations...', 'info');
+                modulationManager.clearAll();
+                addTestResult('Clear modulations', modulationManager.getActiveModulations().length === 0);
+                
+                // Step 2: Add test modulations
+                log('Step 2: Adding test modulations...', 'info');
+                const categories = modulationManager.getParameterCategories();
+                
+                // Add size modulation
+                const sizeConfig = categories['Species Properties']['species_0_size'];
+                const modId1 = modulationManager.addModulation(
+                    'species_0_size', 2.0, 10.0, 2.5, sizeConfig, 'sine'
+                );
+                
+                // Add force modulation
+                const forceConfig = categories['Physics']['force_strength'];
+                const modId2 = modulationManager.addModulation(
+                    'force_strength', 0.5, 3.0, 3.0, forceConfig, 'triangle'
+                );
+                
+                // Add color modulation
+                const colorConfig = categories['Species Properties']['species_1_color'];
+                const modId3 = modulationManager.addModulation(
+                    'species_1_color', '#ff0000', '#00ff00', 1.5, colorConfig, 'square'
+                );
+                
+                const activeCount = modulationManager.getActiveModulations().length;
+                addTestResult('Add modulations', activeCount === 3, `Added ${activeCount} modulations`);
+                
+                // Step 3: Export preset with modulations
+                log('Step 3: Exporting preset with modulations...', 'info');
+                const exportedPreset = particleSystem.exportPreset();
+                const hasModulations = exportedPreset.modulations && exportedPreset.modulations.length > 0;
+                addTestResult('Export includes modulations', hasModulations, 
+                    `Exported ${exportedPreset.modulations ? exportedPreset.modulations.length : 0} modulations`);
+                
+                // Step 4: Save preset
+                log('Step 4: Saving preset...', 'info');
+                const testPresetName = 'ModulationTest_' + Date.now();
+                exportedPreset.name = testPresetName;
+                const savedKey = presetManager.generateUniqueKey(testPresetName);
+                await presetManager.savePreset(savedKey, exportedPreset);
+                addTestResult('Save preset', true, `Saved as "${testPresetName}" with key "${savedKey}"`);
+                
+                // Step 5: Clear modulations
+                log('Step 5: Clearing modulations to test reload...', 'info');
+                modulationManager.clearAll();
+                const clearedCount = modulationManager.getActiveModulations().length;
+                addTestResult('Clear before reload', clearedCount === 0, `${clearedCount} modulations remaining`);
+                
+                // Step 6: Load preset
+                log('Step 6: Loading preset back...', 'info');
+                const savedPreset = presetManager.getPreset(savedKey);
+                if (savedPreset) {
+                    particleSystem.loadFullPreset(savedPreset);
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for async operations
+                    
+                    const loadedCount = modulationManager.getActiveModulations().length;
+                    addTestResult('Load preset with modulations', loadedCount === 3, 
+                        `Loaded ${loadedCount} modulations`);
+                    
+                    // Verify modulation details
+                    const loadedMods = modulationManager.getActiveModulations();
+                    let detailsMatch = true;
+                    for (const mod of loadedMods) {
+                        log(`Loaded: ${mod.parameterName} - ${mod.waveType}`, 'info');
+                    }
+                    
+                    // Step 7: Test persistence after refresh simulation
+                    log('Step 7: Simulating refresh by reinitializing...', 'info');
+                    const storedPreset = localStorage.getItem('particleLifeCurrentPreset');
+                    if (storedPreset) {
+                        const parsed = JSON.parse(storedPreset);
+                        const hasStoredMods = parsed.modulations && parsed.modulations.length > 0;
+                        addTestResult('LocalStorage has modulations', hasStoredMods,
+                            `Found ${parsed.modulations ? parsed.modulations.length : 0} modulations in storage`);
+                    }
+                    
+                    // Clean up test preset
+                    await presetManager.deletePreset(savedKey);
+                    log('Test preset cleaned up', 'info');
+                    
+                } else {
+                    addTestResult('Load preset', false, 'Could not find saved preset');
+                }
+                
+                log('Full persistence test completed!', 'success');
+                
+            } catch (error) {
+                log('Test failed: ' + error.message, 'error');
+                console.error(error);
+                addTestResult('Test execution', false, error.message);
+            }
+        };
+        
+        window.testSaveWithModulations = async function() {
+            try {
+                log('Testing save with current modulations...', 'info');
+                
+                const modCount = modulationManager.getActiveModulations().length;
+                if (modCount === 0) {
+                    log('No modulations to save. Add some first!', 'warning');
+                    return;
+                }
+                
+                const testName = 'SaveTest_' + Date.now();
+                const preset = particleSystem.exportPreset();
+                preset.name = testName;
+                const savedKey = presetManager.generateUniqueKey(testName);
+                await presetManager.savePreset(savedKey, preset);
+                
+                log(`Saved preset "${testName}" with ${modCount} modulations`, 'success');
+                
+                // Verify it was saved correctly
+                const saved = presetManager.getPreset(savedKey);
+                if (saved && saved.modulations) {
+                    log(`Verified: Preset has ${saved.modulations.length} modulations`, 'success');
+                } else {
+                    log('Warning: Saved preset missing modulations!', 'error');
+                }
+                
+            } catch (error) {
+                log('Save test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.testLoadWithModulations = async function() {
+            try {
+                log('Looking for presets with modulations...', 'info');
+                
+                const presets = presetManager.getAllPresets();
+                const presetsWithMods = [];
+                
+                for (const preset of presets) {
+                    if (preset.preset && preset.preset.modulations && preset.preset.modulations.length > 0) {
+                        presetsWithMods.push(preset);
+                    }
+                }
+                
+                if (presetsWithMods.length === 0) {
+                    log('No presets with modulations found. Save one first!', 'warning');
+                    return;
+                }
+                
+                const presetData = presetsWithMods[0];
+                log(`Loading preset "${presetData.name}" with ${presetData.preset.modulations.length} modulations...`, 'info');
+                
+                particleSystem.loadFullPreset(presetData.preset);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const loadedCount = modulationManager.getActiveModulations().length;
+                log(`Loaded ${loadedCount} modulations successfully!`, 'success');
+                
+            } catch (error) {
+                log('Load test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.testExportImport = function() {
+            try {
+                log('Testing export/import of modulations...', 'info');
+                
+                // Export current config
+                const exported = modulationManager.exportConfig();
+                log(`Exported ${exported.length} modulations`, 'info');
+                
+                // Clear
+                modulationManager.clearAll();
+                log('Cleared all modulations', 'info');
+                
+                // Import back
+                modulationManager.importConfig(exported);
+                const imported = modulationManager.getActiveModulations().length;
+                
+                log(`Imported ${imported} modulations`, imported === exported.length ? 'success' : 'error');
+                
+            } catch (error) {
+                log('Export/Import test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.clearEverything = function() {
+            try {
+                log('Clearing all modulations and data...', 'warning');
+                modulationManager.clearAll();
+                localStorage.removeItem('particleLifeCurrentPreset');
+                log('All data cleared', 'success');
+                updateCurrentState();
+            } catch (error) {
+                log('Clear failed: ' + error.message, 'error');
+            }
+        };
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

@@ -1,6 +1,5 @@
 import { SimpleParticleSystem } from './core/SimpleParticleSystem.js';
 import { HybridPresetManager } from './utils/HybridPresetManager.js';
-import { PresetModal } from './ui/PresetModal.js';
 import { MainUI } from './ui/MainUI.js';
 import { UIStateManager } from './utils/UIStateManager.js';
 import { CollapsibleUIIntegration } from './ui/CollapsibleUIIntegration.js';
@@ -73,15 +72,13 @@ async function init() {
     window.particleSystem = particleSystem;
     window.aspectRatioManager = aspectRatioManager;
     
+    // Store pending modulations from localStorage if any
+    let pendingModulations = null;
+    
     // Sync initial state
     uiStateManager.syncFromParticleSystem(particleSystem);
     
-    // Create preset modal
-    const presetModal = new PresetModal(particleSystem, presetManager);
-    // Debug mode: Make preset modal globally accessible
-    if (window.location.hostname === 'localhost' || window.location.search.includes('debug=true')) {
-        window.presetModal = presetModal;
-    }
+    // PresetModal removed - preset configuration now integrated directly in MainUI
     
     // Auto-save scene state on changes
     let saveTimeout;
@@ -94,11 +91,14 @@ async function init() {
                 // Validate before saving
                 if (validateSceneData(currentScene)) {
                     localStorage.setItem('lastScene', JSON.stringify(currentScene));
+                    // Scene saved to localStorage
                     Logger.debug('Auto-saved current scene');
                 } else {
+                    // Invalid scene data, skipping auto-save
                     Logger.warn('Invalid scene data, skipping auto-save');
                 }
             } catch (error) {
+                // Failed to auto-save scene
                 Logger.warn('Failed to auto-save scene:', error);
             }
         }, 2000); // 2-second debounce
@@ -108,38 +108,62 @@ async function init() {
     const validateSceneData = (sceneData) => {
         if (!sceneData || typeof sceneData !== 'object') return false;
         
+        // Handle both old format (top-level) and new format (nested)
+        const numSpecies = sceneData.numSpecies || sceneData.particles?.numSpecies || sceneData.species?.count;
+        const particlesPerSpecies = sceneData.particlesPerSpecies || sceneData.particles?.particlesPerSpecies;
+        
         // Check for reasonable species count
-        if (sceneData.numSpecies && (sceneData.numSpecies < 1 || sceneData.numSpecies > 20)) {
-            Logger.warn('Invalid species count in scene data:', sceneData.numSpecies);
+        if (numSpecies && (numSpecies < 1 || numSpecies > 20)) {
+            // Invalid species count
+            Logger.warn('Invalid species count in scene data:', numSpecies);
             return false;
         }
         
         // Check for reasonable particle count
-        if (sceneData.particlesPerSpecies && (sceneData.particlesPerSpecies < 0 || sceneData.particlesPerSpecies > 2000)) {
-            Logger.warn('Invalid particles per species in scene data:', sceneData.particlesPerSpecies);
+        if (particlesPerSpecies && (particlesPerSpecies < 0 || particlesPerSpecies > 2000)) {
+            // Invalid particles per species
+            Logger.warn('Invalid particles per species in scene data:', particlesPerSpecies);
             return false;
         }
         
-        return true;
+        // If we have the new format, it's valid
+        if (sceneData.particles || sceneData.species) {
+            return true;
+        }
+        
+        // For old format, check if we have at least some expected properties
+        return !!(sceneData.numSpecies || sceneData.particlesPerSpecies || sceneData.socialForce);
     };
     
     // Load the last scene or default preset
     try {
+        // Checking for lastScene in localStorage
         const lastScene = localStorage.getItem('lastScene');
         if (lastScene) {
+            // Found lastScene, parsing
             const sceneData = JSON.parse(lastScene);
             
             // Validate the scene data before loading
             if (validateSceneData(sceneData)) {
-                particleSystem.loadFullPreset(sceneData);
+                // Scene data is valid, loading preset
+                // Store modulations to load after UI is created
+                if (sceneData.modulations) {
+                    pendingModulations = sceneData.modulations;
+                }
+                // Load preset without modulations (they'll be loaded after UI creation)
+                const sceneWithoutModulations = { ...sceneData };
+                delete sceneWithoutModulations.modulations;
+                particleSystem.loadFullPreset(sceneWithoutModulations);
                 Logger.debug('Loaded valid last scene from localStorage');
             } else {
+                // Invalid scene data found, clearing localStorage
                 Logger.warn('Invalid scene data found, clearing localStorage');
                 localStorage.removeItem('lastScene');
                 localStorage.removeItem('lastSelectedPreset');
                 // No default preset to load - system will use default parameters
             }
         } else {
+            // No lastScene found in localStorage
             // Fallback to last selected preset if available
             const lastSelectedPreset = localStorage.getItem('lastSelectedPreset');
             if (lastSelectedPreset) {
@@ -158,9 +182,19 @@ async function init() {
     }
     
     // Create main UI with new design system
-    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene, presetModal, aspectRatioManager);
+    const mainUI = new MainUI(particleSystem, presetManager, autoSaveScene, null, aspectRatioManager);
     // Make main UI globally accessible for keyboard shortcuts
     window.mainUI = mainUI;
+    
+    // Load pending modulations if any
+    if (pendingModulations && mainUI.modulationManager) {
+        try {
+            mainUI.modulationManager.importConfig(pendingModulations);
+            mainUI.updateModulationList();
+        } catch (error) {
+            // Failed to restore modulations
+        }
+    }
     
     // Initialize collapsible UI integration
     const collapsibleUI = new CollapsibleUIIntegration(mainUI);
@@ -192,7 +226,7 @@ async function init() {
     }
     
     
-    // Global functions needed for PresetModal integration (always available)
+    // Global functions for preset integration (always available)
     window.updateUIFromPreset = function(particleSystem) {
         mainUI.updateUIFromPreset();
     };

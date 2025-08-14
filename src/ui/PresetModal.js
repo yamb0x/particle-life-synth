@@ -1565,6 +1565,14 @@ export class PresetModal {
         this.forceEditor.updateMatrixView();
       }
       
+      // Ensure modulations are included in the currentPreset
+      // They're already part of exportPreset() but we need to ensure they persist
+      // The modulations are already active in the ModulationManager, just need to ensure they're in the preset
+      if (currentState.modulations) {
+        this.currentPreset.modulations = currentState.modulations;
+        console.log(`Fetched ${currentState.modulations.length} modulations from scene`);
+      }
+      
       this.markChanged();
       this.updateSaveStatus('✓ Fetched current scene settings');
       

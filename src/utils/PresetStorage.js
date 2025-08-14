@@ -17,18 +17,18 @@ export class PresetStorage {
         const request = indexedDB.open(this.dbName, this.dbVersion);
         
         request.onerror = () => {
-          console.error('Failed to open IndexedDB:', request.error);
+          // Failed to open IndexedDB
           resolve(false);
         };
         
         request.onsuccess = () => {
           this.db = request.result;
-          console.log('IndexedDB initialized successfully');
+          // IndexedDB initialized successfully
           resolve(true);
         };
         
         request.onupgradeneeded = (event) => {
-          console.log('IndexedDB upgrade needed');
+          // IndexedDB upgrade needed
           const db = event.target.result;
           
           // Create presets store
@@ -37,17 +37,17 @@ export class PresetStorage {
             presetsStore.createIndex('name', 'name', { unique: false });
             presetsStore.createIndex('created', 'created', { unique: false });
             presetsStore.createIndex('modified', 'modified', { unique: false });
-            console.log('Created presets store');
+            // Created presets store
           }
           
           // Create metadata store
           if (!db.objectStoreNames.contains('metadata')) {
             db.createObjectStore('metadata', { keyPath: 'key' });
-            console.log('Created metadata store');
+            // Created metadata store
           }
         };
       } catch (error) {
-        console.error('IndexedDB initialization failed:', error);
+        // IndexedDB initialization failed
         resolve(false);
       }
     });
@@ -55,7 +55,7 @@ export class PresetStorage {
 
   // Save preset to all storage layers
   async savePreset(key, preset) {
-    console.log('[PresetStorage] Saving preset:', key, preset);
+    // Saving preset
     const enrichedPreset = {
       ...preset,
       key,
@@ -74,7 +74,7 @@ export class PresetStorage {
     // Update metadata
     await this.updateMetadata();
     
-    console.log('[PresetStorage] Preset saved successfully:', key);
+    // Preset saved successfully
     return enrichedPreset;
   }
 
@@ -85,7 +85,7 @@ export class PresetStorage {
       allPresets[key] = preset;
       localStorage.setItem(this.storageKey, JSON.stringify(allPresets));
     } catch (error) {
-      console.error('Failed to save to localStorage:', error);
+      // Failed to save to localStorage
       // Handle quota exceeded error
       if (error.name === 'QuotaExceededError') {
         this.cleanupOldPresets();
@@ -96,7 +96,7 @@ export class PresetStorage {
   // Save to IndexedDB
   async saveToIndexedDB(key, preset) {
     if (!this.db) {
-      console.warn('[PresetStorage] IndexedDB not initialized');
+      // IndexedDB not initialized
       return;
     }
     
@@ -107,25 +107,25 @@ export class PresetStorage {
         const request = store.put(preset);
         
         request.onsuccess = () => {
-          console.log('[PresetStorage] Saved to IndexedDB:', key);
+          // Saved to IndexedDB
           resolve();
         };
         
         request.onerror = () => {
-          console.error('[PresetStorage] IndexedDB save error:', request.error);
+          // IndexedDB save error
           reject(request.error);
         };
         
         transaction.oncomplete = () => {
-          console.log('[PresetStorage] Transaction complete');
+          // Transaction complete
         };
         
         transaction.onerror = () => {
-          console.error('[PresetStorage] Transaction error:', transaction.error);
+          // Transaction error
           reject(transaction.error);
         };
       } catch (error) {
-        console.error('[PresetStorage] Failed to save to IndexedDB:', error);
+        // Failed to save to IndexedDB
         reject(error);
       }
     });
@@ -154,7 +154,7 @@ export class PresetStorage {
       const allPresets = this.getAllFromLocalStorage();
       return allPresets[key] || null;
     } catch (error) {
-      console.error('Failed to load from localStorage:', error);
+      // Failed to load from localStorage
       return null;
     }
   }
@@ -173,7 +173,7 @@ export class PresetStorage {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Failed to load from IndexedDB:', error);
+      // Failed to load from IndexedDB
       return null;
     }
   }
@@ -198,7 +198,7 @@ export class PresetStorage {
       const stored = localStorage.getItem(this.storageKey);
       return stored ? JSON.parse(stored) : {};
     } catch (error) {
-      console.error('Failed to parse localStorage:', error);
+      // Failed to parse localStorage
       return {};
     }
   }
@@ -224,7 +224,7 @@ export class PresetStorage {
       }
       return result;
     } catch (error) {
-      console.error('Failed to load all from IndexedDB:', error);
+      // Failed to load all from IndexedDB
       return {};
     }
   }
@@ -243,7 +243,7 @@ export class PresetStorage {
         const store = transaction.objectStore('presets');
         await store.delete(key);
       } catch (error) {
-        console.error('Failed to delete from IndexedDB:', error);
+        // Failed to delete from IndexedDB
       }
     }
     
@@ -345,7 +345,7 @@ export class PresetStorage {
         const store = transaction.objectStore('metadata');
         await store.put(meta);
       } catch (error) {
-        console.error('Failed to update metadata:', error);
+        // Failed to update metadata
       }
     }
   }
@@ -391,7 +391,7 @@ export class PresetStorage {
         health.storageUsed = new Blob([stored]).size;
       }
     } catch (e) {
-      console.error('localStorage not available:', e);
+      // localStorage not available
     }
     
     // Check IndexedDB

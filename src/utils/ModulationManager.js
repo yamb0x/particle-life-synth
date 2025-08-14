@@ -101,9 +101,9 @@ export class ModulationManager {
             type: 'float',
             min: 0.0,
             max: 5.0,
-            getter: () => this.particleSystem.forceScale,
+            getter: () => this.particleSystem.forceScale || 1.0,
             setter: (val) => this.particleSystem.forceScale = val,
-            current: () => this.particleSystem.forceScale
+            current: () => this.particleSystem.forceScale || 1.0
         };
         categories['Physics']['friction'] = {
             name: 'Friction',
@@ -137,9 +137,18 @@ export class ModulationManager {
             type: 'float',
             min: 0.0,
             max: 300.0,
-            getter: () => this.particleSystem.rMax,
-            setter: (val) => this.particleSystem.rMax = val,
-            current: () => this.particleSystem.rMax
+            getter: () => this.particleSystem.socialRadius?.[0]?.[0] || 50,
+            setter: (val) => {
+                // Update all social radius values uniformly
+                if (this.particleSystem.socialRadius) {
+                    for (let i = 0; i < this.particleSystem.socialRadius.length; i++) {
+                        for (let j = 0; j < this.particleSystem.socialRadius[i].length; j++) {
+                            this.particleSystem.socialRadius[i][j] = val;
+                        }
+                    }
+                }
+            },
+            current: () => this.particleSystem.socialRadius?.[0]?.[0] || 50
         };
         categories['Physics']['environmental_pressure'] = {
             name: 'Environmental Pressure',
@@ -182,25 +191,28 @@ export class ModulationManager {
             current: () => this.particleSystem.repulsiveForce
         };
 
-        // Mouse parameters
+        // Mouse parameters - Currently not implemented in SimpleParticleSystem
+        // Commenting out until mouse interaction is added
+        /*
         categories['Mouse']['mouse_strength'] = {
             name: 'Mouse Strength',
             type: 'float',
             min: 0.0,
             max: 100.0,
-            getter: () => this.particleSystem.mouseForce,
-            setter: (val) => this.particleSystem.mouseForce = val,
-            current: () => this.particleSystem.mouseForce
+            getter: () => this.particleSystem.mouseForce || 0,
+            setter: (val) => { if (this.particleSystem.mouseForce !== undefined) this.particleSystem.mouseForce = val; },
+            current: () => this.particleSystem.mouseForce || 0
         };
         categories['Mouse']['mouse_radius'] = {
             name: 'Mouse Radius',
             type: 'float',
             min: 0.0,
             max: 500.0,
-            getter: () => this.particleSystem.mouseRadius,
-            setter: (val) => this.particleSystem.mouseRadius = val,
-            current: () => this.particleSystem.mouseRadius
+            getter: () => this.particleSystem.mouseRadius || 0,
+            setter: (val) => { if (this.particleSystem.mouseRadius !== undefined) this.particleSystem.mouseRadius = val; },
+            current: () => this.particleSystem.mouseRadius || 0
         };
+        */
 
         // Visual parameters
         categories['Visual']['background_color'] = {
@@ -506,10 +518,13 @@ export class ModulationManager {
     }
 
     importConfig(config) {
+        // Importing modulation config
         this.clearAll();
         const categories = this.getParameterCategories();
         
+        let importedCount = 0;
         for (const modConfig of config) {
+            // Processing modulation
             let parameterConfig = null;
             for (const category of Object.values(categories)) {
                 if (category[modConfig.parameterId]) {
@@ -519,7 +534,7 @@ export class ModulationManager {
             }
             
             if (parameterConfig) {
-                this.addModulation(
+                const modId = this.addModulation(
                     modConfig.parameterId,
                     modConfig.minValue,
                     modConfig.maxValue,
@@ -527,7 +542,12 @@ export class ModulationManager {
                     parameterConfig,
                     modConfig.waveType || 'sine'
                 );
+                // Modulation added successfully
+                importedCount++;
+            } else {
+                console.warn(`Could not find parameter config for ${modConfig.parameterId}`);
             }
         }
+        // Import complete
     }
 }

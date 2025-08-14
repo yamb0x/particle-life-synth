@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulation Fix Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #0f0;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #0f0;
+            background: rgba(0, 255, 0, 0.05);
+        }
+        .pass { color: #0f0; }
+        .fail { color: #f00; }
+        .info { color: #ff0; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #333;
+        }
+        #log {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            padding: 10px;
+            margin-top: 10px;
+            background: #111;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Modulation Fix Verification</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Preset Switching Clears Modulations</h2>
+        <p>This test verifies that switching between presets properly clears modulations from the previous preset.</p>
+        <button onclick="testPresetSwitching()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Cloud Upload Name Validation</h2>
+        <p>This test verifies that presets with names like "ppp-test" are uploaded to cloud.</p>
+        <button onclick="testCloudUpload()">Run Test</button>
+        <div id="test2-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Manual Test Instructions</h2>
+        <ol>
+            <li>Open the main app: <a href="/" target="_blank">Open App</a></li>
+            <li>Load a preset that has modulations</li>
+            <li>Note the modulation count in the UI</li>
+            <li>Switch to a different preset without modulations</li>
+            <li>Verify the modulation panel is empty</li>
+            <li>Switch back to the first preset</li>
+            <li>Verify the modulations are restored correctly</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Log</h2>
+        <button onclick="clearLog()">Clear</button>
+        <div id="log"></div>
+    </div>
+    
+    <script>
+        function log(msg, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type}] ${msg}`);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        async function testPresetSwitching() {
+            const result = document.getElementById('test1-result');
+            result.innerHTML = 'Testing...';
+            
+            try {
+                // Create iframe to test in isolation
+                const iframe = document.createElement('iframe');
+                iframe.src = '/';
+                iframe.style.width = '100px';
+                iframe.style.height = '100px';
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-200px';
+                document.body.appendChild(iframe);
+                
+                // Wait for load
+                await new Promise(resolve => {
+                    iframe.onload = resolve;
+                });
+                
+                // Wait for app initialization
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const win = iframe.contentWindow;
+                
+                if (!win.particleSystem || !win.mainUI) {
+                    result.innerHTML = '<div class="fail">❌ App not loaded properly</div>';
+                    document.body.removeChild(iframe);
+                    return;
+                }
+                
+                log('App loaded successfully');
+                
+                // Create test preset with modulations
+                const testPreset1 = {
+                    name: 'TestWithMods',
+                    modulations: [
+                        {
+                            parameterId: 'force_strength',
+                            minValue: 0.5,
+                            maxValue: 2.0,
+                            duration: 3.0,
+                            type: 'float',
+                            waveType: 'sine',
+                            parameterName: 'Force Strength'
+                        },
+                        {
+                            parameterId: 'friction',
+                            minValue: 0.8,
+                            maxValue: 1.0,
+                            duration: 2.0,
+                            type: 'float',
+                            waveType: 'triangle',
+                            parameterName: 'Friction'
+                        }
+                    ],
+                    // Include minimal required preset data
+                    particles: { numSpecies: 3, particlesPerSpecies: 100 },
+                    species: { count: 3, definitions: [] },
+                    physics: { friction: 0.05, forceFactor: 0.5 },
+                    forces: { collision: [], social: [] },
+                    visual: { blur: 0.95, particleSize: 3 }
+                };
+                
+                // Create test preset without modulations
+                const testPreset2 = {
+                    name: 'TestNoMods',
+                    modulations: [],
+                    particles: { numSpecies: 3, particlesPerSpecies: 100 },
+                    species: { count: 3, definitions: [] },
+                    physics: { friction: 0.1, forceFactor: 0.8 },
+                    forces: { collision: [], social: [] },
+                    visual: { blur: 0.98, particleSize: 5 }
+                };
+                
+                // Test sequence
+                log('Loading preset with 2 modulations...');
+                win.particleSystem.loadFullPreset(testPreset1);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const mods1 = win.mainUI.modulationManager.getActiveModulations();
+                log(`After loading preset 1: ${mods1.length} modulations`);
+                
+                if (mods1.length !== 2) {
+                    result.innerHTML = `<div class="fail">❌ Expected 2 modulations, got ${mods1.length}</div>`;
+                    document.body.removeChild(iframe);
+                    return;
+                }
+                
+                log('Loading preset without modulations...');
+                win.particleSystem.loadFullPreset(testPreset2);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const mods2 = win.mainUI.modulationManager.getActiveModulations();
+                log(`After loading preset 2: ${mods2.length} modulations`);
+                
+                if (mods2.length !== 0) {
+                    result.innerHTML = `<div class="fail">❌ Modulations not cleared! Still has ${mods2.length}</div>`;
+                    document.body.removeChild(iframe);
+                    return;
+                }
+                
+                log('Loading first preset again...');
+                win.particleSystem.loadFullPreset(testPreset1);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const mods3 = win.mainUI.modulationManager.getActiveModulations();
+                log(`After reloading preset 1: ${mods3.length} modulations`);
+                
+                if (mods3.length !== 2) {
+                    result.innerHTML = `<div class="fail">❌ Modulations not restored! Has ${mods3.length}</div>`;
+                    document.body.removeChild(iframe);
+                    return;
+                }
+                
+                result.innerHTML = '<div class="pass">✅ All tests passed! Modulations properly isolated per preset.</div>';
+                document.body.removeChild(iframe);
+                
+            } catch (error) {
+                result.innerHTML = `<div class="fail">❌ Error: ${error.message}</div>`;
+                log('Test error: ' + error.message, 'fail');
+            }
+        }
+        
+        async function testCloudUpload() {
+            const result = document.getElementById('test2-result');
+            result.innerHTML = 'Testing...';
+            
+            try {
+                // Test the isInvalidPresetName function directly
+                const testNames = [
+                    { name: 'ppp-test', shouldUpload: true },
+                    { name: 'my-test-preset', shouldUpload: true },
+                    { name: 'testing-123', shouldUpload: true },
+                    { name: 'test_123', shouldUpload: false },
+                    { name: 'test1', shouldUpload: false },
+                    { name: 'temp_preset', shouldUpload: false },
+                    { name: 'automaticsaveasnew', shouldUpload: false },
+                    { name: 'normal-preset', shouldUpload: true },
+                    { name: 'ge-ko-system-II', shouldUpload: true }
+                ];
+                
+                // Load the app to test
+                const iframe = document.createElement('iframe');
+                iframe.src = '/';
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                
+                await new Promise(resolve => {
+                    iframe.onload = resolve;
+                });
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const win = iframe.contentWindow;
+                if (!win.presetManager || !win.presetManager.isInvalidPresetName) {
+                    result.innerHTML = '<div class="fail">❌ PresetManager not available</div>';
+                    document.body.removeChild(iframe);
+                    return;
+                }
+                
+                let allPassed = true;
+                let results = [];
+                
+                for (const test of testNames) {
+                    const isInvalid = win.presetManager.isInvalidPresetName(test.name);
+                    const willUpload = !isInvalid;
+                    const passed = willUpload === test.shouldUpload;
+                    
+                    if (!passed) allPassed = false;
+                    
+                    results.push(`${passed ? '✅' : '❌'} "${test.name}": ${willUpload ? 'uploads' : 'blocked'} (expected: ${test.shouldUpload ? 'upload' : 'block'})`);
+                    log(`${test.name}: ${willUpload ? 'uploads' : 'blocked'}`, passed ? 'pass' : 'fail');
+                }
+                
+                result.innerHTML = `
+                    <div class="${allPassed ? 'pass' : 'fail'}">
+                        ${allPassed ? '✅ All tests passed!' : '❌ Some tests failed'}
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.9em;">
+                        ${results.join('<br>')}
+                    </div>
+                `;
+                
+                document.body.removeChild(iframe);
+                
+            } catch (error) {
+                result.innerHTML = `<div class="fail">❌ Error: ${error.message}</div>`;
+                log('Test error: ' + error.message, 'fail');
+            }
+        }
+        
+        // Auto-run first test on load
+        window.addEventListener('load', () => {
+            log('Test page loaded', 'info');
+            log('Click the test buttons to verify fixes', 'info');
+        });
+    </script>
+</body>
+</html>

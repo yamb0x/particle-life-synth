@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulation System Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #111;
+            color: #0f0;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #0f0;
+        }
+        button {
+            background: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #333;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a1a1a;
+        }
+        .error {
+            color: #f00;
+        }
+        .success {
+            color: #0f0;
+        }
+        .info {
+            color: #ff0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Modulation System Test</h1>
+    
+    <div class="test-section">
+        <h2>System Status</h2>
+        <div id="status" class="status">Initializing...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Quick Tests</h2>
+        <button onclick="testBasicModulation()">Test Force Strength Modulation</button>
+        <button onclick="testColorModulation()">Test Species Color Modulation</button>
+        <button onclick="testSizeModulation()">Test Species Size Modulation</button>
+        <button onclick="testPhysicsModulation()">Test Physics Modulation</button>
+        <button onclick="clearAllModulations()">Clear All Modulations</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Active Modulations</h2>
+        <div id="active-modulations" class="status">None</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Console</h2>
+        <div id="debug-console" class="status" style="max-height: 300px; overflow-y: auto;"></div>
+    </div>
+
+    <script type="module">
+        import { SimpleParticleSystem } from './src/core/SimpleParticleSystem.js';
+        import { ModulationManager } from './src/utils/ModulationManager.js';
+        
+        let particleSystem;
+        let modulationManager;
+        
+        function log(message, type = 'info') {
+            const console = document.getElementById('debug-console');
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = 'status ' + type;
+            status.textContent = message;
+        }
+        
+        function updateActiveModulations() {
+            const container = document.getElementById('active-modulations');
+            const modulations = modulationManager.getActiveModulations();
+            
+            if (modulations.length === 0) {
+                container.innerHTML = 'None';
+                return;
+            }
+            
+            container.innerHTML = modulations.map(mod => 
+                `<div>• ${mod.parameterName}: ${mod.minValue} ↔ ${mod.maxValue} (${(mod.duration/1000).toFixed(1)}s)</div>`
+            ).join('');
+        }
+        
+        // Initialize system
+        async function init() {
+            try {
+                updateStatus('Creating particle system...', 'info');
+                particleSystem = new SimpleParticleSystem(800, 600);
+                
+                // Initialize with some species
+                particleSystem.numSpecies = 4;
+                particleSystem.initializeSpecies();
+                
+                updateStatus('Creating modulation manager...', 'info');
+                modulationManager = new ModulationManager(particleSystem);
+                
+                // Make them global for testing
+                window.particleSystem = particleSystem;
+                window.modulationManager = modulationManager;
+                
+                updateStatus('System ready!', 'success');
+                log('Particle system initialized with ' + particleSystem.numSpecies + ' species', 'success');
+                log('Modulation manager ready', 'success');
+                
+                // Start monitoring
+                setInterval(() => {
+                    modulationManager.update();
+                    updateActiveModulations();
+                }, 100);
+                
+            } catch (error) {
+                updateStatus('Initialization failed: ' + error.message, 'error');
+                log('Error: ' + error.stack, 'error');
+            }
+        }
+        
+        window.testBasicModulation = function() {
+            try {
+                log('Testing force strength modulation...', 'info');
+                
+                const categories = modulationManager.getParameterCategories();
+                const forceConfig = categories['Physics']['force_strength'];
+                
+                if (!forceConfig) {
+                    throw new Error('Force strength parameter not found');
+                }
+                
+                const modId = modulationManager.addModulation(
+                    'force_strength',
+                    0.5,  // min
+                    3.0,  // max
+                    3.0,  // duration in seconds
+                    forceConfig
+                );
+                
+                log('Added force strength modulation: ' + modId, 'success');
+                updateActiveModulations();
+                
+            } catch (error) {
+                log('Test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.testColorModulation = function() {
+            try {
+                log('Testing species 0 color modulation...', 'info');
+                
+                const categories = modulationManager.getParameterCategories();
+                const colorConfig = categories['Species Properties']['species_0_color'];
+                
+                if (!colorConfig) {
+                    throw new Error('Species 0 color parameter not found');
+                }
+                
+                const modId = modulationManager.addModulation(
+                    'species_0_color',
+                    '#ff0000',  // red
+                    '#0000ff',  // blue
+                    2.0,  // duration in seconds
+                    colorConfig
+                );
+                
+                log('Added color modulation: ' + modId, 'success');
+                updateActiveModulations();
+                
+            } catch (error) {
+                log('Test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.testSizeModulation = function() {
+            try {
+                log('Testing species 0 size modulation...', 'info');
+                
+                const categories = modulationManager.getParameterCategories();
+                const sizeConfig = categories['Species Properties']['species_0_size'];
+                
+                if (!sizeConfig) {
+                    throw new Error('Species 0 size parameter not found');
+                }
+                
+                const modId = modulationManager.addModulation(
+                    'species_0_size',
+                    1.0,  // min
+                    3.0,  // max
+                    1.5,  // duration in seconds
+                    sizeConfig
+                );
+                
+                log('Added size modulation: ' + modId, 'success');
+                updateActiveModulations();
+                
+            } catch (error) {
+                log('Test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.testPhysicsModulation = function() {
+            try {
+                log('Testing social radius modulation...', 'info');
+                
+                const categories = modulationManager.getParameterCategories();
+                const radiusConfig = categories['Physics']['social_radius'];
+                
+                if (!radiusConfig) {
+                    throw new Error('Social radius parameter not found');
+                }
+                
+                const modId = modulationManager.addModulation(
+                    'social_radius',
+                    50.0,  // min
+                    200.0,  // max
+                    4.0,  // duration in seconds
+                    radiusConfig
+                );
+                
+                log('Added social radius modulation: ' + modId, 'success');
+                updateActiveModulations();
+                
+            } catch (error) {
+                log('Test failed: ' + error.message, 'error');
+            }
+        };
+        
+        window.clearAllModulations = function() {
+            try {
+                log('Clearing all modulations...', 'info');
+                modulationManager.clearAll();
+                log('All modulations cleared', 'success');
+                updateActiveModulations();
+            } catch (error) {
+                log('Clear failed: ' + error.message, 'error');
+            }
+        };
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
