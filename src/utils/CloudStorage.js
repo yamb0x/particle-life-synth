@@ -99,6 +99,11 @@ class CloudStorage {
       throw new Error(`Invalid preset name "${preset.name}" not allowed in cloud storage`);
     }
     
+    // Validate and clean preset data before saving
+    if (!preset || typeof preset !== 'object') {
+      throw new Error('Invalid preset data');
+    }
+    
     const userId = this.currentUser?.uid || 'anonymous';
     const safeName = preset.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
     
@@ -106,7 +111,7 @@ class CloudStorage {
     const id = preset.id || `${userId}_${safeName}`;
     
     // Check if preset already exists
-    const existingPreset = await this.getPreset(id);
+    const existingPreset = await this.getPreset(id).catch(() => null);
     
     let presetData;
     if (existingPreset) {
@@ -138,6 +143,15 @@ class CloudStorage {
       );
       return { ...presetData, id };
     } catch (error) {
+      // Log detailed error information
+      console.error('Firebase save error:', error);
+      console.error('Preset data that failed:', presetData);
+      
+      // Check for specific Firebase errors
+      if (error.code === 'invalid-argument') {
+        console.error('Invalid data structure for Firestore. Check for unsupported data types.');
+      }
+      
       // Failed to save preset to cloud
       throw error;
     }
@@ -214,6 +228,54 @@ class CloudStorage {
     const prepared = {};
     
     for (const [key, value] of Object.entries(obj)) {
+      // Skip undefined values
+      if (value === undefined) {
+        continue;
+      }
+      
+      // Skip null values - Firestore accepts them
+      if (value === null) {
+        prepared[key] = null;
+        continue;
+      }
+      
+      // Handle NaN and Infinity
+      if (typeof value === 'number') {
+        if (isNaN(value)) {
+          prepared[key] = null;
+          continue;
+        }
+        if (!isFinite(value)) {
+          prepared[key] = value > 0 ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+          continue;
+        }
+      }
+      
+      // Special handling for modulations array
+      if (key === 'modulations' && Array.isArray(value)) {
+        prepared[key] = value.map(mod => {
+          const sanitized = {};
+          for (const [modKey, modValue] of Object.entries(mod)) {
+            if (modValue !== undefined && typeof modValue !== 'function') {
+              if (typeof modValue === 'number') {
+                if (isNaN(modValue)) {
+                  sanitized[modKey] = 0;
+                } else if (!isFinite(modValue)) {
+                  sanitized[modKey] = modValue > 0 ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+                } else {
+                  sanitized[modKey] = modValue;
+                }
+              } else {
+                sanitized[modKey] = modValue;
+              }
+            }
+          }
+          return sanitized;
+        });
+        continue;
+      }
+      
+      // Handle arrays
       if (Array.isArray(value)) {
         // Check if it's a nested array (2D array)
         if (value.length > 0 && Array.isArray(value[0])) {
@@ -222,14 +284,34 @@ class CloudStorage {
             _type: 'matrix2d',
             rows: value.length,
             cols: value[0].length,
-            data: value.flat()
+            data: value.flat().map(v => {
+              // Sanitize numeric values in arrays
+              if (typeof v === 'number') {
+                if (isNaN(v)) return 0;
+                if (!isFinite(v)) return v > 0 ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+              }
+              return v;
+            })
           };
         } else {
-          prepared[key] = value;
+          // Sanitize array values
+          prepared[key] = value.map(v => {
+            if (typeof v === 'number') {
+              if (isNaN(v)) return 0;
+              if (!isFinite(v)) return v > 0 ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+            }
+            if (v && typeof v === 'object' && !(v instanceof Date)) {
+              return this.prepareForFirestore(v);
+            }
+            return v;
+          });
         }
       } else if (value && typeof value === 'object' && !(value instanceof Date)) {
         // Recursively handle nested objects
         prepared[key] = this.prepareForFirestore(value);
+      } else if (typeof value === 'function') {
+        // Skip functions entirely
+        continue;
       } else {
         prepared[key] = value;
       }
