@@ -16,9 +16,32 @@ build/
 .vscode/
 *.sublime-*
 
+# Test files
+test-*.html
+debug-*.html
+noise-debug.html
+performance-test.html
+*-test.html
+*-debug.html
+
 # Firebase
 firebase-debug.log
 .firebase/
+firestore-debug.log
+ui-debug.log
 
 # Vercel
 .vercel
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# OS Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

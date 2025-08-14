@@ -8,6 +8,7 @@ A visual particle simulation system that creates emergent behaviors through mult
 
 ### Key Features
 - **Real-time Cloud Collaboration** - Share presets instantly via links with robust Firebase management
+- **Advanced Modulation System** - Noise-based parameter modulation with per-species control and persistence
 - **Advanced Physics Engine** - Collision detection, environmental pressure, chaos injection, and per-species dynamics
 - **Mathematical Distribution Patterns** - Fibonacci spirals, fractal recursion, golden ratio, and species-responsive patterns
 - **Per-Species Control** - Individual trail intensity, mobility, inertia, and visual effects per species
@@ -71,9 +72,12 @@ src/
 
 **Tech Stack**: Vanilla JavaScript (ES6 modules) • Canvas 2D • IndexedDB/localStorage • Firebase • Vercel
 
-## Latest Updates (July 30, 2025)
+## Latest Updates (August 14, 2025)
 
 ### 🚀 Major Enhancements
+- **Advanced Modulation System** - Noise-based parameter modulation with waveform selection and per-species control
+- **Modulation Persistence** - Full save/load support for modulations in presets and Firebase
+- **Enhanced UI Organization** - Collapsible sections with inline controls and better visual hierarchy
 - **Per-Species Trail System** - Individual trail controls for each species with unique motion signatures
 - **Advanced Collision Physics** - Size-based interactions with environmental pressure and chaos injection
 - **Mathematical Distribution Patterns** - 8+ mathematical patterns including Fibonacci and golden ratio
@@ -82,6 +86,8 @@ src/
 - **Cloud Storage Revolution** - Smart ID system with test artifact prevention and conflict resolution
 
 ### 🎯 UI/UX Improvements  
+- **Collapsible UI Sections** - Organized interface with expandable control groups
+- **Inline Modulation Controls** - Quick access to modulation settings for each parameter
 - **Reorganized Interface** - Logical grouping of particles, forces, and visual controls
 - **Extended Parameter Ranges** - Higher limits for creative experimentation
 - **Real-time Feedback** - Instant value updates across all interface elements

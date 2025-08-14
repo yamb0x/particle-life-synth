@@ -1664,7 +1664,7 @@ export class MainUI {
         const isMuted = this.particleSystem.toggleMute();
         
         // Visual feedback - show mute state in console for debugging
-        console.log(`System ${isMuted ? 'MUTED' : 'UNMUTED'} - Audio also ${isMuted ? 'MUTED' : 'UNMUTED'}`);
+        // System muted/unmuted
         
         // MUTED status display has been removed from performance overlays
     }
@@ -2090,7 +2090,7 @@ export class MainUI {
             if (presetKey) {
                 const preset = this.presetManager.getPreset(presetKey);
                 if (preset) {
-                    console.log(`Loading next preset: ${preset.name} (index ${nextIndex})`);
+                    // Loading next preset
                     this.particleSystem.loadFullPreset(preset);
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
@@ -2130,7 +2130,7 @@ export class MainUI {
             if (presetKey) {
                 const preset = this.presetManager.getPreset(presetKey);
                 if (preset) {
-                    console.log(`Loading previous preset: ${preset.name} (index ${prevIndex})`);
+                    // Loading previous preset
                     this.particleSystem.loadFullPreset(preset);
                     this.updateUIFromParticleSystem();
                     this.updateGraph();
@@ -3286,7 +3286,7 @@ export class MainUI {
         // Single change handler for preset selector - auto-loads preset
         presetSelector.addEventListener('change', () => {
             const presetKey = presetSelector.value;
-            console.log('Preset selector changed to:', presetKey);
+            // Preset selector changed
             
             if (presetKey) {
                 // Load the selected preset automatically
@@ -3772,7 +3772,7 @@ export class MainUI {
                 // Exclusion mode: slider controls ONLY the excluded species trail
                 // Global blur stays at its default value
                 this.particleSystem.excludedSpeciesTrail = mappedValue;
-                console.log('Exclusion mode - setting excluded trail to:', mappedValue, 'global blur remains:', this.particleSystem.blur);
+                // Exclusion mode - setting excluded trail
             } else {
                 // Legacy per-species mode: update only the selected species
                 const selectedSpecies = parseInt(document.getElementById('trail-species-selector').value);
@@ -3832,7 +3832,7 @@ export class MainUI {
                 document.getElementById('trail-length').value = this.reverseMapTrailValue(currentTrail);
                 document.getElementById('trail-length-value').textContent = currentTrail.toFixed(3);
                 
-                console.log('Exclusion enabled - species', selectedSpecies, 'with trail', currentTrail);
+                // Exclusion enabled for species
             } else {
                 // Disable exclusion mode
                 this.particleSystem.setTrailExclusion(false);
@@ -4342,7 +4342,7 @@ export class MainUI {
         
         // Add modulation button
         addBtn.addEventListener('click', () => {
-            console.log('Adding modulation...');
+            // Adding modulation
             const parameterId = parameterSelect.value;
             if (!parameterId) return;
             
@@ -4378,7 +4378,7 @@ export class MainUI {
             
             const duration = parseFloat(timeSlider.value);
             
-            console.log('Adding modulation with:', { parameterId, minVal, maxVal, duration });
+            // Adding modulation with parameters
             
             const waveType = waveSelect.value || 'sine';
             const modId = this.modulationManager.addModulation(
@@ -4390,7 +4390,7 @@ export class MainUI {
                 waveType
             );
             
-            console.log('Modulation added with ID:', modId);
+            // Modulation added successfully
             this.updateModulationList();
             
             // Update pending modulations immediately
@@ -6303,10 +6303,10 @@ export class MainUI {
             // Only import if modulations aren't already loaded
             const currentMods = this.modulationManager.getActiveModulations();
             if (currentMods.length === 0) {
-                console.log('Loading pending modulations from preset:', this.particleSystem.pendingModulations);
+                // Loading pending modulations from preset
                 try {
                     this.modulationManager.importConfig(this.particleSystem.pendingModulations);
-                    console.log(`Imported ${this.particleSystem.pendingModulations.length} modulations from preset`);
+                    // Imported modulations from preset
                 } catch (error) {
                     console.error('Failed to load pending modulations:', error);
                 }
@@ -6315,13 +6315,13 @@ export class MainUI {
         
         // Refresh modulation references after species changes
         if (this.modulationManager) {
-            console.log('Refreshing modulation system after preset change');
+            // Refreshing modulation system after preset change
             this.modulationManager.refreshParameterReferences();
             this.updateModulationList();
             
             // Update the UI list to reflect the current state
             const activeMods = this.modulationManager.getActiveModulations();
-            console.log(`Active modulations after preset change: ${activeMods.length}`);
+            // Active modulations updated
             
             // Also update pending modulations to match current state
             if (this.particleSystem) {

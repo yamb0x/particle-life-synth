@@ -143,13 +143,15 @@ class CloudStorage {
       );
       return { ...presetData, id };
     } catch (error) {
-      // Log detailed error information
-      console.error('Firebase save error:', error);
-      console.error('Preset data that failed:', presetData);
-      
-      // Check for specific Firebase errors
-      if (error.code === 'invalid-argument') {
-        console.error('Invalid data structure for Firestore. Check for unsupported data types.');
+      // Log error only in development mode
+      if (window.location.hostname === 'localhost') {
+        console.error('Firebase save error:', error);
+        console.error('Preset data that failed:', presetData);
+        
+        // Check for specific Firebase errors
+        if (error.code === 'invalid-argument') {
+          console.error('Invalid data structure for Firestore. Check for unsupported data types.');
+        }
       }
       
       // Failed to save preset to cloud
