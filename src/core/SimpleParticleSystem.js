@@ -67,10 +67,12 @@ export class SimpleParticleSystem {
         this.trailEnabled = true;
         
         // Background color system
-        this.backgroundMode = 'solid'; // 'solid' or 'sinusoidal'
+        this.backgroundMode = 'solid'; // 'solid', 'sinusoidal', or 'sinusoidal4'
         this.backgroundColor = '#000000'; // Default black background (used in solid mode)
         this.backgroundColor1 = '#000000'; // First color for sinusoidal mode
         this.backgroundColor2 = '#001133'; // Second color for sinusoidal mode
+        this.backgroundColor3 = '#110033'; // Third color for 4-color sinusoidal mode
+        this.backgroundColor4 = '#003311'; // Fourth color for 4-color sinusoidal mode
         this.backgroundCycleTime = 5.0; // Time in seconds to cycle between colors
         
         this.renderMode = 'normal'; // 'normal' or 'dreamtime'
@@ -439,6 +441,42 @@ export class SimpleParticleSystem {
             const b = Math.round(color1.b + (color2.b - color1.b) * sineValue);
             
             // Convert back to hex
+            return this.rgbToHex(r, g, b);
+        } else if (this.backgroundMode === 'sinusoidal4') {
+            // 4-color sinusoidal mode - cycles through 4 colors smoothly
+            const phase = (this.time / this.backgroundCycleTime) % 1;
+            const segment = phase * 4; // 0-4 range
+            
+            // Parse all 4 colors
+            const colors = [
+                this.hexToRgb(this.backgroundColor1),
+                this.hexToRgb(this.backgroundColor2),
+                this.hexToRgb(this.backgroundColor3),
+                this.hexToRgb(this.backgroundColor4),
+                this.hexToRgb(this.backgroundColor1) // Loop back to first color
+            ];
+            
+            // Check for invalid colors
+            if (colors.some(c => !c)) {
+                console.warn('Invalid background colors, falling back to solid black');
+                return '#000000';
+            }
+            
+            // Determine which two colors we're between
+            const colorIndex = Math.floor(segment);
+            const localPhase = segment - colorIndex;
+            
+            // Use sine interpolation for smoother transitions
+            const smoothPhase = (Math.sin((localPhase - 0.5) * Math.PI) + 1) / 2;
+            
+            const fromColor = colors[colorIndex];
+            const toColor = colors[colorIndex + 1];
+            
+            // Interpolate between the two colors
+            const r = Math.round(fromColor.r + (toColor.r - fromColor.r) * smoothPhase);
+            const g = Math.round(fromColor.g + (toColor.g - fromColor.g) * smoothPhase);
+            const b = Math.round(fromColor.b + (toColor.b - fromColor.b) * smoothPhase);
+            
             return this.rgbToHex(r, g, b);
         }
         
@@ -1819,6 +1857,22 @@ export class SimpleParticleSystem {
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
             
+            // Create shockwaves along the drag path
+            const prevX = this.currentMousePos ? this.currentMousePos.x : x;
+            const prevY = this.currentMousePos ? this.currentMousePos.y : y;
+            const distance = Math.sqrt((x - prevX) ** 2 + (y - prevY) ** 2);
+            
+            // Create shockwaves at intervals along the drag path for smooth effect
+            if (distance > 5) { // Only create if moved significantly
+                const steps = Math.ceil(distance / 10); // Create shockwaves every 10 pixels
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const interpX = prevX + (x - prevX) * t;
+                    const interpY = prevY + (y - prevY) * t;
+                    this.createShockwave(interpX, interpY);
+                }
+            }
+            
             this.currentMousePos = { x, y };
         });
         
@@ -1855,6 +1909,22 @@ export class SimpleParticleSystem {
             const touch = event.touches[0];
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
+            
+            // Create shockwaves along the drag path
+            const prevX = this.currentMousePos ? this.currentMousePos.x : x;
+            const prevY = this.currentMousePos ? this.currentMousePos.y : y;
+            const distance = Math.sqrt((x - prevX) ** 2 + (y - prevY) ** 2);
+            
+            // Create shockwaves at intervals along the drag path for smooth effect
+            if (distance > 5) { // Only create if moved significantly
+                const steps = Math.ceil(distance / 10); // Create shockwaves every 10 pixels
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const interpX = prevX + (x - prevX) * t;
+                    const interpY = prevY + (y - prevY) * t;
+                    this.createShockwave(interpX, interpY);
+                }
+            }
             
             this.currentMousePos = { x, y };
         });
@@ -2270,7 +2340,7 @@ export class SimpleParticleSystem {
                 const dcy = centerY - p1.y;
                 const centerDist = Math.sqrt(dcx * dcx + dcy * dcy);
                 if (centerDist > 0.1) {
-                    const centerForce = this.environmentalPressure * 0.1; // Scale down
+                    const centerForce = this.environmentalPressure * 0.5; // Increased effect for better visibility
                     fx += (dcx / centerDist) * centerForce;
                     fy += (dcy / centerDist) * centerForce;
                 }
@@ -2961,6 +3031,8 @@ export class SimpleParticleSystem {
         this.backgroundColor = preset.visual.backgroundColor || '#000000';
         this.backgroundColor1 = preset.visual.backgroundColor1 || '#000000';
         this.backgroundColor2 = preset.visual.backgroundColor2 || '#001133';
+        this.backgroundColor3 = preset.visual.backgroundColor3 || '#110033';
+        this.backgroundColor4 = preset.visual.backgroundColor4 || '#003311';
         this.backgroundCycleTime = preset.visual.backgroundCycleTime || 5.0;
         
         // Load EFFECTS Section
@@ -3302,6 +3374,8 @@ export class SimpleParticleSystem {
                 backgroundColor: this.backgroundColor,
                 backgroundColor1: this.backgroundColor1,
                 backgroundColor2: this.backgroundColor2,
+                backgroundColor3: this.backgroundColor3,
+                backgroundColor4: this.backgroundColor4,
                 backgroundCycleTime: this.backgroundCycleTime
             },
             
@@ -3444,6 +3518,8 @@ export class SimpleParticleSystem {
         this.backgroundColor = '#000000';
         this.backgroundColor1 = '#000000';
         this.backgroundColor2 = '#001133';
+        this.backgroundColor3 = '#110033';
+        this.backgroundColor4 = '#003311';
         this.backgroundCycleTime = 5.0;
         
         this.renderMode = 'normal';

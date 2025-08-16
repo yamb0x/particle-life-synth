@@ -35,9 +35,12 @@ python3 serve.py
 
 ### Keyboard Shortcuts
 - **C** - Toggle UI and overlay visibility
-- **V** - Randomize particle values | **R** - Randomize force relationships
+- **V** - Randomize particle values
+- **R** - Randomize force relationships / Reset collapsible menus
 - **M** - Mute/freeze simulation (preserve battery)
 - **Shift + Plus** - Next preset | **Shift + Minus** - Previous preset
+- **Shift + E** - Expand all UI sections | **Shift + C** - Collapse all UI sections
+- **Alt + 1-9** - Toggle specific UI sections
 
 ### Core Features
 
@@ -72,9 +75,21 @@ src/
 
 **Tech Stack**: Vanilla JavaScript (ES6 modules) • Canvas 2D • IndexedDB/localStorage • Firebase • Vercel
 
-## Latest Updates (August 14, 2025)
+## Latest Updates (August 16, 2025)
 
-### 🚀 Major Enhancements
+### 🎨 UI/UX Improvements
+- **Monochromatic Theme** - Consistent grayscale color scheme throughout interface
+- **Enhanced Friction Control** - Extended range (0-1.0) for more dramatic particle effects
+- **4-Color Sinusoidal Background** - New mode for smooth transitions between 4 colors
+- **Modulation Muting** - Mute/unmute individual modulations with visual feedback
+- **Improved Mouse Interaction** - Click and drag creates continuous shockwave effects
+- **Simplified Distribution Drawer** - Streamlined to essential modes: Draw, Erase, Random
+- **Species Color Wrapping** - Proper line breaking for high species counts
+- **Noise Seed Consistency** - Unified slider UI with randomize button
+- **Force Relationship Sync** - Species names properly update when colors change
+- **Environmental Pressure** - Increased effect strength for better visibility
+
+### 🚀 Major Features
 - **Advanced Modulation System** - Noise-based parameter modulation with waveform selection and per-species control
 - **Modulation Persistence** - Full save/load support for modulations in presets and Firebase
 - **Enhanced UI Organization** - Collapsible sections with inline controls and better visual hierarchy
@@ -84,14 +99,6 @@ src/
 - **Enhanced Force Presets** - 5 main categories with 15+ sub-patterns for complex behaviors
 - **Species Auto-Naming** - Intelligent color-based naming with automatic updates
 - **Cloud Storage Revolution** - Smart ID system with test artifact prevention and conflict resolution
-
-### 🎯 UI/UX Improvements  
-- **Collapsible UI Sections** - Organized interface with expandable control groups
-- **Inline Modulation Controls** - Quick access to modulation settings for each parameter
-- **Reorganized Interface** - Logical grouping of particles, forces, and visual controls
-- **Extended Parameter Ranges** - Higher limits for creative experimentation
-- **Real-time Feedback** - Instant value updates across all interface elements
-- **Performance Monitoring** - Built-in diagnostics with FPS tracking and resource analysis
 
 ## Development Status
 

@@ -40,8 +40,8 @@ src/
 ### Value Conversions
 
 #### Friction
-- **UI Range**: 0 to 0.2 (0 = no friction, 0.2 = max friction)
-- **Physics Range**: 0.8 to 1.0 (1.0 = no friction, 0.8 = max friction)
+- **UI Range**: 0 to 1.0 (0 = no friction, 1.0 = max friction)
+- **Physics Range**: 0.0 to 1.0 (1.0 = no friction, 0.0 = max friction)
 - **Conversion**: `physics = 1.0 - ui`
 
 #### Blur (Trail Effect)
@@ -50,12 +50,14 @@ src/
 - **Effect**: Higher value = shorter trails (more fade)
 
 #### Background Color System
-- **Mode**: 'solid' (static color) or 'sinusoidal' (animated between two colors)
+- **Mode**: 'solid' (static color), 'sinusoidal' (2 colors), or 'sinusoidal4' (4 colors)
 - **Sinusoidal Parameters**: 
   - `backgroundColor1`: First color (hex format)
-  - `backgroundColor2`: Second color (hex format) 
+  - `backgroundColor2`: Second color (hex format)
+  - `backgroundColor3`: Third color (for 4-color mode)
+  - `backgroundColor4`: Fourth color (for 4-color mode)
   - `backgroundCycleTime`: Time in seconds to complete full color cycle (0.5 to 30s)
-- **Implementation**: Uses `Math.sin()` to interpolate between colors over time
+- **Implementation**: Uses sine-based interpolation for smooth transitions
 - **Effect**: Creates smooth, organic color transitions in the background
 
 ### Storage Strategy
@@ -104,10 +106,13 @@ The particle system is designed to map behaviors to synthesis parameters:
 ### Keyboard Shortcuts
 - **C**: Toggle control panel and info overlays visibility
 - **V**: Randomize particle values (physics parameters)
-- **R**: Randomize force relationships between species
+- **R**: Randomize force relationships / Reset collapsible menus to collapsed state
 - **M**: Mute/freeze simulation (freeze all physics for performance/battery saving)
 - **Shift + Plus**: Navigate to next preset and load it automatically
 - **Shift + Minus**: Navigate to previous preset and load it automatically
+- **Shift + E**: Expand all collapsible UI sections
+- **Shift + C**: Collapse all collapsible UI sections
+- **Alt + 1-9**: Toggle specific UI sections individually
 
 ### Info Overlays
 - **Performance Overlay** (top-left): Shows FPS, particle count, organisms, and cloud status

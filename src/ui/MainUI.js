@@ -164,13 +164,11 @@ export class MainUI {
                                 </div>
                                 <div class="mode-and-clear-row">
                                     <div class="mode-buttons">
-                                        <button class="mode-btn active" data-mode="draw" title="Draw Mode">✏️</button>
-                                        <button class="mode-btn" data-mode="circles" title="Precision Circles">⭕</button>
-                                        <button class="mode-btn" data-mode="random" title="Species AI Patterns">🎲</button>
-                                        <button class="mode-btn" data-mode="glitch" title="Sci-Fi Glitch">⚡</button>
-                                        <button class="mode-btn" data-mode="erase" title="Erase Mode">🧽</button>
+                                        <button class="mode-btn active" data-mode="draw" title="Draw Mode">✏️ Draw</button>
+                                        <button class="mode-btn" data-mode="erase" title="Erase Mode">🧽 Erase</button>
+                                        <button class="mode-btn" data-mode="random" title="Random Pattern">🎲 Random</button>
                                     </div>
-                                    <button class="util-btn clear-btn" id="distribution-clear" title="Clear All">🗑️</button>
+                                    <button class="util-btn clear-btn" id="distribution-clear" title="Clear All">🗑️ Clear</button>
                                 </div>
                             </div>
                         </div>
@@ -235,7 +233,7 @@ export class MainUI {
                             <span class="value-display" id="friction-value">${this.safeFixed((1.0 - this.safeValue(this.particleSystem.friction, 0.95)), 2, '0.05')}</span>
                         </label>
                         <input type="range" class="range-slider" id="friction" 
-                               min="0" max="0.5" step="0.01" value="${1.0 - this.safeValue(this.particleSystem.friction, 0.95)}">
+                               min="0" max="1.0" step="0.01" value="${1.0 - this.safeValue(this.particleSystem.friction, 0.95)}">
                     </div>
                     <div class="control-group">
                         <label>
@@ -360,13 +358,10 @@ export class MainUI {
                                 Seed
                                 <span class="value-display" id="noise-seed-value">${this.particleSystem.noiseGenerator?.seed || 0}</span>
                             </label>
-                            <div class="input-group">
-                                <input type="number" class="number-input" id="noise-seed" 
-                                       min="0" max="2147483647" 
-                                       value="${this.particleSystem.noiseGenerator?.seed || 0}">
-                                <button id="noise-seed-random" class="action-button small">Random</button>
-                            </div>
+                            <input type="range" class="range-slider" id="noise-seed" 
+                                   min="0" max="1000" step="1" value="${(this.particleSystem.noiseGenerator?.seed || 0) % 1000}">
                             <span class="info-text">Pattern seed for consistent noise</span>
+                            <button id="noise-seed-random" class="btn btn-secondary" style="margin-top: 5px; width: 100%;">Randomize Seed</button>
                         </div>
                         
                         <div class="control-group" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 10px;">
@@ -679,7 +674,8 @@ export class MainUI {
                         <label>Background Mode</label>
                         <select id="background-mode">
                             <option value="solid">Solid Color</option>
-                            <option value="sinusoidal">Sinusoidal</option>
+                            <option value="sinusoidal">Sinusoidal (2 Colors)</option>
+                            <option value="sinusoidal4">Sinusoidal (4 Colors)</option>
                         </select>
                     </div>
                     <div class="control-group" id="solid-background-group">
@@ -691,6 +687,12 @@ export class MainUI {
                         <input type="color" id="background-color1" value="#000000">
                         <label>Second Color</label>
                         <input type="color" id="background-color2" value="#001133">
+                        <div id="extra-colors-group" style="display: none;">
+                            <label>Third Color</label>
+                            <input type="color" id="background-color3" value="#110033">
+                            <label>Fourth Color</label>
+                            <input type="color" id="background-color4" value="#003311">
+                        </div>
                         <label>Cycle Time (seconds)
                             <span class="value-display" id="background-cycle-time-value">5.0</span>
                         </label>
@@ -1191,9 +1193,11 @@ export class MainUI {
             
             .species-buttons {
                 display: flex;
+                flex-wrap: wrap;
                 gap: var(--space-xs);
                 align-items: center;
                 flex: 1;
+                max-width: 100%;
             }
             
             .species-btn {
@@ -1271,12 +1275,13 @@ export class MainUI {
             
             .mode-btn {
                 padding: var(--space-sm) var(--space-md);
-                min-width: 32px;
-                height: 24px;
-                font-size: var(--font-size-xs);
+                min-width: 60px;
+                height: 28px;
+                font-size: var(--font-size-sm);
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                gap: 4px;
                 background: var(--bg-secondary);
                 border: 1px solid var(--border-default);
                 border-radius: var(--radius-sm);
@@ -3604,8 +3609,9 @@ export class MainUI {
         if (noiseSeed) {
             noiseSeed.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
-                if (!isNaN(value) && value >= 0 && value <= 2147483647) {
+                if (!isNaN(value) && value >= 0) {
                     if (this.particleSystem.noiseGenerator) {
+                        // Use the slider value directly as it's limited to 0-1000
                         this.particleSystem.noiseGenerator.setSeed(value);
                         localStorage.setItem('noiseSeed', value.toString());
                         document.getElementById('noise-seed-value').textContent = value;
@@ -3618,7 +3624,7 @@ export class MainUI {
         const noiseSeedRandom = document.getElementById('noise-seed-random');
         if (noiseSeedRandom) {
             noiseSeedRandom.addEventListener('click', () => {
-                const newSeed = Math.floor(Math.random() * 2147483647);
+                const newSeed = Math.floor(Math.random() * 1000);
                 if (this.particleSystem.noiseGenerator) {
                     this.particleSystem.noiseGenerator.setSeed(newSeed);
                     localStorage.setItem('noiseSeed', newSeed.toString());
@@ -4007,6 +4013,16 @@ export class MainUI {
         
         safeAddEventListener('background-color2', 'change', (e) => {
             this.particleSystem.backgroundColor2 = e.target.value;
+            this.triggerAutoSave();
+        });
+        
+        safeAddEventListener('background-color3', 'change', (e) => {
+            this.particleSystem.backgroundColor3 = e.target.value;
+            this.triggerAutoSave();
+        });
+        
+        safeAddEventListener('background-color4', 'change', (e) => {
+            this.particleSystem.backgroundColor4 = e.target.value;
             this.triggerAutoSave();
         });
         
@@ -4507,6 +4523,32 @@ export class MainUI {
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = 'display: flex; gap: 4px;';
             
+            const muteBtn = document.createElement('button');
+            muteBtn.innerHTML = mod.muted ? '🔇' : '🔊';
+            muteBtn.title = mod.muted ? 'Unmute' : 'Mute';
+            muteBtn.style.cssText = `
+                background: transparent;
+                border: none;
+                color: var(--text-tertiary);
+                font-size: 14px;
+                cursor: pointer;
+                padding: 0 4px;
+                line-height: 1;
+                opacity: ${mod.muted ? '0.5' : '1'};
+            `;
+            muteBtn.addEventListener('click', () => {
+                this.modulationManager.toggleMute(mod.id);
+                this.updateModulationList();
+                
+                // Update pending modulations immediately
+                if (this.particleSystem) {
+                    const modConfig = this.modulationManager.exportConfig();
+                    this.particleSystem.pendingModulations = modConfig;
+                }
+                
+                this.triggerAutoSave();  // Auto-save after toggling mute
+            });
+            
             const editBtn = document.createElement('button');
             editBtn.innerHTML = '✎';
             editBtn.title = 'Edit modulation';
@@ -4547,6 +4589,7 @@ export class MainUI {
             });
             
             normalView.appendChild(info);
+            buttonContainer.appendChild(muteBtn);
             buttonContainer.appendChild(editBtn);
             buttonContainer.appendChild(removeBtn);
             normalView.appendChild(buttonContainer);
@@ -5770,8 +5813,8 @@ export class MainUI {
         document.getElementById('noise-animation-value').textContent = (noiseConfig.timeIncrement || 0.01).toFixed(3);
         document.getElementById('noise-octaves').value = noiseConfig.globalOctaves || 3;
         document.getElementById('noise-octaves-value').textContent = noiseConfig.globalOctaves || 3;
-        document.getElementById('noise-seed').value = noiseConfig.seed || 0;
-        document.getElementById('noise-seed-value').textContent = noiseConfig.seed || 0;
+        document.getElementById('noise-seed').value = (noiseConfig.seed || 0) % 1000;
+        document.getElementById('noise-seed-value').textContent = (noiseConfig.seed || 0) % 1000;
         document.getElementById('noise-vector-enabled').checked = ps.noiseVectorEnabled || false;
         document.getElementById('noise-vector-controls').style.display = (ps.noiseVectorEnabled || false) ? '' : 'none';
         document.getElementById('noise-vector-scale').value = ps.noiseVectorScale || 1.0;
@@ -5835,6 +5878,10 @@ export class MainUI {
         document.getElementById('background-color').value = ps.backgroundColor || '#000000';
         document.getElementById('background-color1').value = ps.backgroundColor1 || '#000000';
         document.getElementById('background-color2').value = ps.backgroundColor2 || '#001133';
+        const color3El = document.getElementById('background-color3');
+        const color4El = document.getElementById('background-color4');
+        if (color3El) color3El.value = ps.backgroundColor3 || '#110033';
+        if (color4El) color4El.value = ps.backgroundColor4 || '#003311';
         document.getElementById('background-cycle-time').value = ps.backgroundCycleTime || 5.0;
         document.getElementById('background-cycle-time-value').textContent = (ps.backgroundCycleTime || 5.0).toFixed(1);
         this.toggleBackgroundModeUI(ps.backgroundMode || 'solid');
@@ -6133,10 +6180,16 @@ export class MainUI {
     toggleBackgroundModeUI(mode) {
         const solidGroup = document.getElementById('solid-background-group');
         const sinusoidalGroup = document.getElementById('sinusoidal-background-group');
+        const extraColorsGroup = document.getElementById('extra-colors-group');
         
-        if (mode === 'sinusoidal') {
+        if (mode === 'sinusoidal' || mode === 'sinusoidal4') {
             solidGroup.style.display = 'none';
             sinusoidalGroup.style.display = 'block';
+            
+            // Show extra colors only for 4-color mode
+            if (extraColorsGroup) {
+                extraColorsGroup.style.display = mode === 'sinusoidal4' ? 'block' : 'none';
+            }
         } else {
             solidGroup.style.display = 'block';
             sinusoidalGroup.style.display = 'none';

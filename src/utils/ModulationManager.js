@@ -267,7 +267,8 @@ export class ModulationManager {
             waveType: waveType,
             getter: parameterConfig.getter,
             setter: parameterConfig.setter,
-            parameterName: parameterConfig.name
+            parameterName: parameterConfig.name,
+            muted: false
         };
 
         this.modulations.set(id, modulation);
@@ -291,6 +292,21 @@ export class ModulationManager {
             }
             this.modulations.delete(id);
         }
+    }
+    
+    toggleMute(id) {
+        const modulation = this.modulations.get(id);
+        if (modulation) {
+            modulation.muted = !modulation.muted;
+            
+            // If muting, restore the original value
+            if (modulation.muted && this.originalValues.has(modulation.parameterId)) {
+                modulation.setter(this.originalValues.get(modulation.parameterId));
+            }
+            
+            return true;
+        }
+        return false;
     }
     
     updateModulation(id, newMinValue, newMaxValue, newDuration, newWaveType) {
@@ -442,6 +458,9 @@ export class ModulationManager {
         this.lastUpdateTime = currentTime;
 
         for (const [id, modulation] of this.modulations) {
+            // Skip if muted
+            if (modulation.muted) continue;
+            
             const elapsed = currentTime - modulation.startTime;
             const phase = (elapsed % modulation.duration) / modulation.duration;
             

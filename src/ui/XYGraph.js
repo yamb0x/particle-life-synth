@@ -295,7 +295,7 @@ export class XYGraph {
             const y = height / 2;
             
             // Draw vertical line
-            ctx.strokeStyle = this.value < 0 ? '#cc6666' : (this.value > 0 ? '#66cc66' : '#999999');
+            ctx.strokeStyle = this.value < 0 ? '#666666' : (this.value > 0 ? '#a0a0a0' : '#999999');
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(x, 0);
@@ -308,7 +308,7 @@ export class XYGraph {
             ctx.arc(x, y, 6, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.fillStyle = this.value < 0 ? '#cc6666' : (this.value > 0 ? '#66cc66' : '#999999');
+            ctx.fillStyle = this.value < 0 ? '#666666' : (this.value > 0 ? '#a0a0a0' : '#999999');
             ctx.beginPath();
             ctx.arc(x, y, 4, 0, Math.PI * 2);
             ctx.fill();
